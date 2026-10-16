@@ -1,0 +1,42 @@
+# Deploy de produção (servidor Linux)
+# Uso: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dietas-db-prod
+    environment:
+      POSTGRES_USER: dietas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dietas}
+      POSTGRES_DB: dietas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dietas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: dietas-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://dietas:${POSTGRES_PASSWORD:-dietas}@db:5432/dietas
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao}
+      CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: dietas-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

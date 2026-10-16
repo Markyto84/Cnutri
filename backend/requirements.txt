@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy[asyncio]>=2.0.30
+asyncpg>=0.29
+psycopg2-binary>=2.9
+pydantic>=2.7
+pydantic-settings>=2.2
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+bcrypt==4.0.1
+python-multipart>=0.0.9
