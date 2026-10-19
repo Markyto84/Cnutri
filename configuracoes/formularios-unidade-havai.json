@@ -1,0 +1,256 @@
+{
+  "versao": 1,
+  "filial": {
+    "nome": "Centro Médico Prevent Senior Havaí",
+    "codigo_slug": "unidade-havai"
+  },
+  "formularios": {
+    "MEDICO": {
+      "campos": [
+        {
+          "id": "equipe",
+          "tipo": "radio",
+          "opcoes": [
+            "Médica",
+            "Administração"
+          ],
+          "rotulo": "Equipe",
+          "obrigatorio": false
+        },
+        {
+          "id": "horario_entrega",
+          "tipo": "selecao",
+          "opcoes": [
+            "12:00",
+            "12:30",
+            "13:00",
+            "13:30",
+            "14:00",
+            "14:30",
+            "15:00",
+            "15:30",
+            "16:00",
+            "16:30",
+            "17:00",
+            "17:30",
+            "18:00",
+            "18:30",
+            "19:00",
+            "19:30",
+            "20:00"
+          ],
+          "rotulo": "Horário de entrega",
+          "obrigatorio": false
+        },
+        {
+          "id": "refeicao",
+          "tipo": "selecao",
+          "opcoes": [
+            "PARMEGIANA DE  FRANGO COM ARROZ E BATATA SAUTÉE",
+            "MAMINHA ASSADA COM CANELONE DE RICOTA E ESPINAFRE"
+          ],
+          "rotulo": "Refeição",
+          "obrigatorio": true
+        },
+        {
+          "id": "suco",
+          "tipo": "selecao",
+          "opcoes": [
+            "COM SUCO",
+            "SEM SUCO"
+          ],
+          "rotulo": "Suco",
+          "obrigatorio": true
+        },
+        {
+          "id": "sobremesa",
+          "tipo": "selecao",
+          "opcoes": [
+            "SOBREMESA DO DIA",
+            "SEM SOBREMESA"
+          ],
+          "rotulo": "Sobremesa",
+          "obrigatorio": true
+        },
+        {
+          "id": "local_entrega",
+          "tipo": "selecao",
+          "opcoes": [
+            "TÉRREO - CONFORTO MÉDICO",
+            "4º ANDAR - REFEITÓRIO"
+          ],
+          "rotulo": "Local de entrega",
+          "obrigatorio": true
+        },
+        {
+          "id": "observacoes_alergias",
+          "tipo": "texto_longo",
+          "rotulo": "Observações",
+          "obrigatorio": false
+        }
+      ],
+      "titulo": "Solicitação de Refeição — Profissional",
+      "cabecalho": "Solicitação de dieta até 12:00 - Almoço e até as 18:00 - Jantar"
+    },
+    "ENFERMAGEM": {
+      "campos": [
+        {
+          "id": "leito",
+          "tipo": "texto",
+          "rotulo": "Leito",
+          "obrigatorio": true
+        },
+        {
+          "id": "andar",
+          "tipo": "selecao",
+          "opcoes": [
+            "TÉRREO - OBSERVAÇÃO",
+            "TÉRREO - PRONTO ATENDIMENTO",
+            "1º ANDAR (ONCOLOGIA) - INFUSÃO",
+            "1º ANDAR - OBSERVAÇÃO",
+            "3º ANDAR - COLONOSCOPIA/ENDOSCOPIA"
+          ],
+          "rotulo": "Andar / Setor",
+          "obrigatorio": true
+        },
+        {
+          "id": "internado_mais_6h",
+          "tipo": "selecao",
+          "opcoes": [
+            "Sim",
+            "Não"
+          ],
+          "rotulo": "Internado mais que 06 horas?",
+          "obrigatorio": true
+        },
+        {
+          "id": "prontuario",
+          "tipo": "texto",
+          "rotulo": "Prontuário",
+          "obrigatorio": true
+        },
+        {
+          "id": "nome_paciente",
+          "tipo": "texto",
+          "rotulo": "Nome do Paciente",
+          "obrigatorio": true
+        },
+        {
+          "id": "matricula",
+          "tipo": "texto",
+          "rotulo": "Matrícula",
+          "obrigatorio": true
+        },
+        {
+          "id": "data_nascimento",
+          "tipo": "data",
+          "rotulo": "Data de Nascimento",
+          "obrigatorio": false
+        },
+        {
+          "id": "sexo",
+          "tipo": "selecao",
+          "opcoes": [
+            "MASCULINO",
+            "FEMININO"
+          ],
+          "rotulo": "Sexo",
+          "obrigatorio": true
+        },
+        {
+          "id": "refeicao",
+          "tipo": "selecao",
+          "opcoes": [
+            "DESJEJUM",
+            "ALMOÇO",
+            "LANCHE DA TARDE",
+            "JANTAR",
+            "CEIA",
+            "KIT LANCHE"
+          ],
+          "rotulo": "Refeição",
+          "obrigatorio": true
+        },
+        {
+          "id": "para",
+          "tipo": "selecao",
+          "opcoes": [
+            "Paciente",
+            "Acompanhante",
+            "Paciente e Acompanhante"
+          ],
+          "rotulo": "Para",
+          "obrigatorio": true
+        },
+        {
+          "id": "dieta_id",
+          "tipo": "selecao_dietas",
+          "rotulo": "Tipo de Dieta",
+          "obrigatorio": true
+        },
+        {
+          "id": "cardapio",
+          "tipo": "cardapio",
+          "grupos": [
+            {
+              "nome": "Grupo 1",
+              "dietas": [
+                "GERAL",
+                "BRANDA"
+              ],
+              "opcoes": [
+                "STROGONOFF DE FRANGO ARROZ E BATATA SAUTÉ",
+                "MAMINHA ASSADA COM CANELONE DE RICOTA"
+              ]
+            },
+            {
+              "nome": "Grupo 2",
+              "dietas": [
+                "PASTOSA",
+                "PASTOSA LIQUIDIFICADA",
+                "BATIDA"
+              ],
+              "opcoes": [
+                "SOPA DO DIA - SOPA  CREME DE  ABÓBORA",
+                "SOPA CREME DE LEGUMES",
+                "FRANGO AO BECHAMEL BATIDO COM PURÊ DE ABOBRINHA",
+                "ARROZ BATIDO E FEIJÃO BATIDO"
+              ]
+            },
+            {
+              "nome": "Grupo 3",
+              "dietas": [
+                "LÍQUIDA",
+                "LIQUIDA SEM RESÍDUOS"
+              ],
+              "opcoes": [
+                "CALDO DE CARNE COM HORTELÃ"
+              ]
+            }
+          ],
+          "rotulo": "Cardápio",
+          "obrigatorio": true
+        },
+        {
+          "id": "liquido_espessado",
+          "tipo": "selecao",
+          "opcoes": [
+            "NÉCTAR",
+            "MEL",
+            "PUDIM"
+          ],
+          "rotulo": "Líquido espessado",
+          "obrigatorio": false
+        },
+        {
+          "id": "observacoes_alergias",
+          "tipo": "texto_longo",
+          "rotulo": "Restrições / Alergias / Observações",
+          "obrigatorio": true
+        }
+      ],
+      "titulo": "Solicitação de Refeição — Paciente",
+      "cabecalho": "Tipos de serviço aos pacientes:\n\nRefeições - Para Pacientes em Observação\nKit Lanches - Para Pacientes nas Medicações e Quimioterapia\n\n\nHorários de corte para enviar as solicitações de pedidos de refeições aos pacientes em observação para o setor da nutrição:\n\nDesjejum de 5:00h até 7:30h\nAlmoço até 11:00h'\nLanche até 15:00h\nJantar até 17:00h\nCeia até 20:00h\n\nHorários em que servimos as refeições aos pacientes e acompanhantes em observação para o setor da nutrição:\n\nDesjejum: 7h30 às 10h\nAlmoço: 11h30 às 14h\nLanche: 15h30 às 17h\nJantar: 18h às 20h\nCeia: 21h às 23h\n\nVisando a Segurança do Paciente, solicitamos a gentileza de verificar, antes da realização da solicitação, se o paciente possui alguma restrição devido conduta da fonoaudiologia.\n\nSe caso positivo, orientamos seguir a consistência da dieta prescrita pela equipe.\n\nEm caso de dúvidas, entre em contato conosco pelo ramal."
+    }
+  }
+}

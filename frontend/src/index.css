@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+/* Cores do tema corporativo e escala neutra de campos e textos. */
+@theme {
+  --color-app-background: #808080;
+  --color-panel: #c8c8c8;
+  --color-slate-50: #fafafa;
+  --color-slate-100: #eeeeee;
+  --color-slate-200: #e5e5e5;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a3a3a3;
+  --color-slate-500: #737373;
+  --color-slate-600: #575757;
+  --color-slate-700: #424242;
+  --color-slate-800: #303030;
+  --color-slate-900: #232323;
+  --color-slate-950: #181818;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-app-background);
+    color: var(--color-slate-900);
+  }
+}

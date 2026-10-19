@@ -28,17 +28,17 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
-      <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl bg-slate-800 p-8 shadow-xl">
-        <h1 className="text-center text-2xl font-bold text-white">🏥 Dietas Hospitalares</h1>
-        <p className="text-center text-sm text-slate-400">Acesso administrativo e de produção</p>
+    <div className="flex min-h-screen items-center justify-center bg-app-background p-4">
+      <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl bg-panel p-8 shadow-xl">
+        <h1 className="text-center text-2xl font-bold text-slate-900">🏥 Dietas Hospitalares</h1>
+        <p className="text-center text-sm text-slate-700">Acesso administrativo e de produção</p>
 
-        {erro && <div className="rounded-lg bg-red-900/50 p-3 text-sm text-red-300">{erro}</div>}
+        {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
 
         <input
           type="email"
           placeholder="E-mail ou matrícula"
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white outline-none focus:border-blue-400"
+          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -46,7 +46,7 @@ export default function Login() {
         <input
           type="password"
           placeholder="Palavra-passe"
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white outline-none focus:border-blue-400"
+          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
           required
@@ -59,7 +59,7 @@ export default function Login() {
           {carregando ? 'A entrar…' : 'Entrar'}
         </button>
 
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-slate-700">
           Demo: admin@hospital.local / Trocar&#64;123
         </p>
       </form>

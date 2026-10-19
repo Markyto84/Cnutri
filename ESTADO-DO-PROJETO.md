@@ -1,6 +1,6 @@
 # 📋 Estado do Projeto — Documento de Continuidade
 
-> **Instrução para o assistente (Bionic/LM Studio):** este arquivo é a memória do projeto.
+> **Instrução para o assistente:** este arquivo é a memória do projeto.
 > Ao iniciar uma sessão nova em qualquer estação, leia-o primeiro para retomar o contexto.
 
 ## 1. O que é o sistema
@@ -17,10 +17,11 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 
 ## 2. Stack e arquitetura
 
+- **Pasta única nesta estação:** `C:\Users\Suporte\Documents\Projeto Cnutri` (unificada em 19/10/2026)
 - **Backend:** FastAPI (Python 3.12) + SQLAlchemy 2.0 async + PostgreSQL 16 (JSONB)
 - **Frontend:** React + Vite + Tailwind CSS 4, axios, react-router-dom
 - **Impressão:** ESC/POS via socket TCP porta 9100 (sem dependência externa)
-- **Dev (Windows):** `docker compose up -d` (só o Postgres na porta **5433**), backend na 8000, frontend na 5173
+- **Dev (Windows):** `.\start.ps1` (Postgres na porta **5433**, backend na 8000, frontend na 5173)
 - **Produção (Linux):** `docker compose -f docker-compose.prod.yml up -d --build` — nginx na porta 80
   com proxy de `/api` e `/ws`
 - **Auth:** JWT; perfis: `ADMIN_TI`, `NUTRICIONISTA`, `COZINHA`
@@ -30,14 +31,9 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 Ver instruções completas no [README.md](README.md). Resumo Windows:
 
 ```powershell
-docker compose up -d                      # Postgres (porta 5433)
-cd backend
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\uvicorn app.main:app --port 8000
-cd ..\frontend
-npm install
-npm run dev                               # http://localhost:5173
+Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
+.\start.ps1                                # http://localhost:5173/unidade-havai
+.\stop.ps1                                 # encerra frontend e API
 ```
 
 ## 4. Estado atual (o que já funciona)
@@ -49,10 +45,26 @@ npm run dev                               # http://localhost:5173
   dieta, por grupos) → **Líquido espessado** (NÉCTAR/MEL/PUDIM) → Restrições/Observações
 - ✅ Cabeçalho institucional do formulário (horários de corte/serviço + aviso de fonoaudiologia),
   editável pelo painel
+- ✅ Informativo em negrito abaixo do título do formulário Médico: “Solicitação de dieta até
+  12:00 - Almoço e até as 18:00 - Jantar”, salvo no cabeçalho editável (19/10/2026)
+- ✅ Campo “Equipe” logo abaixo do informativo médico, com botões de seleção única “Médica” e
+  “Administração”; opções editáveis na Gestão e valor enviado em `dados_dinamicos.equipe` (19/10/2026)
+- ✅ Campo “Horário de entrega” abaixo de Equipe no formulário médico, com 17 opções de 12:00
+  a 20:00 a cada 30 minutos, enviado em `dados_dinamicos.horario_entrega` (19/10/2026)
+- ✅ Campo “Refeição” médico com lista própria: PARMEGIANA DE  FRANGO COM ARROZ E BATATA SAUTÉE;
+  MAMINHA ASSADA COM CANELONE DE RICOTA E ESPINAFRE. Escolha em `dados_dinamicos.refeicao` (19/10/2026)
+- ✅ Abaixo de Refeição, listas obrigatórias de Suco (COM SUCO / SEM SUCO), Sobremesa
+  (SOBREMESA DO DIA / SEM SOBREMESA) e Local de entrega (TÉRREO - CONFORTO MÉDICO /
+  4º ANDAR - REFEITÓRIO), salvas em `dados_dinamicos` no formulário médico (19/10/2026)
+- ✅ Aba “Refeições médicas” no gestor para editar as listas de Refeição, Suco, Sobremesa e Local
+  de entrega, com uma opção por linha e proteção contra edição concorrente. Ordem, obrigatoriedade,
+  demais campos, catálogo de dietas e formulário de Enfermagem preservados (19/10/2026)
 - ✅ Card fixo no kiosk: Registro profissional + Solicitante (nome) — obrigatórios, dois fluxos
-- ✅ Motor de formulários dinâmicos com tipos: `texto`, `texto_longo`, `data`, `selecao`,
+- ✅ Motor de formulários dinâmicos com tipos: `texto`, `texto_longo`, `data`, `selecao`, `radio`,
   `cardapio` (dependente de grupos de dieta), `selecao_dietas`
 - ✅ Editor do formulário no painel (adicionar/remover/reordenar campos, editar cabeçalho)
+- ✅ Cardápios preenchidos no banco: Grupo 1 (GERAL/BRANDA), 2 opções; Grupo 2
+  (PASTOSA/PASTOSA LIQUIDIFICADA/BATIDA), 4 opções; Grupo 3 (LÍQUIDA/LIQUIDA SEM RESÍDUOS), 1 opção
 - ✅ Catálogo de dietas: GERAL, BRANDA, LEVE, PASTOSA, PASTOSA LIQUIDIFICADA, BATIDA, LÍQUIDA,
   LIQUIDA SEM RESÍDUOS (Hipossódica e Enteral desativadas, preservando histórico)
 - ✅ Editor de dietas (✏️ Editar: nome/descrição/severa; desativar/reativar)
@@ -61,24 +73,29 @@ npm run dev                               # http://localhost:5173
 - ✅ Relatórios: SLA (tempo médio), consumo do corpo médico por turno, volume por dieta
 - ✅ Proteção contra edição concorrente do formulário (HTTP 409 + recarregar)
 - ✅ Acesso em rede: `host: true` no Vite + regras de firewall (portas 5173 e 8000)
+- ✅ Idioma da página corrigido para `pt-BR`, com `translate="no"` para preservar os rótulos e
+  as opções originais diante da tradução automática do navegador (19/10/2026)
+- ✅ Projeto unificado na pasta acima, com o histórico Git, dependências e banco preservados;
+  os caminhos anteriores apontam para a mesma cópia (19/10/2026)
+- ✅ Tema corporativo com fundo `#808080`, painéis `#c8c8c8`, campos suaves e textos escuros;
+  alertas e botões mantêm cores funcionais. Paleta em `frontend/src/index.css` (19/10/2026)
 - ✅ Pacote de produção para Linux: backend/Dockerfile, frontend/Dockerfile + nginx.conf,
   docker-compose.prod.yml, README com guia completo
 - ✅ Backup do banco testado: `backups/backup-dietas-2026-10-16.sql` (não versionado)
+- ✅ Backup adicional antes da unificação: `backups/backup-dietas-2026-10-19-antes-unificacao.dump`
+- ✅ Configuração atual dos formulários Médico (7 campos) e Enfermagem (14 campos) exportada para
+  `configuracoes/formularios-unidade-havai.json`, sem pedidos, pacientes ou credenciais (19/10/2026)
 
 ## 5. Pendências / decisões em aberto
 
-1. **Itens dos cardápios** dos Grupos 1, 2 e 3 ainda vazios:
-   - Grupo 1 → dietas GERAL, BRANDA
-   - Grupo 2 → dietas PASTOSA, PASTOSA LIQUIDIFICADA, BATIDA
-   - Grupo 3 → dietas LÍQUIDA, LIQUIDA SEM RESÍDUOS
-2. **Dietas severas:** nenhuma marcada com destaque vermelho ainda
-3. **Impressora térmica real:** configurar o IP no painel Admin → Filiais
-4. **Senhas do seed** precisam ser trocadas antes de produção
+1. **Dietas severas:** nenhuma marcada com destaque vermelho ainda
+2. **Impressora térmica real:** configurar o IP no painel Admin → Filiais
+3. **Senhas do seed** precisam ser trocadas antes de produção
    (admin@hospital.local / nutricao@hospital.local / cozinha@hospital.local — senha `Trocar@123`)
-5. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
+4. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
    ou dependente de grupo de dieta
-6. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
-7. **Produção:** HTTPS (proxy reverso), backup agendado diário, CORS_ORIGINS com URL real
+5. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
+6. **Produção:** HTTPS (proxy reverso), backup agendado diário, CORS_ORIGINS com URL real
 
 ## 6. Convenções técnicas importantes (não quebrar)
 
@@ -95,11 +112,21 @@ npm run dev                               # http://localhost:5173
   com timezone em coluna naive)
 - **Encoding no Windows:** cuidado com acentos em heredocs/stdin do Git Bash ao atualizar dados
   via script — preferir arquivos JSON lidos com `encoding='utf-8'`
+- **Idioma no navegador:** manter `lang="pt-BR"` e `translate="no"` no HTML. Rótulos corretos na
+  API podem aparecer trocados se o navegador traduzir a página; validar também o acesso pelo IP
+- **Estrutura única:** editar a pasta canônica indicada na seção 2. Os caminhos anteriores são
+  junções para ela; as versões arquivadas ficam fora do projeto. O nome do Compose mantém o volume do banco
+- **Tema:** manter a escala neutra no `@theme` de `frontend/src/index.css`; usar as classes existentes
+  para que kiosk, login, cozinha, gestão e administração compartilhem a mesma paleta
 - **Slug da filial:** `unidade-havai` (URL dos quiosques); mudar slug quebra links antigos
 
 ## 7. Dados do banco (fonte da verdade)
 
-O Git **não versiona dados**. Configurações de formulário, dietas e pedidos vivem no PostgreSQL.
+O PostgreSQL é a fonte da verdade para configurações de formulário, dietas e pedidos. A cópia
+`configuracoes/formularios-unidade-havai.json` versiona somente os esquemas dos formulários e deve
+ser atualizada após alterações pelo gestor. Ela não é aplicada automaticamente por `git pull`;
+para recuperar esquemas em outro ambiente, use a API de Gestão conforme o README, com `versao`.
+Dados de pacientes, pedidos, usuários e backups completos ficam fora do Git.
 Para migrar/backup:
 
 ```bash
@@ -110,5 +137,6 @@ cat backups/backup-XXXX.sql | docker exec -i dietas-db-prod psql -U dietas -d di
 ## 8. Fluxo de trabalho (multi-estação)
 
 - Código: `git pull` antes de editar → alterar → testar → `git push` (GitHub: Markyto84/Cnutri)
+- Formulários: atualizar a cópia de configuração versionada ao sincronizar alterações feitas no painel
 - Dados: em produção, um único banco no servidor central acessado por todos via navegador
 - Ao concluir mudanças relevantes, **atualizar este arquivo** (seção 4 e 5)

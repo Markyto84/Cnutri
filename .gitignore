@@ -21,3 +21,6 @@ Thumbs.db
 
 # Backups de banco de dados
 backups/
+
+# Logs e identificadores dos processos locais
+work/

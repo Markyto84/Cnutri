@@ -27,12 +27,12 @@ export default function Kiosk({ slugPadrao }) {
 
   if (erro)
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-900 text-red-400 text-xl">
+      <div className="flex h-screen items-center justify-center bg-app-background text-slate-950 text-xl">
         {erro}
       </div>
     )
   if (!config)
-    return <div className="flex h-screen items-center justify-center bg-slate-900 text-white text-xl">A carregar…</div>
+    return <div className="flex h-screen items-center justify-center bg-app-background text-slate-950 text-xl">A carregar…</div>
 
   const dietaSelecionada = (id) => config.dietas.find((d) => d.id === Number(id))
 
@@ -89,23 +89,23 @@ export default function Kiosk({ slugPadrao }) {
     return <Sucesso onVoltar={() => { setTela('perfil'); setFluxo(null) }} />
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-8">
+    <div className="min-h-screen bg-app-background text-slate-900 p-8">
       <header className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-white">{config.filial.nome}</h1>
-        <p className="text-slate-400 mt-1">Sistema de Gestão de Dietas</p>
+        <h1 className="text-3xl font-bold text-slate-900">{config.filial.nome}</h1>
+        <p className="text-slate-950 mt-1">Sistema de Gestão de Dietas</p>
       </header>
 
       {tela === 'perfil' && (
         <div className="mx-auto grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
           <button
             onClick={() => { setFluxo('MEDICO'); setTela('form') }}
-            className="rounded-2xl bg-blue-600 p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-blue-500"
+            className="rounded-2xl bg-blue-600 p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-blue-500 text-white"
           >
             👨‍⚕️ Sou Médico
           </button>
           <button
             onClick={() => { setFluxo('ENFERMAGEM'); setTela('form') }}
-            className="rounded-2xl bg-emerald-600 p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-emerald-500"
+            className="rounded-2xl bg-emerald-600 p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-emerald-500 text-white"
           >
             🏥 Enfermagem / Paciente
           </button>
@@ -114,23 +114,23 @@ export default function Kiosk({ slugPadrao }) {
 
       {tela === 'form' && (
         <div className="mx-auto max-w-2xl space-y-4">
-          <div className="rounded-2xl bg-slate-800 p-6 shadow-xl">
-            <label className="mb-1 block text-sm font-medium text-slate-300">
-              Registro profissional (CRM, COREN ou Matrícula)<span className="text-red-400"> *</span>
+          <div className="rounded-2xl bg-panel p-6 shadow-xl">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Registro profissional (CRM, COREN ou Matrícula)<span className="text-red-700"> *</span>
             </label>
             <input
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white outline-none focus:border-blue-400"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
               value={registro}
               onChange={(e) => setRegistro(e.target.value)}
               placeholder="Ex.: COREN-12345"
               autoFocus
             />
-            <p className="mt-1 text-xs text-slate-500">Usado apenas para rastreabilidade e auditoria — sem necessidade de login.</p>
-            <label className="mb-1 mt-4 block text-sm font-medium text-slate-300">
-              Solicitante (seu nome)<span className="text-red-400"> *</span>
+            <p className="mt-1 text-xs text-slate-700">Usado apenas para rastreabilidade e auditoria — sem necessidade de login.</p>
+            <label className="mb-1 mt-4 block text-sm font-medium text-slate-700">
+              Solicitante (seu nome)<span className="text-red-700"> *</span>
             </label>
             <input
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white outline-none focus:border-blue-400"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
               value={solicitanteNome}
               onChange={(e) => setSolicitanteNome(e.target.value)}
               placeholder="Ex.: Enf. João Souza"
@@ -139,6 +139,7 @@ export default function Kiosk({ slugPadrao }) {
         <FormDinamico
           titulo={config.formularios?.[fluxo]?.titulo || (fluxo === 'MEDICO' ? 'Solicitação — Profissional' : 'Solicitação — Paciente')}
           cabecalho={config.formularios?.[fluxo]?.cabecalho || ''}
+          destacarCabecalho={fluxo === 'MEDICO'}
           campos={config.formularios?.[fluxo]?.campos || []}
           dietas={config.dietas}
           dietaSelecionada={dietaSelecionada}
@@ -160,11 +161,11 @@ function Sucesso({ onVoltar }) {
   }, [onVoltar])
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-slate-900 text-center">
+    <div className="flex h-screen flex-col items-center justify-center bg-app-background text-center">
       <div className="text-8xl">✅</div>
-      <h2 className="mt-6 text-3xl font-bold text-emerald-400">Pedido enviado com sucesso!</h2>
-      <p className="mt-2 text-slate-400">A filipeta foi enviada à cozinha. Volta ao início em instantes…</p>
-      <button onClick={onVoltar} className="mt-8 rounded-lg bg-slate-700 px-6 py-3 text-slate-200 hover:bg-slate-600">
+      <h2 className="mt-6 text-3xl font-bold text-slate-950">Pedido enviado com sucesso!</h2>
+      <p className="mt-2 text-slate-950">A filipeta foi enviada à cozinha. Volta ao início em instantes…</p>
+      <button onClick={onVoltar} className="mt-8 rounded-lg bg-slate-50 px-6 py-3 text-slate-800 hover:bg-slate-200">
         Voltar agora
       </button>
     </div>

@@ -85,21 +85,21 @@ export default function Cozinha() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 text-slate-100">
+    <div className="min-h-screen bg-app-background p-4 text-slate-900">
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">🍽️ Cozinha — Painel de Produção</h1>
-        <button onClick={recarregar} className="rounded bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700">
+        <button onClick={recarregar} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">
           ↻ Recarregar
         </button>
       </header>
 
-      {erro && <div className="mb-4 rounded-lg bg-red-900/60 p-3 text-red-300">{erro}</div>}
+      {erro && <div className="mb-4 rounded-lg bg-red-50 p-3 text-red-800">{erro}</div>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLUNAS.map((col) => (
-          <div key={col.status} className={`rounded-xl bg-slate-900 border-t-4 ${col.cor} p-3`}>
+          <div key={col.status} className={`rounded-xl bg-panel border-t-4 ${col.cor} p-3`}>
             <h2 className="mb-3 text-lg font-semibold">
-              {col.titulo} <span className="text-slate-500">({pedidos.filter((p) => p.status === col.status).length})</span>
+              {col.titulo} <span className="text-slate-700">({pedidos.filter((p) => p.status === col.status).length})</span>
             </h2>
             <div className="space-y-3">
               {pedidos
@@ -135,44 +135,44 @@ function CartaoPedido({ pedido, onMover, onReimprimir }) {
 
   return (
     <div
-      className={`rounded-lg p-4 shadow ${severa ? 'bg-red-950 ring-2 ring-red-500' : 'bg-slate-800'}`}
+      className={`rounded-lg p-4 shadow ${severa ? 'bg-red-50 ring-2 ring-red-500' : 'bg-panel'}`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <span className="text-xs text-slate-400">#{pedido.id} · {new Date(pedido.criado_em).toLocaleTimeString('pt-BR')}</span>
-          <p className="font-bold text-white">
+          <span className="text-xs text-slate-700">#{pedido.id} · {new Date(pedido.criado_em).toLocaleTimeString('pt-BR')}</span>
+          <p className="font-bold text-slate-900">
             {pedido.nome_paciente || pedido.solicitante_nome || pedido.solicitante_identificacao}
-            {idade !== null && <span className="ml-2 rounded bg-slate-700 px-2 py-0.5 text-xs font-normal text-slate-300">{idade} anos</span>}
+            {idade !== null && <span className="ml-2 rounded bg-slate-50 px-2 py-0.5 text-xs font-normal text-slate-700">{idade} anos</span>}
           </p>
-          <p className="text-sm text-slate-300">
-            {pedido.dados_dinamicos?.refeicao && <span className="mr-1 rounded bg-blue-900 px-2 py-0.5 text-xs font-semibold text-blue-200">🍽️ {pedido.dados_dinamicos.refeicao}</span>}
-            {pedido.dados_dinamicos?.cardapio && <span className="mr-1 rounded bg-purple-900 px-2 py-0.5 text-xs text-purple-200">📋 {pedido.dados_dinamicos.cardapio}</span>}
-            {pedido.dados_dinamicos?.liquido_espessado && <span className="mr-1 rounded bg-cyan-900 px-2 py-0.5 text-xs text-cyan-200">🥤 {pedido.dados_dinamicos.liquido_espessado}</span>}
-            {pedido.dados_dinamicos?.para && <span className="mr-1 rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-300">para: {pedido.dados_dinamicos.para}</span>}
+          <p className="text-sm text-slate-700">
+            {pedido.dados_dinamicos?.refeicao && <span className="mr-1 rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">🍽️ {pedido.dados_dinamicos.refeicao}</span>}
+            {pedido.dados_dinamicos?.cardapio && <span className="mr-1 rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800">📋 {pedido.dados_dinamicos.cardapio}</span>}
+            {pedido.dados_dinamicos?.liquido_espessado && <span className="mr-1 rounded bg-cyan-100 px-2 py-0.5 text-xs text-cyan-800">🥤 {pedido.dados_dinamicos.liquido_espessado}</span>}
+            {pedido.dados_dinamicos?.para && <span className="mr-1 rounded bg-slate-50 px-2 py-0.5 text-xs text-slate-700">para: {pedido.dados_dinamicos.para}</span>}
           </p>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-700">
             {pedido.leito && <>🛏️ Leito {pedido.leito} · </>}
             {pedido.dados_dinamicos?.andar && <>🏢 {pedido.dados_dinamicos.andar} · </>}
             {pedido.dieta ? pedido.dieta.nome : '—'}
           </p>
         </div>
-        {severa && <span className="rounded bg-red-600 px-2 py-1 text-xs font-bold">⚠️ SEVERO</span>}
+        {severa && <span className="rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">⚠️ SEVERO</span>}
       </div>
       {pedido.observacoes_alergias && (
-        <p className="mt-2 text-sm text-amber-300">⚠️ {pedido.observacoes_alergias}</p>
+        <p className="mt-2 text-sm text-amber-800">⚠️ {pedido.observacoes_alergias}</p>
       )}
       <div className="mt-3 flex gap-2">
         {proximo && (
           <button
             onClick={() => onMover(pedido, proximo)}
-            className="flex-1 rounded bg-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-500"
+            className="flex-1 rounded bg-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-500 text-white"
           >
             → {proximo === 'EM_PREPARO' ? 'Iniciar preparo' : 'Marcar pronto'}
           </button>
         )}
         <button
           onClick={() => onReimprimir(pedido)}
-          className="rounded bg-slate-600 px-3 py-2 text-sm hover:bg-slate-500"
+          className="rounded bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
           title="Reimprimir filipeta"
         >
           🖨️
@@ -180,7 +180,7 @@ function CartaoPedido({ pedido, onMover, onReimprimir }) {
         {pedido.status !== 'CANCELADO' && (
           <button
             onClick={() => onMover(pedido, 'CANCELADO')}
-            className="rounded bg-slate-700 px-3 py-2 text-sm text-red-300 hover:bg-slate-600"
+            className="rounded bg-slate-50 px-3 py-2 text-sm text-red-800 hover:bg-slate-200"
             title="Cancelar pedido"
           >
             ✕
