@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
-from ..core.security import exigir_perfis
+from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..models.models import Dieta, Filial, FormularioConfig, Usuario
 from ..schemas.schemas import DietaCreate, DietaOut, FormularioConfigOut, FormularioConfigUpdate
 
@@ -43,6 +43,7 @@ async def _filial(filial_id: int, db: AsyncSession) -> Filial:
 @router.get("/dietas", response_model=list[DietaOut])
 async def listar_dietas(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
     await _filial(filial_id, db)
+    await verificar_acesso_filial(filial_id, _, db)
     dietas = (
         await db.execute(select(Dieta).where(Dieta.filial_id == filial_id).order_by(Dieta.nome))
     ).scalars().all()
@@ -52,6 +53,7 @@ async def listar_dietas(filial_id: int, db: AsyncSession = Depends(get_db), _: U
 @router.post("/dietas", response_model=DietaOut, status_code=status.HTTP_201_CREATED)
 async def criar_dieta(filial_id: int, dados: DietaCreate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
     await _filial(filial_id, db)
+    await verificar_acesso_filial(filial_id, _, db)
     dieta = Dieta(filial_id=filial_id, **dados.model_dump())
     db.add(dieta)
     await db.commit()
@@ -64,6 +66,7 @@ async def atualizar_dieta(dieta_id: int, dados: DietaCreate, db: AsyncSession = 
     dieta = await db.get(Dieta, dieta_id)
     if dieta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dieta não encontrada")
+    await verificar_acesso_filial(dieta.filial_id, _, db)
     for campo, valor in dados.model_dump().items():
         setattr(dieta, campo, valor)
     await db.commit()
@@ -77,6 +80,7 @@ async def desativar_dieta(dieta_id: int, db: AsyncSession = Depends(get_db), _: 
     dieta = await db.get(Dieta, dieta_id)
     if dieta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dieta não encontrada")
+    await verificar_acesso_filial(dieta.filial_id, _, db)
     dieta.ativa = False
     await db.commit()
 
@@ -85,6 +89,7 @@ async def desativar_dieta(dieta_id: int, db: AsyncSession = Depends(get_db), _: 
 @router.get("/formularios/{filial_id}/{tipo}", response_model=FormularioConfigOut | None)
 async def obter_formulario(filial_id: int, tipo: str, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
     await _filial(filial_id, db)
+    await verificar_acesso_filial(filial_id, _, db)
     config = (
         await db.execute(
             select(FormularioConfig).where(
@@ -100,6 +105,7 @@ async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUp
     if tipo not in ("MEDICO", "ENFERMAGEM"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo deve ser MEDICO ou ENFERMAGEM")
     await _filial(filial_id, db)
+    await verificar_acesso_filial(filial_id, _, db)
     config = (
         await db.execute(
             select(FormularioConfig).where(

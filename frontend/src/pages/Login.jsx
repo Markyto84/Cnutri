@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api.js'
+import { inicioDoUsuario, useAuth } from '../context/auth.js'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -8,6 +9,7 @@ export default function Login() {
   const [erro, setErro] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const navegar = useNavigate()
+  const { entrar } = useAuth()
 
   async function submeter(e) {
     e.preventDefault()
@@ -16,10 +18,8 @@ export default function Login() {
     try {
       const dados = new URLSearchParams({ username: email, password: senha })
       const r = await api.post('/auth/login', dados)
-      localStorage.setItem('token', r.data.access_token)
-      localStorage.setItem('perfil', r.data.perfil)
-      localStorage.setItem('nome', r.data.nome)
-      navegar(r.data.perfil === 'COZINHA' ? '/cozinha/1' : '/gestao')
+      const sessao = entrar(r.data)
+      navegar(inicioDoUsuario(sessao), { replace: true })
     } catch (err) {
       setErro(err.response?.data?.detail || 'Falha no login')
     } finally {

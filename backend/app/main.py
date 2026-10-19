@@ -2,12 +2,13 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import admin, auth, gestao, pedidos, public_kiosk, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
+from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
 from .models.models import Base
 from .seed import executar_seed
@@ -51,7 +52,19 @@ async def health():
 @app.websocket("/ws/cozinha/{filial_id}")
 async def ws_cozinha(websocket: WebSocket, filial_id: int):
     """Painel Kanban da cozinha: recebe atualizações de pedidos em tempo real."""
-    await gerenciador_ws.conectar(filial_id, websocket)
+    protocolos = websocket.scope.get("subprotocols", [])
+    if len(protocolos) != 2 or protocolos[0] != "cnutri":
+        await websocket.close(code=1008)
+        return
+    try:
+        async with SessionLocal() as db:
+            usuario = await get_current_user(protocolos[1], db)
+            await verificar_acesso_filial(filial_id, usuario, db)
+            usuario_id = usuario.id
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+    await gerenciador_ws.conectar(filial_id, websocket, usuario_id)
     try:
         while True:
             # Mantém a conexão viva; mensagens do cliente são ignoradas

@@ -85,6 +85,16 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Backup adicional antes da unificação: `backups/backup-dietas-2026-10-19-antes-unificacao.dump`
 - ✅ Configuração atual dos formulários Médico (7 campos) e Enfermagem (14 campos) exportada para
   `configuracoes/formularios-unidade-havai.json`, sem pedidos, pacientes ou credenciais (19/10/2026)
+- ✅ Painel de Administração (`/admin`) com entrada automática para ADMIN_TI, abas Unidades,
+  Credenciais e Impressoras; acesso à gestão e cozinha de todas as unidades (19/10/2026)
+- ✅ Novas unidades copiam formulários e dietas da unidade escolhida e passam a ter configurações
+  independentes. Nome, endereço do formulário e ativação podem ser editados pelo administrador
+- ✅ Cadastro e edição de credenciais, senha, perfil e vínculos de unidades, com ativação/desativação
+  e proteção da própria conta administrativa. API não expõe hashes de senha
+- ✅ Impressora padrão por unidade, validação de IP e teste de conexão TCP 9100 sem imprimir
+- ✅ Acesso de Gestão, Cozinha, relatórios e WebSocket limitado às unidades permitidas; ADMIN_TI tem
+  acesso global. Sessão e saída sincronizadas entre abas do navegador
+- ✅ Oito testes de integração administrativa em SQLite isolado, sem alterar o banco do hospital
 
 ## 5. Pendências / decisões em aberto
 

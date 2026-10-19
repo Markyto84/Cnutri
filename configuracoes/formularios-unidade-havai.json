@@ -15,7 +15,7 @@
             "Administração"
           ],
           "rotulo": "Equipe",
-          "obrigatorio": false
+          "obrigatorio": true
         },
         {
           "id": "horario_entrega",
@@ -40,7 +40,7 @@
             "20:00"
           ],
           "rotulo": "Horário de entrega",
-          "obrigatorio": false
+          "obrigatorio": true
         },
         {
           "id": "refeicao",
@@ -86,7 +86,7 @@
           "id": "observacoes_alergias",
           "tipo": "texto_longo",
           "rotulo": "Observações",
-          "obrigatorio": false
+          "obrigatorio": true
         }
       ],
       "titulo": "Solicitação de Refeição — Profissional",

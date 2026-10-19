@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
-from ..core.security import exigir_perfis
+from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..models.models import Dieta, Pedido, Usuario
 from ..schemas.schemas import RelatorioConsumoItem, RelatorioDietasItem, RelatorioSLAOut
 
@@ -18,6 +18,7 @@ PERFIS = ("NUTRICIONISTA", "ADMIN_TI")
 @router.get("/sla", response_model=RelatorioSLAOut)
 async def sla_medico(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS))):
     """Tempo médio entre envio do pedido e conclusão na cozinha."""
+    await verificar_acesso_filial(filial_id, _, db)
     resultado = await db.execute(
         select(
             func.count(Pedido.id),
@@ -33,6 +34,7 @@ async def sla_medico(filial_id: int, db: AsyncSession = Depends(get_db), _: Usua
 @router.get("/consumo-medico", response_model=list[RelatorioConsumoItem])
 async def consumo_medico(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS))):
     """Refeições servidas ao corpo médico, agrupadas por turno e profissional."""
+    await verificar_acesso_filial(filial_id, _, db)
     pedidos = (
         await db.execute(
             select(Pedido)
@@ -55,6 +57,7 @@ async def consumo_medico(filial_id: int, db: AsyncSession = Depends(get_db), _: 
 @router.get("/dietas", response_model=list[RelatorioDietasItem])
 async def estatisticas_dietas(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS))):
     """Volume de pedidos por tipo de dieta."""
+    await verificar_acesso_filial(filial_id, _, db)
     linhas = (
         await db.execute(
             select(Dieta.nome, func.count(Pedido.id))

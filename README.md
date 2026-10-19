@@ -71,6 +71,7 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 |---|---|
 | Kiosk (enfermagem/médico) | `http://IP-DO-SERVIDOR/unidade-havai` |
 | Cozinha (Kanban) | `http://IP-DO-SERVIDOR/cozinha/1` |
+| Administração | `http://IP-DO-SERVIDOR/admin` |
 | Login | `http://IP-DO-SERVIDOR/login` |
 
 **Utilizadores iniciais (trocar as senhas imediatamente!):**
@@ -92,7 +93,8 @@ docker exec dietas-db-prod pg_dump -U dietas dietas > backup.sql   # backup do b
 
 ## Impressoras térmicas (ESC/POS)
 
-No painel **Admin → Filiais → 🖨️ IP**, informe o IP da impressora de cada unidade.
+No painel **Administração → Impressoras**, escolha a unidade e informe o IP da impressora térmica.
+Clique em **Salvar impressora** e depois em **Testar conexão** para verificar a porta 9100 sem imprimir.
 O servidor precisa **alcançar a impressora pela rede** (TCP porta 9100). Para testar conectividade a partir do servidor:
 
 ```bash
@@ -144,6 +146,32 @@ No painel **Gestão de Nutrição → Refeições médicas**, edite as listas de
 **Sobremesa** e **Local de entrega**, com uma opção por linha em cada campo, e clique em **Salvar opções**.
 Essas listas alimentam o formulário médico, preservando a ordem e a obrigatoriedade dos campos.
 As opções são salvas no banco de dados, sem alterar as dietas ou o formulário de Enfermagem.
+
+## Painel de administração
+
+O perfil **Administrador** entra diretamente em `/admin` após o login e tem acesso a todas as unidades.
+
+- **Unidades:** criar, editar, ativar ou desativar unidades; abrir o formulário e o painel da cozinha;
+  acessar a gestão de dietas, refeições, formulários e relatórios da unidade escolhida. Novas unidades
+  recebem cópias independentes dos formulários e das dietas da unidade de origem selecionada.
+- **Credenciais:** criar e editar nome, e-mail, senha, perfil e unidades de acesso; ativar ou desativar
+  contas. Os perfis disponíveis são Administrador, Gestor de nutrição e Cozinha. A própria conta
+  administrativa não pode ser desativada nem perder seu perfil pelo mesmo usuário.
+- **Impressoras:** associar uma impressora padrão por unidade, alterar/remover o IP e testar a conexão.
+
+Gestores e operadores de cozinha acessam apenas suas unidades vinculadas e ativas. As permissões
+são verificadas na API e nas conexões de atualização da cozinha. O administrador pode retornar ao
+painel pelo link **Administração** nas telas de Gestão e Cozinha.
+
+### Testes da administração
+
+Os testes usam um banco SQLite temporário em memória, sem modificar o PostgreSQL em uso:
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
 ## Configuração dos formulários no GitHub
 

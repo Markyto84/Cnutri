@@ -12,8 +12,14 @@ api.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
+      const tokenAtual = localStorage.getItem('token')
+      const tokenEnviado = err.config?.headers?.Authorization
+      if (!tokenAtual || tokenEnviado === `Bearer ${tokenAtual}`) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('perfil')
+        localStorage.removeItem('nome')
+        if (!err.config?.ignorarRedirecionamento401 && !window.location.pathname.startsWith('/login')) window.location.href = '/login'
+      }
     }
     throw err
   }

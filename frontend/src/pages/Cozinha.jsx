@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../services/api.js'
+import { inicioDoUsuario, useAuth } from '../context/auth.js'
 
 const COLUNAS = [
   { status: 'PENDENTE', titulo: '⏳ Pendentes', cor: 'border-t-amber-500' },
@@ -28,43 +29,69 @@ function tocarAlerta() {
 
 export default function Cozinha() {
   const { filialId } = useParams()
+  return <PainelCozinha key={filialId} filialId={filialId} />
+}
+
+function PainelCozinha({ filialId }) {
+  const { usuario, sair } = useAuth()
+  const navegar = useNavigate()
+  const filiais = usuario.filiais || []
+  const filial = filiais.find((f) => f.id === Number(filialId))
+  const permitida = Boolean(filial)
   const [pedidos, setPedidos] = useState([])
   const [erro, setErro] = useState(null)
-  const wsRef = useRef(null)
 
-  const recarregar = useCallback(async () => {
+  async function recarregar() {
+    if (!permitida) return
     try {
       const r = await api.get('/pedidos', { params: { filial_id: filialId } })
       setPedidos(r.data)
+      setErro(null)
     } catch (e) {
       setErro(e.response?.data?.detail || 'Erro ao carregar pedidos')
     }
-  }, [filialId])
+  }
 
   useEffect(() => {
-    recarregar()
-  }, [recarregar])
+    if (!permitida) return
+    const controller = new AbortController()
+    api.get('/pedidos', { params: { filial_id: filialId }, signal: controller.signal })
+      .then(({ data }) => { if (!controller.signal.aborted) setPedidos(data) })
+      .catch((e) => { if (!controller.signal.aborted) setErro(e.response?.data?.detail || 'Erro ao carregar pedidos') })
+    return () => controller.abort()
+  }, [filialId, permitida])
 
   // WebSocket: atualização em tempo real sem F5
   useEffect(() => {
+    if (!permitida) return
     const protocolo = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha/${filialId}`)
-    wsRef.current = ws
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data)
-      if (msg.evento === 'novo_pedido') tocarAlerta()
-      setPedidos((atuais) => {
-        const novo = msg.pedido
-        const idx = atuais.findIndex((p) => p.id === novo.id)
-        if (idx === -1) return [novo, ...atuais]
-        const copia = [...atuais]
-        copia[idx] = novo
-        return copia
-      })
+    let encerrado = false
+    let ws
+    let tentativa
+    function conectar() {
+      const token = localStorage.getItem('token')
+      if (!token || encerrado) return
+      ws = new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha/${filialId}`, ['cnutri', token])
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data)
+        if (!msg.pedido) return
+        if (msg.evento === 'novo_pedido') tocarAlerta()
+        setPedidos((atuais) => {
+          const novo = msg.pedido
+          const idx = atuais.findIndex((p) => p.id === novo.id)
+          if (idx === -1) return [novo, ...atuais]
+          return atuais.map((p) => p.id === novo.id ? novo : p)
+        })
+      }
+      ws.onclose = (ev) => {
+        if (encerrado) return
+        if (ev.code === 1008) { setErro('Seu acesso foi atualizado. Entre novamente para continuar.'); return }
+        tentativa = setTimeout(conectar, 3000)
+      }
     }
-    ws.onclose = () => setTimeout(() => window.location.reload(), 3000) // reconexão simples
-    return () => ws.close()
-  }, [filialId])
+    tentativa = setTimeout(conectar, 0)
+    return () => { encerrado = true; clearTimeout(tentativa); ws?.close() }
+  }, [filialId, permitida])
 
   async function mover(pedido, novoStatus) {
     try {
@@ -84,13 +111,26 @@ export default function Cozinha() {
     }
   }
 
+  if (!filial) return <div className="min-h-screen bg-app-background p-6 text-slate-900">
+    <div className="max-w-lg space-y-4 rounded-xl bg-panel p-6"><h1 className="text-xl font-bold">Unidade indisponível</h1>
+      <p>Seu usuário não possui acesso a esta unidade.</p><Link to={inicioDoUsuario(usuario)} className="underline">Voltar ao painel</Link></div>
+  </div>
+
   return (
     <div className="min-h-screen bg-app-background p-4 text-slate-900">
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🍽️ Cozinha — Painel de Produção</h1>
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="text-2xl font-bold">🍽️ Cozinha — Painel de Produção</h1><p className="text-sm text-slate-950">{filial.nome}</p></div>
+        <div className="flex flex-wrap items-center gap-2">
+        <select aria-label="Unidade da cozinha" className="rounded bg-white px-3 py-2 text-sm" value={filialId} onChange={(e) => navegar(`/cozinha/${e.target.value}`)}>
+          {filiais.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+        </select>
+        {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="rounded bg-white px-4 py-2 text-sm">Administração</Link>}
+        {usuario.perfil !== 'COZINHA' && <Link to={`/gestao?unidade=${filialId}`} className="rounded bg-white px-4 py-2 text-sm">Gestão</Link>}
         <button onClick={recarregar} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">
           ↻ Recarregar
         </button>
+        <button onClick={sair} className="rounded bg-white px-4 py-2 text-sm">Sair</button>
+        </div>
       </header>
 
       {erro && <div className="mb-4 rounded-lg bg-red-50 p-3 text-red-800">{erro}</div>}

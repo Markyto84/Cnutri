@@ -1,39 +1,38 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import RefeicoesMedicas from '../components/RefeicoesMedicas.jsx'
+import { SemUnidades } from '../context/AuthContext.jsx'
+import { useAuth } from '../context/auth.js'
 
 /** Painel da Nutrição: catálogo de dietas, editor de formulários e relatórios. */
 export default function Gestao() {
   const [aba, setAba] = useState('dietas')
-  const [filialId, setFilialId] = useState(1)
-  const [filiais, setFiliais] = useState([])
-  const perfil = localStorage.getItem('perfil')
-
-  useEffect(() => {
-    // Para a demo, lista pública de filiais via config do kiosk não existe;
-    // usamos a filial 1 (seed) e, para ADMIN, a lista completa.
-    if (perfil === 'ADMIN_TI') {
-      api.get('/admin/filiais').then((r) => setFiliais(r.data)).catch(() => {})
-    } else {
-      setFiliais([{ id: 1, nome: 'Centro Médico Prevent Senior Havaí' }])
-    }
-  }, [perfil])
+  const { usuario, sair } = useAuth()
+  const [parametros, setParametros] = useSearchParams()
+  const filiais = usuario.filiais || []
+  const filial = filiais.find((f) => f.id === Number(parametros.get('unidade'))) || filiais[0]
+  const filialId = filial?.id
+  if (!filial) return <SemUnidades />
 
   return (
     <div className="min-h-screen bg-app-background p-6 text-slate-900">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">🥗 Gestão de Nutrição</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={filialId}
-            onChange={(e) => setFilialId(Number(e.target.value))}
+            aria-label="Unidade de gestão"
+            onChange={(e) => setParametros({ unidade: e.target.value })}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2"
           >
             {filiais.map((f) => (
               <option key={f.id} value={f.id}>{f.nome}</option>
             ))}
           </select>
-          <button onClick={() => { localStorage.clear(); window.location.href = '/login' }} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">
+          {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Administração</Link>}
+          <Link to={`/cozinha/${filialId}`} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Cozinha</Link>
+          <button onClick={sair} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">
             Sair
           </button>
         </div>
@@ -51,10 +50,10 @@ export default function Gestao() {
         ))}
       </nav>
 
-      {aba === 'dietas' && <AbaDietas filialId={filialId} />}
+      {aba === 'dietas' && <AbaDietas key={filialId} filialId={filialId} />}
       {aba === 'refeicoes-medicas' && <RefeicoesMedicas key={filialId} filialId={filialId} />}
-      {aba === 'formularios' && <AbaFormularios filialId={filialId} />}
-      {aba === 'relatorios' && <AbaRelatorios filialId={filialId} />}
+      {aba === 'formularios' && <AbaFormularios key={filialId} filialId={filialId} />}
+      {aba === 'relatorios' && <AbaRelatorios key={filialId} filialId={filialId} />}
     </div>
   )
 }

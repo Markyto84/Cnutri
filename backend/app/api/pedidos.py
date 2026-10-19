@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..core.database import get_db
-from ..core.security import get_current_user, exigir_perfis
+from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.ws import gerenciador_ws
 from ..models.models import Filial, HistoricoPedido, Pedido, Usuario
 from ..schemas.schemas import PedidoOut, StatusUpdate
@@ -21,6 +21,7 @@ async def listar_pedidos(
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(exigir_perfis(*PERFIS_OPERACAO)),
 ):
+    await verificar_acesso_filial(filial_id, _, db)
     consulta = (
         select(Pedido)
         .options(selectinload(Pedido.dieta))
@@ -48,6 +49,7 @@ async def alterar_status(
     ).scalar_one_or_none()
     if pedido is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido não encontrado")
+    await verificar_acesso_filial(pedido.filial_id, usuario, db)
 
     anterior = pedido.status
     if anterior == dados.status:
@@ -89,6 +91,7 @@ async def reimprimir(
     ).scalar_one_or_none()
     if pedido is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido não encontrado")
+    await verificar_acesso_filial(pedido.filial_id, _, db)
 
     filial: Filial = pedido.filial
     if not filial.ip_impressora:
