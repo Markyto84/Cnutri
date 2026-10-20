@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { operacao, useOperacao } from '../hooks/useOperacao.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
+import AssinaturaRecebedor from '../components/AssinaturaRecebedor.jsx'
 
 export default function Entregas() {
   const { filialId } = useParams()
@@ -45,8 +46,8 @@ function PaginaEntregas({ filialId }) {
   function concluida(entrega) {
     setSelecionado(null)
     painel.aplicarPedido({ id: entrega.pedido_id, status: 'ENTREGUE' })
-    const horario = new Date(entrega.entregue_em).toLocaleString('pt-BR')
-    setAviso(`Pedido #${entrega.pedido_id} entregue por ${entrega.copeira_nome} em ${horario}.`)
+    const horario = new Date(entrega.entregue_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    setAviso(`Pedido #${entrega.pedido_id} entregue por ${entrega.copeira_nome} e recebido por ${entrega.recebedor_nome} em ${horario}. Assinatura registrada.`)
   }
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
@@ -79,6 +80,9 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
   const [copeiraId, setCopeiraId] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
+  const [etapa, setEtapa] = useState(1)
+  const [recebedor, setRecebedor] = useState('')
+  const [tracos, setTracos] = useState([])
   const disponivel = copeiras.some((c) => c.id === Number(copeiraId))
 
   useEffect(() => {
@@ -90,13 +94,19 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
   async function confirmar(evento) {
     evento.preventDefault()
     if (enviando || !disponivel || !pronto) return
+    if (etapa === 1) { setEtapa(2); setErro(''); return }
+    if (recebedor.trim().length < 3 || !tracos.length) return
     setEnviando(true)
     setErro('')
     try {
-      const { data } = await operacao.post(`/unidades/${filialId}/pedidos/${pedido.id}/entregar`, { copeira_id: Number(copeiraId) })
+      const { data } = await operacao.post(`/unidades/${filialId}/pedidos/${pedido.id}/entregar`, {
+        copeira_id: Number(copeiraId), recebedor_nome: recebedor.trim(), assinatura: { tracos },
+      })
       onConcluir(data)
     } catch (e) {
-      setErro(e.response?.data?.detail || 'Não foi possível confirmar a entrega. Atualize a lista antes de tentar novamente')
+      const detalhe = e.response?.data?.detail
+      setErro(Array.isArray(detalhe) ? detalhe.map((item) => item.msg.replace(/^Value error, /, '')).join('. ')
+        : detalhe || 'Não foi possível confirmar a entrega. Atualize a lista antes de tentar novamente')
       onRecarregar()
     } finally { setEnviando(false) }
   }
@@ -104,10 +114,10 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
   return <dialog ref={dialogo} aria-labelledby="titulo-entrega" onCancel={(e) => { e.preventDefault(); if (!enviando) onFechar() }}
     className="m-auto max-h-[90dvh] overflow-y-auto rounded-2xl bg-panel p-5 text-slate-900 shadow-2xl backdrop:bg-black/60" style={{ width: 'min(28rem, calc(100vw - 2rem))' }}>
     <form onSubmit={confirmar} className="space-y-4">
-      <div><h2 id="titulo-entrega" className="text-xl font-bold">Entregar refeição</h2><p className="mt-1 text-sm text-slate-700">Pedido #{pedido.id} · {pedido.nome_paciente || pedido.solicitante_nome}</p></div>
+      <div><p className="mb-1 text-xs font-semibold text-slate-700">Etapa {etapa} de 2</p><h2 id="titulo-entrega" className="text-xl font-bold">{etapa === 1 ? 'Entregar refeição' : 'Assinatura do recebedor'}</h2><p className="mt-1 text-sm text-slate-700">Pedido #{pedido.id} · {pedido.nome_paciente || pedido.solicitante_nome}</p></div>
       {!pronto && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-amber-900">Esta refeição já foi atualizada em outro painel e não está disponível para entrega.</p>}
       {(erro || erroPlantao) && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-900">{erro || erroPlantao}</p>}
-      <label className="block text-sm font-semibold">Copeira do plantão
+      {etapa === 1 ? <><label className="block text-sm font-semibold">Copeira do plantão
         <select required value={disponivel ? copeiraId : ''} onChange={(e) => setCopeiraId(e.target.value)} disabled={enviando || !copeiras.length || !pronto}
           className="mt-2 min-h-12 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 text-base font-normal">
           <option value="">{copeiras.length ? 'Selecionar copeira' : 'Nenhuma copeira online'}</option>
@@ -116,9 +126,19 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
       </label>
       <p className="text-sm text-slate-700">A lista mostra as copeiras com login ativo nesta unidade. O nome e o horário ficam registrados na entrega.</p>
       {!copeiras.length && <Link to={`/login?unidade=${filialId}`} className="block font-semibold text-blue-800 underline">Entrar no plantão com uma conta de copeira</Link>}
+      </> : <>
+        <p className="text-sm text-slate-700"><strong>Copeira:</strong> {copeiras.find((c) => c.id === Number(copeiraId))?.nome || 'Indisponível no plantão'}</p>
+        {!disponivel && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">A copeira saiu do plantão. Volte e selecione uma copeira online.</p>}
+        <label className="block text-sm font-semibold">Nome do recebedor
+          <input required minLength={3} maxLength={120} autoComplete="off" value={recebedor} onChange={(e) => setRecebedor(e.target.value)} disabled={enviando}
+            className="mt-2 min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" />
+        </label>
+        <AssinaturaRecebedor tracos={tracos} onChange={setTracos} disabled={enviando || !pronto} />
+        <p className="text-xs text-slate-700">Ao finalizar, a assinatura e a data e hora da entrega serão salvas no relatório.</p>
+      </>}
       <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
-        <button type="button" disabled={enviando} onClick={onFechar} className={`${BOTAO} bg-slate-50`}>Voltar</button>
-        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao)} className={`${BOTAO} bg-emerald-700 text-white`}>{enviando ? 'Registrando…' : 'Confirmar entrega'}</button>
+        <button type="button" disabled={enviando} onClick={() => etapa === 1 ? onFechar() : setEtapa(1)} className={`${BOTAO} bg-slate-50`}>Voltar</button>
+        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao) || (etapa === 2 && (!tracos.length || recebedor.trim().length < 3))} className={`${BOTAO} bg-emerald-700 text-white`}>{enviando ? 'Registrando…' : etapa === 1 ? 'Continuar para assinatura' : 'Finalizar entrega'}</button>
       </div>
     </form>
   </dialog>

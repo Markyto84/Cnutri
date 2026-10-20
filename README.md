@@ -208,10 +208,22 @@ fica disponível na unidade selecionada. A presença é renovada a cada 30 segun
 encerra a sessão imediatamente; fechar o navegador ou perder a conexão remove o nome após até
 três minutos sem renovação. Sessões simultâneas da mesma pessoa não duplicam seu nome.
 
-Ao tocar em **Entregar**, selecione uma copeira online e confirme. O servidor verifica novamente
-se ela está no plantão e se o pedido continua pronto, grava nome, usuário, data/hora e origem da
-entrega, e muda o pedido para **ENTREGUE**. Ele sai das listas de prontos e de entregas, mantendo
-o histórico e os indicadores de consumo. Confirmações repetidas ou concorrentes são bloqueadas.
+Ao tocar em **Entregar**, selecione uma copeira online e avance para a assinatura. Informe o
+**Nome do recebedor** e peça que ele assine no quadro branco com o dedo, a caneta ou o mouse.
+**Limpar assinatura** permite refazer o desenho; mudar a orientação da tela preserva os traços.
+O botão **Finalizar entrega** exige nome e assinatura preenchidos. O servidor verifica novamente
+se a copeira está no plantão e se o pedido continua pronto; salva a assinatura, o recebedor e a
+entrega na mesma transação, e muda o pedido para **ENTREGUE**. A data e hora são registradas pelo
+banco no momento da finalização, sem usar o relógio informado pelo dispositivo. Se houver falha
+ao salvar a assinatura, toda a entrega é revertida. O pedido sai das listas de prontos e de
+entregas, mantendo histórico e indicadores. Confirmações repetidas ou concorrentes são bloqueadas.
+
+Em **Gestão de Nutrição → Relatórios → Entregas e comprovantes de recebimento**, consulte o
+destinatário, refeição, copeira, recebedor, local/leito e **data e hora da entrega**. Os filtros
+por data e os horários usam Brasília (UTC-3); o relatório tem páginas de até 50 entregas.
+**Ver assinatura** abre a imagem do comprovante. A consulta e a imagem exigem perfil de Gestão
+ou Administração e acesso à unidade. As assinaturas não são publicadas no dashboard ou no
+WebSocket. Entregas antigas continuam visíveis, identificadas quando não possuem assinatura.
 
 As rotas `/api/operacao` e o WebSocket `/ws/operacao/{id}` fornecem os dados operacionais para
 essas telas. Prontuário, registro profissional, matrícula, sexo e data de nascimento não são
@@ -223,6 +235,12 @@ As tabelas `sessoes_copeiras` e `entregas_pedidos` e o perfil `COPEIRA` são cri
 preservando usuários, pedidos e configurações existentes. O backup local anterior a essa atualização
 fica em `backups/backup-dietas-2026-10-20-antes-entregas.dump`, fora do Git.
 
+A tabela `recebimentos_entregas`, criada automaticamente na inicialização, guarda o nome do
+recebedor e a imagem PNG da assinatura vinculada à entrega. O servidor recebe traços com limites
+de quantidade e coordenadas e gera o PNG com Pillow; rejeita assinaturas vazias ou inválidas.
+Os backups do banco incluem os comprovantes. Antes dessa adição foi validado o backup
+`backups/backup-dietas-2026-10-20-antes-assinaturas.dump`, também fora do Git.
+
 ### Testes da administração, entregas e impressão
 
 Os testes usam um banco SQLite temporário em memória, sem modificar o PostgreSQL em uso:
@@ -233,9 +251,11 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 31 testes: oito da administração, dez de operação/plantão/entrega e treze das filipetas.
+São 35 testes: oito da administração, catorze de operação/plantão/entrega e treze das filipetas.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
-concorrência, proteção do canal interno e preservação do consumo após a entrega.
+concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
+assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
+na virada do dia em Brasília, compatibilidade com entregas antigas e reversão em caso de falha.
 As verificações de filipeta incluem campos completos nos dois fluxos,
 textos extensos, acentos, campos novos/antigos e igualdade entre impressão automática e reimpressão.
 Os testes também reconstroem a imagem transmitida e conferem pixels, polaridade, limites dos blocos

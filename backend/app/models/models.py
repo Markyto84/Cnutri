@@ -1,7 +1,7 @@
 """Modelos SQLAlchemy — espelham o DDL da especificação técnica."""
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -138,3 +138,11 @@ class EntregaPedido(Base):
     copeira_nome: Mapped[str] = mapped_column(String(100), nullable=False)
     entregue_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     ip_origem: Mapped[str | None] = mapped_column(String(45))
+
+
+class RecebimentoEntrega(Base):
+    __tablename__ = "recebimentos_entregas"
+
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("entregas_pedidos.pedido_id", ondelete="RESTRICT"), primary_key=True)
+    recebedor_nome: Mapped[str] = mapped_column(String(120), nullable=False)
+    assinatura_png: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)

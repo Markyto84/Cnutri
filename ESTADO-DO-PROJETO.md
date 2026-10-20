@@ -13,7 +13,7 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 - **Painel da Cozinha** (`/cozinha/1`): dashboard sem login, Kanban em tempo real (WebSocket),
   alerta sonoro, destaque para dietas severas, reimpressão de filipetas; responsivo para celular
 - **Entregas das copeiras** (`/entregas/1`): refeições prontas, seleção de copeira online por login
-  e confirmação com registro de responsável e horário; responsivo para celular
+  e recebimento com nome/assinatura, responsável e horário; responsivo para celular
 - **Gestão de Nutrição** (`/gestao`): catálogo de dietas, motor de formulários dinâmicos, relatórios
 - **Admin TI** (`/admin`): filiais, IPs de impressoras, usuários/perfis (RBAC)
 
@@ -134,6 +134,20 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Backup antes das entregas: `backups/backup-dietas-2026-10-20-antes-entregas.dump`, validado
   com pg_restore, fora do Git. Novas tabelas e perfil criados no startup; nenhuma copeira real
   cadastrada automaticamente
+- ✅ Entrega em duas etapas: copeira online → nome e assinatura do recebedor, com desenho por
+  toque/caneta/mouse, limpeza e preservação ao redimensionar a tela. Finalização exige assinatura
+  válida; nome, PNG e entrega são salvos na mesma transação, com data/hora do banco (20/10/2026)
+- ✅ Relatórios da gestão incluem entregas e comprovantes: destinatário, refeição, copeira,
+  recebedor, local/leito, data e hora da finalização e botão Ver assinatura. Filtros de data em
+  Brasília e paginação de 50 itens. API e imagem exigem Gestão/Admin e unidade permitida;
+  nenhum comprovante é enviado ao dashboard ou ao WebSocket público
+- ✅ Nova tabela `recebimentos_entregas` criada no startup, sem alterar os registros antigos;
+  recebimentos anteriores continuam no relatório como sem assinatura. Backup validado antes da
+  atualização: `backups/backup-dietas-2026-10-20-antes-assinaturas.dump`, fora do Git
+- ✅ Quatro testes de assinatura/relatório adicionados, totalizando 35: validação, gravação e
+  horário do servidor, permissões, virada de data em Brasília, legado e rollback de falha.
+  Desenho, limpeza e consulta do comprovante verificados em telas de 320 e 390 pixels, com
+  dados fictícios em banco separado; frontend compilado e arquivos novos sem avisos de lint
 
 ## 5. Pendências / decisões em aberto
 
@@ -162,6 +176,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - **Entregas:** somente PRONTO pode virar ENTREGUE, com copeira online vinculada à unidade.
   Manter UPDATE condicionado ao status anterior e chave única por pedido; rotas internas também
   não podem sobrescrever ENTREGUE. Preservar `concluido_em` (fim do preparo) para o SLA
+- **Assinatura:** `EntregaCreate` exige nome do recebedor e traços normalizados; o servidor gera
+  o PNG e salva em `recebimentos_entregas` na mesma transação da entrega. Não aceitar timestamp
+  enviado pelo navegador. Consulta de comprovantes somente nos endpoints autenticados de relatório
 - **Plantão:** sessões COPEIRA usam JWT com `jti`, presença persistida por três minutos e renovação
   a cada 30 segundos. Logout fecha a sessão; atividade em uma unidade não publica presença em outra
 - **Acentos na impressão:** `compor_linhas_filipeta()` mantém o texto Unicode, e `impressao_raster.py`

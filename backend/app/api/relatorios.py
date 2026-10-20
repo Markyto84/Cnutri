@@ -1,18 +1,69 @@
 """Relatórios e indicadores gerenciais (Nutrição / Admin)."""
-from datetime import datetime, timezone
-from typing import Any
+from datetime import date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
-from ..models.models import Dieta, Pedido, Usuario
+from ..models.models import Dieta, EntregaPedido, Pedido, RecebimentoEntrega, Usuario
 from ..schemas.schemas import RelatorioConsumoItem, RelatorioDietasItem, RelatorioSLAOut
+from ..services.operacao import data_utc
 
 router = APIRouter(prefix="/api/relatorios", tags=["Relatórios"])
 PERFIS = ("NUTRICIONISTA", "ADMIN_TI")
+
+
+@router.get("/entregas")
+async def relatorio_entregas(
+    filial_id: int, data_inicio: date | None = None, data_fim: date | None = None,
+    pagina: int = Query(default=1, ge=1), db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(exigir_perfis(*PERFIS)),
+):
+    await verificar_acesso_filial(filial_id, usuario, db)
+    if data_inicio and data_fim and data_inicio > data_fim:
+        raise HTTPException(422, "A data inicial deve ser anterior ou igual à data final")
+    filtros = [Pedido.filial_id == filial_id]
+    # Datas do filtro em Brasília (UTC-3); o banco armazena os horários em UTC.
+    if data_inicio:
+        filtros.append(EntregaPedido.entregue_em >= datetime.combine(data_inicio, time.min) + timedelta(hours=3))
+    if data_fim:
+        filtros.append(EntregaPedido.entregue_em < datetime.combine(data_fim, time.min) + timedelta(days=1, hours=3))
+    total = await db.scalar(select(func.count()).select_from(EntregaPedido).join(Pedido).where(*filtros))
+    linhas = (await db.execute(
+        select(EntregaPedido, Pedido, RecebimentoEntrega.recebedor_nome)
+        .join(Pedido, Pedido.id == EntregaPedido.pedido_id)
+        .outerjoin(RecebimentoEntrega, RecebimentoEntrega.pedido_id == EntregaPedido.pedido_id)
+        .where(*filtros).order_by(EntregaPedido.entregue_em.desc(), EntregaPedido.pedido_id.desc())
+        .offset((pagina - 1) * 50).limit(50)
+    )).all()
+    itens = []
+    for entrega, pedido, recebedor in linhas:
+        dados = pedido.dados_dinamicos or {}
+        itens.append({"pedido_id": pedido.id, "tipo_solicitacao": pedido.tipo_solicitacao,
+            "destinatario": pedido.nome_paciente or pedido.solicitante_nome,
+            "leito": pedido.leito, "refeicao": dados.get("refeicao"),
+            "local_entrega": dados.get("local_entrega") or dados.get("andar"),
+            "copeira_nome": entrega.copeira_nome, "recebedor_nome": recebedor,
+            "entregue_em": data_utc(entrega.entregue_em), "assinatura_disponivel": recebedor is not None})
+    return {"itens": itens, "total": total, "pagina": pagina, "total_paginas": max(1, ((total or 0) + 49) // 50)}
+
+
+@router.get("/entregas/{pedido_id}/assinatura")
+async def assinatura_entrega(pedido_id: int, filial_id: int, db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(exigir_perfis(*PERFIS))):
+    await verificar_acesso_filial(filial_id, usuario, db)
+    imagem = await db.scalar(select(RecebimentoEntrega.assinatura_png)
+        .join(EntregaPedido, EntregaPedido.pedido_id == RecebimentoEntrega.pedido_id)
+        .join(Pedido, Pedido.id == EntregaPedido.pedido_id)
+        .where(Pedido.id == pedido_id, Pedido.filial_id == filial_id))
+    if imagem is None:
+        raise HTTPException(404, "Assinatura não encontrada para este pedido nesta unidade")
+    return Response(content=imagem, media_type="image/png", headers={
+        "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f'inline; filename="assinatura-pedido-{pedido_id}.png"',
+    })
 
 
 @router.get("/sla", response_model=RelatorioSLAOut)

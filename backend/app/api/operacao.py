@@ -7,10 +7,11 @@ from sqlalchemy.orm import selectinload
 from ..core.database import get_db
 from ..core.presenca import sessoes_online
 from ..core.ws import gerenciador_ws
-from ..models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, SessaoCopeira, Usuario
+from ..models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
 from ..schemas.schemas import EntregaCreate, PedidoOut, StatusUpdate
 from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
 from ..services.operacao import data_utc, pedido_operacional
+from ..services.assinatura import gerar_assinatura_png
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
@@ -124,6 +125,9 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
     entrega = EntregaPedido(pedido_id=pedido.id, copeira_id=copeira.id, copeira_nome=copeira.nome,
         ip_origem=request.client.host if request.client else None)
     db.add(entrega)
+    await db.flush()
+    db.add(RecebimentoEntrega(pedido_id=pedido.id, recebedor_nome=dados.recebedor_nome,
+        assinatura_png=gerar_assinatura_png(dados.assinatura)))
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior="PRONTO", status_novo="ENTREGUE",
         alterado_por_usuario_id=copeira.id))
     await db.commit()
@@ -131,4 +135,5 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
     await db.refresh(entrega)
     await notificar(pedido)
     return {"pedido_id": pedido.id, "status": "ENTREGUE", "copeira_id": entrega.copeira_id,
-        "copeira_nome": entrega.copeira_nome, "entregue_em": data_utc(entrega.entregue_em)}
+        "copeira_nome": entrega.copeira_nome, "entregue_em": data_utc(entrega.entregue_em),
+        "recebedor_nome": dados.recebedor_nome, "assinatura_registrada": True}

@@ -1,7 +1,8 @@
 """Schemas Pydantic de validação de entrada/saída."""
 from datetime import datetime
 from ipaddress import ip_address
-from typing import Any, Literal
+from math import hypot
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -110,8 +111,34 @@ class PresencaUpdate(BaseModel):
     filial_id: int = Field(gt=0)
 
 
+class PontoAssinatura(BaseModel):
+    x: float = Field(ge=0, le=1, allow_inf_nan=False)
+    y: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+
+class AssinaturaCreate(BaseModel):
+    tracos: list[Annotated[list[PontoAssinatura], Field(min_length=2, max_length=1500)]] = Field(min_length=1, max_length=40)
+
+    @field_validator("tracos")
+    @classmethod
+    def validar_desenho(cls, tracos):
+        if sum(len(traco) for traco in tracos) > 8000:
+            raise ValueError("Assinatura muito extensa. Limpe o campo e assine novamente")
+        comprimento = sum(hypot(b.x - a.x, b.y - a.y) for traco in tracos for a, b in zip(traco, traco[1:]))
+        if comprimento < 0.08:
+            raise ValueError("Desenhe a assinatura do recebedor no campo indicado")
+        return tracos
+
+
 class EntregaCreate(BaseModel):
     copeira_id: int = Field(gt=0)
+    recebedor_nome: str = Field(min_length=3, max_length=120)
+    assinatura: AssinaturaCreate
+
+    @field_validator("recebedor_nome", mode="before")
+    @classmethod
+    def limpar_nome(cls, valor: str) -> str:
+        return valor.strip() if isinstance(valor, str) else valor
 
 
 # ─── Dietas ──────────────────────────────────────────────────────────────────

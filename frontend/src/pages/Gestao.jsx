@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import RefeicoesMedicas from '../components/RefeicoesMedicas.jsx'
+import RelatorioEntregas from '../components/RelatorioEntregas.jsx'
 import { SemUnidades } from '../context/AuthContext.jsx'
 import { useAuth } from '../context/auth.js'
 
@@ -418,6 +419,7 @@ function AbaRelatorios({ filialId }) {
           ))}
         </ul>
       </div>
+      <RelatorioEntregas filialId={filialId} />
     </div>
   )
 }

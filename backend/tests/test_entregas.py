@@ -1,9 +1,11 @@
 """Fluxo público, presença por login e entrega única; banco isolado em memória."""
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+from io import BytesIO
 import unittest
 from unittest.mock import patch
 
 import httpx
+from PIL import Image
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -12,7 +14,7 @@ from app.core.presenca import agora_utc
 from app.core.security import hash_senha
 from app.core.ws import gerenciador_ws
 from app.main import app, ws_cozinha, ws_operacao
-from app.models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, Perfil, SessaoCopeira, Usuario
+from app.models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, Perfil, RecebimentoEntrega, SessaoCopeira, Usuario
 
 SENHA = "Teste@123"
 HASH = hash_senha(SENHA)
@@ -47,12 +49,14 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             a, b = Filial(nome="Unidade A", codigo_slug="unidade-a"), Filial(nome="Unidade B", codigo_slug="unidade-b")
             perfil = Perfil(nome="COPEIRA")
             admin = Perfil(nome="ADMIN_TI")
-            db.add_all([a, b, perfil, admin])
+            gestor = Perfil(nome="NUTRICIONISTA")
+            db.add_all([a, b, perfil, admin, gestor])
             await db.flush()
             self.a, self.b = a.id, b.id
             ana = Usuario(nome="Ana Teste", email="ana@teste.local", senha_hash=HASH, perfil=perfil, filiais=[a, b])
             bia = Usuario(nome="Bia Teste", email="bia@teste.local", senha_hash=HASH, perfil=perfil, filiais=[a])
             db.add_all([ana, bia, Usuario(nome="Admin Teste", email="admin@teste.local", senha_hash=HASH, perfil=admin, filiais=[])])
+            db.add(Usuario(nome="Gestor B", email="gestor@teste.local", senha_hash=HASH, perfil=gestor, filiais=[b]))
             await db.flush()
             self.ana, self.bia = ana.id, bia.id
             self.pedidos = {}
@@ -82,6 +86,10 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         resposta = await self.client.post("/api/auth/login", data={"username": email, "password": SENHA})
         self.assertEqual(resposta.status_code, 200, resposta.text)
         return {"Authorization": "Bearer " + resposta.json()["access_token"]}
+
+    def comprovante(self):
+        return {"copeira_id": self.ana, "recebedor_nome": "Recebedor Fictício",
+            "assinatura": {"tracos": [[{"x": 0.1, "y": 0.7}, {"x": 0.3, "y": 0.2}, {"x": 0.5, "y": 0.6}]]}}
 
     async def test_dashboard_abre_sem_login_e_publica_apenas_dados_operacionais(self):
         unidades = await self.client.get("/api/operacao/unidades")
@@ -133,12 +141,12 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         await self.entrar()
         pedido_id = self.pedidos["PRONTO"]
         rota = self.base + f"/pedidos/{pedido_id}/entregar"
-        resposta = await self.client.post(rota, json={"copeira_id": self.ana})
+        resposta = await self.client.post(rota, json=self.comprovante())
         self.assertEqual(resposta.status_code, 201, resposta.text)
         self.assertEqual(resposta.json()["copeira_nome"], "Ana Teste")
         self.assertTrue(resposta.json()["entregue_em"].endswith("+00:00"))
         self.assertNotIn(pedido_id, [p["id"] for p in (await self.client.get(self.base + "/pedidos")).json()])
-        self.assertEqual((await self.client.post(rota, json={"copeira_id": self.ana})).status_code, 409)
+        self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
         self.assertEqual((await self.client.patch(self.base + f"/pedidos/{pedido_id}/status", json={"status": "PRONTO"})).status_code, 409)
         admin = await self.entrar("admin@teste.local")
         self.assertEqual((await self.client.patch(f"/api/pedidos/{pedido_id}/status", headers=admin, json={"status": "PRONTO"})).status_code, 409)
@@ -175,21 +183,105 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         rota = f"/api/relatorios/consumo-medico?filial_id={self.a}"
         antes = (await self.client.get(rota, headers=admin)).json()
         await self.entrar()
-        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", json={"copeira_id": self.ana})
+        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", json=self.comprovante())
         self.assertEqual(resposta.status_code, 201, resposta.text)
         self.assertEqual((await self.client.get(rota, headers=admin)).json(), antes)
         self.assertEqual(sum(item["total"] for item in antes), 1)
 
     async def test_nao_entrega_sem_copeira_online_ou_sem_refeicao_pronta(self):
         rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
-        self.assertEqual((await self.client.post(rota, json={"copeira_id": self.ana})).status_code, 409)
+        self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
         token = await self.entrar()
         for etapa in ("PENDENTE", "EM_PREPARO", "CANCELADO"):
-            resultado = await self.client.post(self.base + f"/pedidos/{self.pedidos[etapa]}/entregar", json={"copeira_id": self.ana})
+            resultado = await self.client.post(self.base + f"/pedidos/{self.pedidos[etapa]}/entregar", json=self.comprovante())
             self.assertEqual(resultado.status_code, 409)
         self.assertEqual((await self.client.post(rota, json={})).status_code, 422)
         await self.client.post("/api/auth/logout", headers=token)
-        self.assertEqual((await self.client.post(rota, json={"copeira_id": self.ana})).status_code, 409)
+        self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
+
+    async def test_sem_assinatura_valida_nao_conclui_nem_grava_entrega(self):
+        await self.entrar()
+        rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
+        invalidos = [
+            {"copeira_id": self.ana},
+            {**self.comprovante(), "recebedor_nome": "   "},
+            {**self.comprovante(), "assinatura": {"tracos": []}},
+            {**self.comprovante(), "assinatura": {"tracos": [[{"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 0.5}]]}},
+            {**self.comprovante(), "assinatura": {"tracos": [[{"x": -1, "y": 0}, {"x": 1, "y": 1}]]}},
+            {**self.comprovante(), "assinatura": {"tracos": [[{"x": 0.2, "y": 0.3}] * 1501]}},
+        ]
+        for dados in invalidos:
+            resposta = await self.client.post(rota, json=dados)
+            self.assertEqual(resposta.status_code, 422, resposta.text)
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, self.pedidos['PRONTO'])).status, "PRONTO")
+            for modelo in (EntregaPedido, RecebimentoEntrega, HistoricoPedido):
+                self.assertEqual(await db.scalar(select(func.count()).select_from(modelo)), 0)
+
+    async def test_assinatura_e_horario_servidor_aparecem_so_no_relatorio_autorizado(self):
+        copeira = await self.entrar()
+        pedido_id = self.pedidos["PRONTO"]
+        antes = datetime.now(timezone.utc) - timedelta(seconds=1)
+        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar",
+            json={**self.comprovante(), "entregue_em": "2000-01-01T00:00:00Z"})
+        self.assertEqual(resposta.status_code, 201, resposta.text)
+        entregue = datetime.fromisoformat(resposta.json()["entregue_em"])
+        self.assertGreaterEqual(entregue, antes)
+        self.assertLessEqual(entregue, datetime.now(timezone.utc))
+        self.assertTrue(resposta.json()["assinatura_registrada"])
+        relatorio = f"/api/relatorios/entregas?filial_id={self.a}"
+        imagem = f"/api/relatorios/entregas/{pedido_id}/assinatura?filial_id={self.a}"
+        for rota in (relatorio, imagem):
+            self.assertEqual((await self.client.get(rota)).status_code, 401)
+            self.assertEqual((await self.client.get(rota, headers=copeira)).status_code, 403)
+        gestor_b = await self.entrar("gestor@teste.local")
+        for rota in (relatorio, imagem):
+            self.assertEqual((await self.client.get(rota, headers=gestor_b)).status_code, 403)
+        admin = await self.entrar("admin@teste.local")
+        resultado = (await self.client.get(relatorio, headers=admin)).json()
+        self.assertEqual(resultado["total"], 1)
+        item = resultado["itens"][0]
+        self.assertEqual(item["recebedor_nome"], "Recebedor Fictício")
+        self.assertEqual(item["copeira_nome"], "Ana Teste")
+        self.assertEqual(item["entregue_em"], resposta.json()["entregue_em"])
+        self.assertTrue(item["assinatura_disponivel"])
+        arquivo = await self.client.get(imagem, headers=admin)
+        self.assertEqual(arquivo.headers["content-type"], "image/png")
+        self.assertIn("no-store", arquivo.headers["cache-control"])
+        png = Image.open(BytesIO(arquivo.content))
+        self.assertEqual(png.size, (1000, 500))
+        self.assertEqual(png.getextrema(), (20, 255))
+        self.assertEqual((await self.client.get(imagem.replace(f"filial_id={self.a}", f"filial_id={self.b}"), headers=admin)).status_code, 404)
+        async with self.sessoes() as db:
+            recibo = await db.get(RecebimentoEntrega, pedido_id)
+            self.assertEqual(recibo.assinatura_png, arquivo.content)
+
+    async def test_falha_ao_salvar_assinatura_reverte_entrega_inteira(self):
+        await self.entrar()
+        pedido_id = self.pedidos["PRONTO"]
+        with patch("app.api.operacao.gerar_assinatura_png", side_effect=RuntimeError("Falha simulada")):
+            with self.assertRaisesRegex(RuntimeError, "Falha simulada"):
+                await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", json=self.comprovante())
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, pedido_id)).status, "PRONTO")
+            for modelo in (EntregaPedido, RecebimentoEntrega, HistoricoPedido):
+                self.assertEqual(await db.scalar(select(func.count()).select_from(modelo)), 0)
+
+    async def test_relatorio_filtra_data_brasilia_e_preserva_entrega_antiga_sem_assinatura(self):
+        async with self.sessoes() as db:
+            for etapa, horario in (("PRONTO", datetime(2026, 10, 21, 2, 59, 59)), ("PENDENTE", datetime(2026, 10, 21, 3))):
+                pedido_id = self.pedidos[etapa]
+                (await db.get(Pedido, pedido_id)).status = "ENTREGUE"
+                db.add(EntregaPedido(pedido_id=pedido_id, copeira_id=self.ana, copeira_nome="Ana Teste", entregue_em=horario))
+            await db.commit()
+        admin = await self.entrar("admin@teste.local")
+        rota = f"/api/relatorios/entregas?filial_id={self.a}"
+        for dia in ("2026-10-20", "2026-10-21"):
+            resposta = await self.client.get(rota + f"&data_inicio={dia}&data_fim={dia}", headers=admin)
+            self.assertEqual(resposta.status_code, 200, resposta.text)
+            self.assertEqual(resposta.json()["total"], 1)
+            self.assertFalse(resposta.json()["itens"][0]["assinatura_disponivel"])
+        self.assertEqual((await self.client.get(rota + "&data_inicio=2026-10-21&data_fim=2026-10-20", headers=admin)).status_code, 422)
 
     async def test_etapas_e_unidades_sao_respeitadas_sem_login(self):
         pedido_id = self.pedidos["PENDENTE"]
