@@ -101,6 +101,18 @@ O servidor precisa **alcançar a impressora pela rede** (TCP porta 9100). Para t
 nc -zv IP-DA-IMPRESSORA 9100
 ```
 
+A filipeta inclui os dados do solicitante e todos os campos dos formulários Médico e Enfermagem,
+com os rótulos e a ordem configurados para cada unidade. Campos adicionados pelo gestor passam a sair
+na impressão; valores antigos continuam visíveis mesmo se o campo for removido da configuração.
+Campos configurados sem resposta mostram **Não informado**. Datas são apresentadas como `DD/MM/AAAA`,
+dietas pelo nome e textos longos quebram em linhas de até 42 colunas, sem truncar refeições,
+nomes ou observações. Acentos em português usam a tabela
+[ESC/POS PC850](https://download4.epson.biz/sec_pubs/bs/pdf/h5000o_e.pdf).
+
+O envio automático e o botão de reimpressão da Cozinha usam o mesmo gerador. A reimpressão consulta
+os rótulos atuais da unidade e conserva todos os dados salvos no pedido. O alerta de restrição severa
+e o corte de papel são mantidos. O informativo de horários do formulário não é repetido na filipeta.
+
 ## Segurança (checklist antes de ir a produção)
 
 - [ ] Trocar as senhas dos 3 utilizadores do seed
@@ -163,7 +175,7 @@ Gestores e operadores de cozinha acessam apenas suas unidades vinculadas e ativa
 são verificadas na API e nas conexões de atualização da cozinha. O administrador pode retornar ao
 painel pelo link **Administração** nas telas de Gestão e Cozinha.
 
-### Testes da administração
+### Testes da administração e impressão
 
 Os testes usam um banco SQLite temporário em memória, sem modificar o PostgreSQL em uso:
 
@@ -172,6 +184,10 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+São 18 testes: oito da administração e dez das filipetas, incluindo campos completos nos dois fluxos,
+textos extensos, acentos, campos novos/antigos e igualdade entre impressão automática e reimpressão.
+As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub
 

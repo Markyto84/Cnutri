@@ -9,6 +9,7 @@ from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.ws import gerenciador_ws
 from ..models.models import Filial, HistoricoPedido, Pedido, Usuario
 from ..schemas.schemas import PedidoOut, StatusUpdate
+from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
 
 router = APIRouter(prefix="/api/pedidos", tags=["Cozinha / Kanban"])
 PERFIS_OPERACAO = ("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
@@ -97,22 +98,7 @@ async def reimprimir(
     if not filial.ip_impressora:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Impressora não configurada para esta unidade")
 
-    from ..services.impressora import imprimir_filipeta, montar_filipeta
-
-    buffer = montar_filipeta(
-        pedido_id=pedido.id,
-        filial_nome=filial.nome,
-        tipo_solicitacao=pedido.tipo_solicitacao,
-        paciente_ou_solicitante=pedido.nome_paciente or pedido.solicitante_nome or "-",
-        leito=pedido.leito,
-        dieta_nome=pedido.dieta.nome if pedido.dieta else None,
-        observacoes=pedido.observacoes_alergias,
-        severa=bool(pedido.dieta.severa) if pedido.dieta else False,
-        andar=(pedido.dados_dinamicos or {}).get("andar"),
-        refeicao=(pedido.dados_dinamicos or {}).get("refeicao"),
-        para=(pedido.dados_dinamicos or {}).get("para"),
-        espessado=(pedido.dados_dinamicos or {}).get("liquido_espessado"),
-    )
+    buffer = await montar_filipeta_configurada(db, pedido, filial, pedido.dieta)
     ok = imprimir_filipeta(filial.ip_impressora, buffer)
     if ok:
         db.add(

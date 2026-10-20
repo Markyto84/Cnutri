@@ -95,11 +95,18 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Acesso de Gestão, Cozinha, relatórios e WebSocket limitado às unidades permitidas; ADMIN_TI tem
   acesso global. Sessão e saída sincronizadas entre abas do navegador
 - ✅ Oito testes de integração administrativa em SQLite isolado, sem alterar o banco do hospital
+- ✅ Filipeta da cozinha com todos os campos dos formulários Médico e Enfermagem, nome e registro
+  do solicitante, rótulos/ordem de cada unidade e inclusão automática de novos campos. Dados antigos
+  continuam visíveis mesmo após remoção do campo no gestor (20/10/2026)
+- ✅ Textos da filipeta quebram em linhas de 42 colunas, sem truncar nomes, refeições, cardápios ou
+  observações; datas em DD/MM/AAAA, acentos PC850 e campos configurados vazios como “Não informado”
+- ✅ Impressão automática e reimpressão usam o mesmo gerador; dez testes de impressão adicionados,
+  totalizando 18 testes isolados. Validação em papel depende da impressora real (20/10/2026)
 
 ## 5. Pendências / decisões em aberto
 
 1. **Dietas severas:** nenhuma marcada com destaque vermelho ainda
-2. **Impressora térmica real:** configurar o IP no painel Admin → Filiais
+2. **Impressora térmica real:** IP já cadastrado na unidade Havaí; validar a nova filipeta em papel
 3. **Senhas do seed** precisam ser trocadas antes de produção
    (admin@hospital.local / nutricao@hospital.local / cozinha@hospital.local — senha `Trocar@123`)
 4. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
@@ -114,6 +121,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   `observacoes_alergias`, `solicitante_nome` (lista no `Kiosk.jsx`, constante `fixos`)
 - **Editor de listas:** textareas trabalham com texto CRU durante a digitação (Enter preservado);
   conversão para lista só no `montarPayload()` ao publicar — não reintroduzir o filtro por tecla
+- **Filipetas:** `montar_filipeta_configurada()` carrega o esquema da unidade e do fluxo (PACIENTE →
+  ENFERMAGEM). Usar esse caminho no envio e na reimpressão; não manter listas de campos separadas
+  nas rotas. Campos extras salvos também são impressos; o informativo estático de horários fica no kiosk
 - **Proteção de edição:** o PUT de formulários exige `versao` (timestamp `atualizado_em` carregado);
   divergência → 409. Ao salvar no editor, recarrega a versão nova
 - **SQLAlchemy async:** relacionamentos usados em contexto async precisam de `selectinload`

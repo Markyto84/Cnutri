@@ -11,7 +11,7 @@ from ..core.database import get_db
 from ..core.ws import gerenciador_ws
 from ..models.models import Dieta, Filial, FormularioConfig, Pedido
 from ..schemas.schemas import PedidoCreate, PedidoOut
-from ..services.impressora import imprimir_filipeta, montar_filipeta
+from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
 
 router = APIRouter(prefix="/api/public", tags=["Kiosk Público"])
 
@@ -51,6 +51,7 @@ async def obter_config_kiosk(slug: str, db: AsyncSession = Depends(get_db)):
 async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, db: AsyncSession = Depends(get_db)):
     filial = await obter_filial(slug, db)
 
+    dieta = None
     if dados.dieta_id is not None:
         dieta = await db.get(Dieta, dados.dieta_id)
         if dieta is None or dieta.filial_id != filial.id:
@@ -77,23 +78,8 @@ async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, db: Asy
     await db.refresh(pedido)
 
     # Impressão silenciosa da filipeta (não bloqueia o fluxo em caso de falha)
-    dieta_nome = dieta.nome if dados.dieta_id is not None else None
-    severa = bool(dieta.severa) if dados.dieta_id is not None else False
     if filial.ip_impressora:
-        buffer = montar_filipeta(
-            pedido_id=pedido.id,
-            filial_nome=filial.nome,
-            tipo_solicitacao=pedido.tipo_solicitacao,
-            paciente_ou_solicitante=pedido.nome_paciente or pedido.solicitante_nome or "-",
-            leito=pedido.leito,
-            dieta_nome=dieta_nome,
-            observacoes=pedido.observacoes_alergias,
-            severa=severa,
-            andar=pedido.dados_dinamicos.get("andar"),
-            refeicao=pedido.dados_dinamicos.get("refeicao"),
-            para=pedido.dados_dinamicos.get("para"),
-            espessado=pedido.dados_dinamicos.get("liquido_espessado"),
-        )
+        buffer = await montar_filipeta_configurada(db, pedido, filial, dieta)
         imprimir_filipeta(filial.ip_impressora, buffer)
 
     await gerenciador_ws.transmitir(
