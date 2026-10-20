@@ -97,25 +97,33 @@ class FilipetaTest(unittest.TestCase):
         self.assertLess(texto.index("Equipe:"), texto.index("Horário de entrega:"))
         self.assertLess(texto.index("Sobremesa:"), texto.index("Local de entrega:"))
 
-    def test_enfermagem_inclui_prontuario_matricula_nascimento_cardapio_e_restricoes(self):
+    def test_enfermagem_inclui_dados_operacionais_sem_sexo_e_prontuario(self):
         pedido = pedido_paciente()
         texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade de Teste", ESQUEMAS["ENFERMAGEM"], "PASTOSA"))
         for campo in ESQUEMAS["ENFERMAGEM"]["campos"]:
-            self.assertIn(campo["rotulo"] + ":", texto)
+            if campo["id"] not in ("sexo", "prontuario"):
+                self.assertIn(campo["rotulo"] + ":", texto)
         for chave, valor in pedido.dados_dinamicos.items():
+            if chave == "sexo":
+                continue
             esperado = "23/04/1958" if chave == "data_nascimento" else valor
             self.assertIn("".join(esperado.split()), "".join(texto.split()))
-        for valor in (pedido.nome_paciente, pedido.leito, pedido.prontuario, pedido.solicitante_nome, pedido.solicitante_identificacao):
+        for valor in (pedido.nome_paciente, pedido.leito, pedido.solicitante_nome, pedido.solicitante_identificacao):
             self.assertIn(valor, texto)
+        for omitido in ("Sexo:", "Prontuário:", pedido.prontuario, "FEMININO"):
+            self.assertNotIn(omitido, texto)
         self.assertIn("Tipo de Dieta: PASTOSA", texto)
         self.assertIn(" ".join(pedido.observacoes_alergias.split()), texto)
 
     def test_rotulos_e_ordem_do_gestor_campos_novos_e_antigos_sem_duplicar(self):
         pedido = pedido_medico()
-        pedido.dados_dinamicos.update({"ramal": "4321", "campo_antigo": "Valor preservado"})
+        pedido.prontuario = "PR-NAO-IMPRIMIR"
+        pedido.dados_dinamicos.update({"ramal": "4321", "campo_antigo": "Valor preservado", "sexo": "SEXO-NAO-IMPRIMIR"})
         esquema = {"campos": [
             {"id": "ramal", "rotulo": "Ramal para contato", "tipo": "texto"},
             {"id": "equipe", "rotulo": "Equipe solicitante", "tipo": "radio"},
+            {"id": "sexo", "rotulo": "Sexo renomeado", "tipo": "texto"},
+            {"id": "prontuario", "rotulo": "Documento renomeado", "tipo": "texto"},
         ]}
         texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade", esquema))
         self.assertIn("Ramal para contato: 4321", texto)
@@ -124,12 +132,15 @@ class FilipetaTest(unittest.TestCase):
         self.assertIn("Campo antigo: Valor preservado", texto)
         self.assertIn("Suco: COM SUCO", texto)
         self.assertEqual(texto.count("4321"), 1)
+        for omitido in ("Sexo renomeado", "Documento renomeado", "PR-NAO-IMPRIMIR", "SEXO-NAO-IMPRIMIR"):
+            self.assertNotIn(omitido, texto)
 
     def test_sem_configuracao_ou_json_legado_nao_perde_campos_fixos(self):
         pedido = pedido_paciente()
         pedido.dados_dinamicos = None
         texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade", dieta_nome="GERAL"))
-        self.assertIn("Prontuário: PR-0000456", texto)
+        self.assertNotIn("Prontuário:", texto)
+        self.assertNotIn("PR-0000456", texto)
         self.assertIn("Nome do Paciente: Paciente Fictício da Validação", texto)
         self.assertIn("Tipo de Dieta: GERAL", texto)
         self.assertNotIn("Horário de entrega:", texto)
@@ -255,11 +266,24 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
         ):
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json=payload)
             self.assertEqual(resposta.status_code, 201, resposta.text)
+            self.assertEqual(resposta.json()["prontuario"], payload["prontuario"])
+            self.assertEqual(resposta.json()["dados_dinamicos"], payload["dados_dinamicos"])
             imprimir.assert_called_once()
             ip, original = imprimir.call_args.args
             self.assertEqual(ip, "192.0.2.10")
             desenhar.assert_called_once()
             conteudo = texto_corrido(desenhar.call_args.args[0])
+            linhas = desenhar.call_args.args[0]
+            for omitido in ("Sexo:", "Prontuário:", pedido.prontuario, pedido.dados_dinamicos.get("sexo")):
+                if omitido:
+                    self.assertNotIn(omitido, conteudo)
+            self.assertIn("ENTREGA À RECEPÇÃO", conteudo)
+            assinatura = next(i for i, linha in enumerate(linhas) if linha.texto == "Assinatura:")
+            data_hora = next(i for i, linha in enumerate(linhas) if linha.texto == "Data e hora:")
+            self.assertGreater(assinatura, next(i for i, linha in enumerate(linhas) if linha.texto.startswith("Tipo:")))
+            self.assertTrue(all(not linha.texto for linha in linhas[assinatura + 1:assinatura + 4]))
+            self.assertLess(assinatura, data_hora)
+            self.assertIn("____/____/________  ____:____", texto_impresso(linhas))
             imagem, _ = decodificar_raster(original)
             self.assertEqual(imagem.width, LARGURA_PONTOS)
         with patch("app.api.pedidos.imprimir_filipeta", return_value=True) as reimprimir:
@@ -282,7 +306,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
         pedido = pedido_paciente()
         pedido.dieta_id = self.dieta_id
         texto = await self.conferir_envio_e_reimpressao(pedido)
-        for trecho in ("Tipo de Dieta: PASTOSA", "RESTRIÇÃO SEVERA", "Prontuário: PR-0000456", "Matrícula: MAT-000789", "Data de Nascimento: 23/04/1958", "Líquido espessado: NÉCTAR"):
+        for trecho in ("Tipo de Dieta: PASTOSA", "RESTRIÇÃO SEVERA", "Matrícula: MAT-000789", "Data de Nascimento: 23/04/1958", "Líquido espessado: NÉCTAR"):
             self.assertIn(trecho, texto)
 
     async def test_sem_impressora_salva_pedido_e_informa_erro_na_reimpressao(self):

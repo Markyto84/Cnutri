@@ -95,7 +95,7 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Acesso de Gestão, Cozinha, relatórios e WebSocket limitado às unidades permitidas; ADMIN_TI tem
   acesso global. Sessão e saída sincronizadas entre abas do navegador
 - ✅ Oito testes de integração administrativa em SQLite isolado, sem alterar o banco do hospital
-- ✅ Filipeta da cozinha com todos os campos dos formulários Médico e Enfermagem, nome e registro
+- ✅ Filipeta da cozinha com os campos dos formulários Médico e Enfermagem (exceto Sexo e Prontuário), nome e registro
   do solicitante, rótulos/ordem de cada unidade e inclusão automática de novos campos. Dados antigos
   continuam visíveis mesmo após remoção do campo no gestor (20/10/2026)
 - ✅ Textos da filipeta quebram conforme a largura útil do papel, sem truncar nomes, refeições, cardápios ou
@@ -112,6 +112,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Fonte da filipeta ajustada para 10 pontos (28 pixels a 203 dpi), com cabeçalhos e alertas em
   negrito. Largura de 31 caracteres e espaçamento calculados pela fonte, mantendo textos completos
   na impressão e na reimpressão (20/10/2026)
+- ✅ Sexo e Prontuário omitidos somente da filipeta, preservados nos formulários e nos pedidos.
+  Rodapé “Entrega à recepção” com espaço para assinatura e data/hora em branco para preenchimento
+  manual, presente nos dois fluxos e na reimpressão (20/10/2026)
 
 ## 5. Pendências / decisões em aberto
 
@@ -133,6 +136,8 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - **Filipetas:** `montar_filipeta_configurada()` carrega o esquema da unidade e do fluxo (PACIENTE →
   ENFERMAGEM). Usar esse caminho no envio e na reimpressão; não manter listas de campos separadas
   nas rotas. Campos extras salvos também são impressos; o informativo estático de horários fica no kiosk
+- **Recebimento:** os IDs `sexo` e `prontuario` são ocultados somente no gerador da filipeta. O rodapé
+  tem Assinatura e Data e hora para preenchimento manual; preservar os dados originais nos pedidos
 - **Acentos na impressão:** `compor_linhas_filipeta()` mantém o texto Unicode, e `impressao_raster.py`
   desenha as letras com as fontes versionadas em `app/assets/fonts/`. Não voltar ao envio de caracteres
   CP850/CP437 à POS80: a tabela interna do equipamento substitui os acentos por outros glifos

@@ -20,6 +20,8 @@ from .impressao_raster import LinhaImpressao, colunas_por_linha, rasterizar_fili
 logger = logging.getLogger(__name__)
 
 LARGURA_LINHA = colunas_por_linha()  # calculada para a fonte e a área útil do papel
+# Permanecem no formulário e no pedido; são omitidos somente no papel.
+CAMPOS_OCULTOS_FILIPETA = frozenset({"sexo", "prontuario"})
 
 ROTULOS_PADRAO = {
     "solicitante_nome": "Solicitante",
@@ -101,6 +103,8 @@ def _campos_filipeta(
         "solicitante_nome", "solicitante_identificacao", *campos, *ROTULOS_PADRAO, *valores,
     ])
     for chave in ordem:
+        if chave in CAMPOS_OCULTOS_FILIPETA:
+            continue
         valor = valores.get(chave)
         if (
             chave not in campos
@@ -121,7 +125,7 @@ def compor_linhas_filipeta(
     dieta_nome: str | None = None,
     severa: bool = False,
 ) -> list[LinhaImpressao]:
-    """Conteúdo único para a impressão, com todos os campos e sem truncamento."""
+    """Dados operacionais e comprovante de recebimento, sem truncar os textos."""
     linhas = []
 
     def adicionar(texto: str, centralizada: bool = False, destaque: bool = False):
@@ -138,6 +142,16 @@ def compor_linhas_filipeta(
     adicionar(f"Tipo: {'MÉDICO' if pedido.tipo_solicitacao == 'MEDICO' else 'PACIENTE'}")
     for rotulo, valor in _campos_filipeta(pedido, dieta_nome, esquema_json):
         adicionar(f"{rotulo}: {valor}")
+    adicionar("=" * LARGURA_LINHA, centralizada=True)
+    adicionar("ENTREGA À RECEPÇÃO", centralizada=True, destaque=True)
+    adicionar("Assinatura:")
+    adicionar("\n\n")  # espaço para assinar à mão antes da linha
+    adicionar("_" * LARGURA_LINHA)
+    adicionar("")
+    adicionar("Data e hora:")
+    adicionar("")
+    adicionar("____/____/________  ____:____")
+    adicionar("")
     adicionar("=" * LARGURA_LINHA, centralizada=True)
     return linhas
 

@@ -101,8 +101,9 @@ O servidor precisa **alcançar a impressora pela rede** (TCP porta 9100). Para t
 nc -zv IP-DA-IMPRESSORA 9100
 ```
 
-A filipeta inclui os dados do solicitante e todos os campos dos formulários Médico e Enfermagem,
-com os rótulos e a ordem configurados para cada unidade. Campos adicionados pelo gestor passam a sair
+A filipeta inclui os dados do solicitante e os campos dos formulários Médico e Enfermagem,
+com os rótulos e a ordem configurados para cada unidade. **Sexo** e **Prontuário** são omitidos somente
+na impressão; os valores continuam nos formulários e no pedido. Campos adicionados pelo gestor passam a sair
 na impressão; valores antigos continuam visíveis mesmo se o campo for removido da configuração.
 Campos configurados sem resposta mostram **Não informado**. Datas são apresentadas como `DD/MM/AAAA`,
 dietas pelo nome e textos longos quebram conforme a largura do papel, sem truncar refeições,
@@ -111,6 +112,10 @@ nomes ou observações.
 A fonte da filipeta usa **10 pontos** (28 pixels a 203 dpi), inclusive nos rótulos e nas observações.
 Cabeçalhos e alertas mantêm o negrito. A largura útil comporta 31 caracteres por linha nesse tamanho;
 o espaçamento entre linhas e a quebra dos textos são calculados pelas métricas da fonte.
+
+Ao final dos dois tipos de filipeta, o bloco **Entrega à recepção** oferece espaço e linha para
+**Assinatura**, além de **Data e hora** em branco para preenchimento manual no recebimento.
+Esses campos não recebem a data/hora da solicitação automaticamente e também aparecem na reimpressão.
 
 O texto é desenhado no servidor com **Pillow e DejaVu Sans Mono**, incluindo `ã, õ, ç, á`, e enviado
 como imagem monocromática ESC/POS em blocos de até 128 linhas de pixels. Assim, os acentos não dependem
