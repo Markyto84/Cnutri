@@ -109,8 +109,8 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   glifos de acentos e preservação de símbolos e de filipetas extensas
 - ✅ Duas filipetas de teste enviadas à POS80 em 20/10/2026; usuário confirmou em papel que
   “ã õ ç á | ação, maçã, coração” saíram corretamente após a correção
-- ✅ Fonte da filipeta aumentada para 16 pontos (45 pixels a 203 dpi), com cabeçalhos e alertas em
-  negrito. Largura de 19 caracteres e espaçamento calculados pela fonte, mantendo textos completos
+- ✅ Fonte da filipeta ajustada para 14 pontos (39 pixels a 203 dpi), com cabeçalhos e alertas em
+  negrito. Largura de 22 caracteres e espaçamento calculados pela fonte, mantendo textos completos
   na impressão e na reimpressão (20/10/2026)
 
 ## 5. Pendências / decisões em aberto
