@@ -105,8 +105,12 @@ A filipeta inclui os dados do solicitante e todos os campos dos formulários Mé
 com os rótulos e a ordem configurados para cada unidade. Campos adicionados pelo gestor passam a sair
 na impressão; valores antigos continuam visíveis mesmo se o campo for removido da configuração.
 Campos configurados sem resposta mostram **Não informado**. Datas são apresentadas como `DD/MM/AAAA`,
-dietas pelo nome e textos longos quebram em linhas de até 42 colunas, sem truncar refeições,
+dietas pelo nome e textos longos quebram conforme a largura do papel, sem truncar refeições,
 nomes ou observações.
+
+A fonte da filipeta usa **16 pontos** (45 pixels a 203 dpi), inclusive nos rótulos e nas observações.
+Cabeçalhos e alertas mantêm o negrito. A largura útil comporta 19 caracteres por linha nesse tamanho;
+o espaçamento entre linhas e a quebra dos textos são calculados pelas métricas da fonte.
 
 O texto é desenhado no servidor com **Pillow e DejaVu Sans Mono**, incluindo `ã, õ, ç, á`, e enviado
 como imagem monocromática ESC/POS em blocos de até 128 linhas de pixels. Assim, os acentos não dependem

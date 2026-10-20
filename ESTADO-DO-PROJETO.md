@@ -98,7 +98,7 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Filipeta da cozinha com todos os campos dos formulários Médico e Enfermagem, nome e registro
   do solicitante, rótulos/ordem de cada unidade e inclusão automática de novos campos. Dados antigos
   continuam visíveis mesmo após remoção do campo no gestor (20/10/2026)
-- ✅ Textos da filipeta quebram em linhas de 42 colunas, sem truncar nomes, refeições, cardápios ou
+- ✅ Textos da filipeta quebram conforme a largura útil do papel, sem truncar nomes, refeições, cardápios ou
   observações; datas em DD/MM/AAAA e campos configurados vazios como “Não informado”
 - ✅ Impressão automática e reimpressão usam o mesmo gerador; dez testes de impressão adicionados,
   totalizando 18 testes isolados. Validação em papel depende da impressora real (20/10/2026)
@@ -109,6 +109,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   glifos de acentos e preservação de símbolos e de filipetas extensas
 - ✅ Duas filipetas de teste enviadas à POS80 em 20/10/2026; usuário confirmou em papel que
   “ã õ ç á | ação, maçã, coração” saíram corretamente após a correção
+- ✅ Fonte da filipeta aumentada para 16 pontos (45 pixels a 203 dpi), com cabeçalhos e alertas em
+  negrito. Largura de 19 caracteres e espaçamento calculados pela fonte, mantendo textos completos
+  na impressão e na reimpressão (20/10/2026)
 
 ## 5. Pendências / decisões em aberto
 

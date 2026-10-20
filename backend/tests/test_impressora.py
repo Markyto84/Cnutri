@@ -103,7 +103,8 @@ class FilipetaTest(unittest.TestCase):
         for campo in ESQUEMAS["ENFERMAGEM"]["campos"]:
             self.assertIn(campo["rotulo"] + ":", texto)
         for chave, valor in pedido.dados_dinamicos.items():
-            self.assertIn("23/04/1958" if chave == "data_nascimento" else valor, texto)
+            esperado = "23/04/1958" if chave == "data_nascimento" else valor
+            self.assertIn("".join(esperado.split()), "".join(texto.split()))
         for valor in (pedido.nome_paciente, pedido.leito, pedido.prontuario, pedido.solicitante_nome, pedido.solicitante_identificacao):
             self.assertIn(valor, texto)
         self.assertIn("Tipo de Dieta: PASTOSA", texto)
@@ -158,7 +159,7 @@ class FilipetaTest(unittest.TestCase):
         pedido.observacoes_alergias = "Primeira\x1b\x1d\x00\x0c\r\nÚltima"
         buffer = compor_linhas_filipeta(pedido, "Unidade", ESQUEMAS["MEDICO"], severa=True)
         texto = texto_impresso(buffer)
-        self.assertIn("Conceição Áéíóú Çãõ º", texto)
+        self.assertIn("Conceição Áéíóú Çãõ º", texto_corrido(buffer))
         self.assertIn("RESTRIÇÃO SEVERA", texto)
         self.assertIn("Primeira\n", texto)
         self.assertNotIn("\x1b", texto)

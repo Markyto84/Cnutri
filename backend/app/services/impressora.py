@@ -15,11 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.models import Dieta, Filial, FormularioConfig, Pedido
-from .impressao_raster import LinhaImpressao, rasterizar_filipeta
+from .impressao_raster import LinhaImpressao, colunas_por_linha, rasterizar_filipeta
 
 logger = logging.getLogger(__name__)
 
-LARGURA_LINHA = 42  # 80mm térmica padrão (~42 colunas)
+LARGURA_LINHA = colunas_por_linha()  # calculada para a fonte e a área útil do papel
 
 ROTULOS_PADRAO = {
     "solicitante_nome": "Solicitante",
@@ -125,9 +125,7 @@ def compor_linhas_filipeta(
     linhas = []
 
     def adicionar(texto: str, centralizada: bool = False, destaque: bool = False):
-        largura = LARGURA_LINHA // 2 if destaque else LARGURA_LINHA
-        if not centralizada:
-            largura -= 2
+        largura = colunas_por_linha(destaque)
         linhas.extend(LinhaImpressao(linha, centralizada, destaque) for linha in _linhas(texto, largura))
 
     adicionar(f"PEDIDO #{pedido.id}", centralizada=True, destaque=True)

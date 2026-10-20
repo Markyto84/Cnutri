@@ -4,10 +4,15 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from struct import pack
+import textwrap
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 LARGURA_PONTOS = 576  # área de impressão de 72 mm em papel de 80 mm, 203 dpi
+RESOLUCAO_DPI = 203
+TAMANHO_FONTE_PT = 16
+TAMANHO_FONTE_PIXELS = round(TAMANHO_FONTE_PT * RESOLUCAO_DPI / 72)
+MARGEM_HORIZONTAL = 24
 ALTURA_BLOCO = 128  # blocos pequenos para o buffer das impressoras térmicas
 PASTA_FONTES = Path(__file__).resolve().parents[1] / "assets/fonts"
 
@@ -22,20 +27,35 @@ class LinhaImpressao:
 @lru_cache(maxsize=2)
 def _fonte(destaque: bool) -> ImageFont.FreeTypeFont:
     nome = "DejaVuSansMono-Bold.ttf" if destaque else "DejaVuSansMono.ttf"
-    return ImageFont.truetype(str(PASTA_FONTES / nome), 40 if destaque else 20)
+    return ImageFont.truetype(str(PASTA_FONTES / nome), TAMANHO_FONTE_PIXELS)
+
+
+def colunas_por_linha(destaque: bool = False) -> int:
+    return int((LARGURA_PONTOS - 2 * MARGEM_HORIZONTAL) // _fonte(destaque).getlength("M"))
+
+
+def _altura_linha(destaque: bool) -> int:
+    ascendente, descendente = _fonte(destaque).getmetrics()
+    return ascendente + descendente + 8
 
 
 def renderizar_filipeta(linhas: Sequence[LinhaImpressao]) -> Image.Image:
-    altura = 16 + sum(52 if linha.destaque else 28 for linha in linhas)
+    diagramadas = [
+        LinhaImpressao(texto, linha.centralizada, linha.destaque)
+        for linha in linhas
+        for paragrafo in linha.texto.split("\n")
+        for texto in (textwrap.wrap(paragrafo, colunas_por_linha(linha.destaque), break_on_hyphens=False) or [""])
+    ]
+    altura = 16 + sum(_altura_linha(linha.destaque) for linha in diagramadas)
     imagem = Image.new("L", (LARGURA_PONTOS, altura), 255)
     desenho = ImageDraw.Draw(imagem)
     y = 8
-    for linha in linhas:
+    for linha in diagramadas:
         fonte = _fonte(linha.destaque)
         largura = desenho.textlength(linha.texto, font=fonte)
-        x = (LARGURA_PONTOS - largura) / 2 if linha.centralizada else 24
+        x = (LARGURA_PONTOS - largura) / 2 if linha.centralizada else MARGEM_HORIZONTAL
         desenho.text((x, y), linha.texto, font=fonte, fill=0, anchor="la")
-        y += 52 if linha.destaque else 28
+        y += _altura_linha(linha.destaque)
     return imagem
 
 
