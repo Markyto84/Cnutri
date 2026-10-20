@@ -1,20 +1,26 @@
 @import "tailwindcss";
 
-/* Cores do tema corporativo e escala neutra de campos e textos. */
+/* Identidade visual: Blue e Vibrant Blue, com superfícies claras e texto legível. */
 @theme {
-  --color-app-background: #808080;
-  --color-panel: #c8c8c8;
-  --color-slate-50: #fafafa;
-  --color-slate-100: #eeeeee;
-  --color-slate-200: #e5e5e5;
-  --color-slate-300: #d4d4d4;
-  --color-slate-400: #a3a3a3;
-  --color-slate-500: #737373;
-  --color-slate-600: #575757;
-  --color-slate-700: #424242;
-  --color-slate-800: #303030;
-  --color-slate-900: #232323;
-  --color-slate-950: #181818;
+  --color-brand: #0070ad;
+  --color-brand-hover: #005a8b;
+  --color-brand-vibrant: #17abda;
+  --color-brand-vibrant-hover: #4cc1e4;
+  --color-brand-soft: #e8f6fc;
+  --color-brand-ink: #06344b;
+  --color-app-background: #edf5fa;
+  --color-panel: #ffffff;
+  --color-slate-50: #f5fafe;
+  --color-slate-100: #e9f4fa;
+  --color-slate-200: #d6e7f0;
+  --color-slate-300: #b6cdda;
+  --color-slate-400: #8ca9ba;
+  --color-slate-500: #5d7b8e;
+  --color-slate-600: #466477;
+  --color-slate-700: #345265;
+  --color-slate-800: #234254;
+  --color-slate-900: #163547;
+  --color-slate-950: #0b2433;
 }
 
 @layer base {
@@ -25,5 +31,33 @@
   body {
     background-color: var(--color-app-background);
     color: var(--color-slate-900);
+  }
+
+  :where(h1, h2, h3) {
+    color: var(--color-brand-ink);
+  }
+
+  :where(input[type='checkbox'], input[type='radio']) {
+    accent-color: var(--color-brand);
+  }
+
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-vibrant);
+    color: var(--color-brand-ink);
+  }
+}
+
+@layer components {
+  .brand-header {
+    border-top: 4px solid var(--color-brand-vibrant);
+    border-radius: 1rem;
+    background-color: var(--color-panel);
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgb(0 112 173 / 0.06);
   }
 }

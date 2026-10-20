@@ -90,8 +90,8 @@ export default function Kiosk({ slugPadrao }) {
 
   return (
     <div className="min-h-screen bg-app-background text-slate-900 p-8">
-      <header className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">{config.filial.nome}</h1>
+      <header className="brand-header text-center mb-8">
+        <h1 className="text-3xl font-bold text-brand">{config.filial.nome}</h1>
         <p className="text-slate-950 mt-1">Sistema de Gestão de Dietas</p>
       </header>
 
@@ -99,13 +99,13 @@ export default function Kiosk({ slugPadrao }) {
         <div className="mx-auto grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
           <button
             onClick={() => { setFluxo('MEDICO'); setTela('form') }}
-            className="rounded-2xl bg-blue-600 p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-blue-500 text-white"
+            className="rounded-2xl bg-brand p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-brand-hover text-white"
           >
             👨‍⚕️ Sou Médico
           </button>
           <button
             onClick={() => { setFluxo('ENFERMAGEM'); setTela('form') }}
-            className="rounded-2xl bg-emerald-600 p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-emerald-500 text-white"
+            className="rounded-2xl bg-brand-vibrant p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-brand-vibrant-hover text-brand-ink"
           >
             🏥 Enfermagem / Paciente
           </button>
@@ -119,7 +119,7 @@ export default function Kiosk({ slugPadrao }) {
               Registro profissional (CRM, COREN ou Matrícula)<span className="text-red-700"> *</span>
             </label>
             <input
-              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               value={registro}
               onChange={(e) => setRegistro(e.target.value)}
               placeholder="Ex.: COREN-12345"
@@ -130,7 +130,7 @@ export default function Kiosk({ slugPadrao }) {
               Solicitante (seu nome)<span className="text-red-700"> *</span>
             </label>
             <input
-              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               value={solicitanteNome}
               onChange={(e) => setSolicitanteNome(e.target.value)}
               placeholder="Ex.: Enf. João Souza"

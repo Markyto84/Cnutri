@@ -112,7 +112,7 @@ export default function RefeicoesMedicas({ filialId }) {
                 value={textos[id] || ''}
                 onChange={(e) => { setTextos((atuais) => ({ ...atuais, [id]: e.target.value })); setSucesso(null) }}
                 disabled={salvando}
-                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-600 disabled:opacity-50"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-brand disabled:opacity-50"
               />
             </div>
           ))}
@@ -122,7 +122,7 @@ export default function RefeicoesMedicas({ filialId }) {
         <button
           type="submit"
           disabled={carregando || salvando || !config || conflito}
-          className="rounded-lg bg-blue-600 px-5 py-2 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+          className="rounded-lg bg-brand px-5 py-2 font-bold text-white hover:bg-brand-hover disabled:opacity-50"
         >
           {salvando ? 'Salvando…' : 'Salvar opções'}
         </button>

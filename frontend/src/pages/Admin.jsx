@@ -4,8 +4,8 @@ import { api } from '../services/api.js'
 import { useAuth } from '../context/auth.js'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
 
-const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-blue-600'
-const PRIMARIO = 'rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50'
+const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand'
+const PRIMARIO = 'rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50'
 const SECUNDARIO = 'rounded-lg bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200 disabled:opacity-50'
 const PERFIS = { ADMIN_TI: 'Administrador', NUTRICIONISTA: 'Gestor de nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
 
@@ -50,8 +50,8 @@ export default function Admin() {
   }
 
   return <div className="min-h-screen space-y-6 bg-app-background p-6 text-slate-900">
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="text-2xl font-bold">⚙️ Painel de administração</h1>
+    <header className="brand-header flex flex-wrap items-center justify-between gap-4">
+      <div><h1 className="text-2xl font-bold text-brand">⚙️ Painel de administração</h1>
         <p className="mt-1 text-sm text-slate-950">Unidades, credenciais e impressoras · {usuario.nome}</p></div>
       <div className="flex flex-wrap gap-2"><Link to="/gestao" className={SECUNDARIO}>Gestão de nutrição</Link>
         <button onClick={sair} className={SECUNDARIO}>Sair</button></div>

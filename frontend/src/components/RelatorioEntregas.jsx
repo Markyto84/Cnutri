@@ -47,7 +47,7 @@ export default function RelatorioEntregas({ filialId }) {
     <form onSubmit={filtrar} className="my-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
       <label className="min-w-0 text-sm font-semibold">Data inicial<input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" /></label>
       <label className="min-w-0 text-sm font-semibold">Data final<input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" /></label>
-      <button className={`${BOTAO} bg-blue-700 text-white`}>Consultar entregas</button>
+      <button className={`${BOTAO} bg-brand text-white`}>Consultar entregas</button>
     </form>
     {erro && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-900">{erro}</p>}
     {carregando && <p role="status" className="py-4 text-sm">Carregando entregas…</p>}
@@ -68,7 +68,7 @@ function Comprovante({ item, filialId }) {
   const [aberto, setAberto] = useState(false)
   return <article className="min-w-0 space-y-3 break-words rounded-xl bg-slate-50 p-4">
     <div><p className="text-xs text-slate-700">Pedido #{item.pedido_id} · {item.tipo_solicitacao === 'MEDICO' ? 'Profissional' : 'Paciente'}</p><h4 className="mt-1 font-bold">{item.destinatario || 'Destinatário não informado'}</h4></div>
-    <p className="text-sm font-semibold text-blue-900">{item.refeicao || 'Refeição não informada'}</p>
+    <p className="text-sm font-semibold text-brand-ink">{item.refeicao || 'Refeição não informada'}</p>
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
       <div><dt className="text-slate-700">Copeira</dt><dd className="font-semibold">{item.copeira_nome}</dd></div>
       <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome || 'Não registrado na entrega antiga'}</dd></div>
@@ -76,7 +76,7 @@ function Comprovante({ item, filialId }) {
       <div><dt className="text-slate-700">Local / leito</dt><dd>{[item.local_entrega, item.leito && `Leito ${item.leito}`].filter(Boolean).join(' · ') || 'Não informado'}</dd></div>
     </dl>
     {item.assinatura_disponivel ? <>
-      <button onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} className={`${BOTAO} bg-white text-blue-900`}>{aberto ? 'Ocultar assinatura' : 'Ver assinatura'}</button>
+      <button onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} className={`${BOTAO} bg-white text-brand-ink`}>{aberto ? 'Ocultar assinatura' : 'Ver assinatura'}</button>
       {aberto && <ImagemAssinatura filialId={filialId} pedidoId={item.pedido_id} recebedor={item.recebedor_nome} />}
     </> : <p className="text-xs text-slate-700">Entrega anterior à coleta de assinatura digital.</p>}
   </article>

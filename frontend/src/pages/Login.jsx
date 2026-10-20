@@ -33,8 +33,8 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-app-background p-4">
-      <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl bg-panel p-8 shadow-xl">
-        <h1 className="text-center text-2xl font-bold text-slate-900">🏥 Dietas Hospitalares</h1>
+      <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl border-t-4 border-brand-vibrant bg-panel p-8 shadow-xl">
+        <h1 className="text-center text-2xl font-bold text-brand">🏥 Dietas Hospitalares</h1>
         <p className="text-center text-sm text-slate-700">Gestão e entrada das copeiras no plantão</p>
 
         {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
@@ -49,7 +49,7 @@ export default function Login() {
           autoCorrect="off"
           spellCheck={false}
           maxLength={50}
-          className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
           value={nomeUsuario}
           onChange={(e) => setNomeUsuario(e.target.value)}
           required
@@ -60,7 +60,7 @@ export default function Login() {
           name="password"
           autoComplete="current-password"
           placeholder="Senha"
-          className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
           required
@@ -68,7 +68,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={carregando}
-          className="w-full rounded-lg bg-blue-600 py-3 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+          className="w-full rounded-lg bg-brand py-3 font-bold text-white hover:bg-brand-hover disabled:opacity-50"
         >
           {carregando ? 'A entrar…' : 'Entrar'}
         </button>

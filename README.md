@@ -171,9 +171,14 @@ Para encerrar ou reinstalar dependências:
 O Compose de desenvolvimento mantém o nome `projeto-dietas-hospitalares`, associado ao volume
 `projeto-dietas-hospitalares_pgdata`. Assim, mudar a pasta de trabalho preserva o banco existente.
 
-O tema corporativo usa fundo `#808080`, painéis `#c8c8c8`, campos suaves e textos escuros. As cores
-são centralizadas em `frontend/src/index.css`: `app-background`, `panel` e a escala neutra `slate`.
-Botões de ação, estados de produção e alertas usam suas cores funcionais.
+O tema corporativo usa **Blue `#0070AD`** nas ações principais e **Vibrant Blue `#17ABDA`** nos
+destaques, bordas dos cabeçalhos e ações de entrega/exportação. O fundo é azul suave `#EDF5FA`,
+com painéis brancos e campos em tons claros. O texto é branco sobre o azul principal e azul profundo
+`#06344B` sobre o azul vibrante, com contraste de 5,36:1 e 4,92:1, respectivamente.
+As cores ficam centralizadas em `frontend/src/index.css`: `brand`, `brand-vibrant`, `brand-ink`,
+variantes de foco/hover, `app-background`, `panel` e escala `slate` com tons azulados. Formulários,
+login, gestão, administração, relatórios, cozinha e entregas compartilham essa paleta. Alertas de
+restrição/erro, avisos e indicadores de produção continuam identificados por suas cores funcionais.
 
 No painel **Gestão de Nutrição → Refeições médicas**, edite as listas de **Refeição**, **Suco**,
 **Sobremesa** e **Local de entrega**, com uma opção por linha em cada campo, e clique em **Salvar opções**.

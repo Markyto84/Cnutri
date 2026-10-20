@@ -19,8 +19,8 @@ export default function Gestao() {
 
   return (
     <div className="min-h-screen bg-app-background p-6 text-slate-900">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">🥗 Gestão de Nutrição</h1>
+      <header className="brand-header mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-brand">🥗 Gestão de Nutrição</h1>
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={filialId}
@@ -46,7 +46,7 @@ export default function Gestao() {
           <button
             key={id}
             onClick={() => setAba(id)}
-            className={`rounded-lg px-4 py-2 font-medium ${aba === id ? 'bg-blue-600 text-white' : 'bg-white hover:bg-slate-50'}`}
+            className={`rounded-lg px-4 py-2 font-medium ${aba === id ? 'bg-brand text-white' : 'bg-white hover:bg-slate-50'}`}
           >
             {rotulo}
           </button>
@@ -121,7 +121,7 @@ function AbaDietas({ filialId }) {
                   Restrição severa (destaque vermelho no Kanban e na filipeta)
                 </label>
                 <div className="flex gap-2">
-                  <button onClick={() => salvarEdicao(d.id)} className="rounded bg-blue-600 px-4 py-1.5 text-sm font-bold hover:bg-blue-500 text-white">💾 Salvar</button>
+                  <button onClick={() => salvarEdicao(d.id)} className="rounded bg-brand px-4 py-1.5 text-sm font-bold hover:bg-brand-hover text-white">💾 Salvar</button>
                   <button onClick={() => setEditandoId(null)} className="rounded bg-slate-50 px-4 py-1.5 text-sm hover:bg-slate-200">Cancelar</button>
                 </div>
               </div>
@@ -154,7 +154,7 @@ function AbaDietas({ filialId }) {
           <input type="checkbox" checked={severa} onChange={(e) => setSevera(e.target.checked)} />
           Restrição severa (destaque vermelho)
         </label>
-        <button className="w-full rounded bg-blue-600 py-2 font-bold hover:bg-blue-500 text-white">Adicionar</button>
+        <button className="w-full rounded bg-brand py-2 font-bold hover:bg-brand-hover text-white">Adicionar</button>
       </form>
     </div>
   )
@@ -253,7 +253,7 @@ function AbaFormularios({ filialId }) {
     <div>
       <div className="mb-4 flex gap-2">
         {['ENFERMAGEM', 'MEDICO'].map((t) => (
-          <button key={t} onClick={() => setTipo(t)} className={`rounded px-4 py-2 text-sm ${tipo === t ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-slate-50'}`}>
+          <button key={t} onClick={() => setTipo(t)} className={`rounded px-4 py-2 text-sm ${tipo === t ? 'bg-brand text-white' : 'bg-white hover:bg-slate-50'}`}>
             {t === 'ENFERMAGEM' ? 'Enfermagem / Paciente' : 'Médico'}
           </button>
         ))}
@@ -364,7 +364,7 @@ function AbaFormularios({ filialId }) {
           <div className="flex gap-2 pt-2">
             <button onClick={adicionarCampo} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">+ Adicionar campo</button>
             <button onClick={resetar} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">↺ Restaurar padrão</button>
-            <button onClick={salvar} className="rounded bg-blue-600 px-6 py-2 font-bold hover:bg-blue-500 text-white">💾 Publicar</button>
+            <button onClick={salvar} className="rounded bg-brand px-6 py-2 font-bold hover:bg-brand-hover text-white">💾 Publicar</button>
           </div>
         </div>
       )}
@@ -387,7 +387,7 @@ function AbaRelatorios({ filialId }) {
     <div className="grid gap-6 md:grid-cols-3">
       <RelatorioDietas filialId={filialId} />
       <div className="rounded-xl bg-panel p-5">
-        <h3 className="mb-3 font-bold text-blue-700">⏱️ SLA da Cozinha</h3>
+        <h3 className="mb-3 font-bold text-brand">⏱️ SLA da Cozinha</h3>
         {sla && (
           <>
             <p className="text-4xl font-bold text-slate-900">{sla.sla_medio_minutos ?? '—'}<span className="text-lg text-slate-700"> min</span></p>
@@ -410,7 +410,7 @@ function AbaRelatorios({ filialId }) {
       </div>
 
       <div className="rounded-xl bg-panel p-5">
-        <h3 className="mb-3 font-bold text-emerald-700">🥣 Volume por Dieta</h3>
+        <h3 className="mb-3 font-bold text-brand">🥣 Volume por Dieta</h3>
         {dietas.length === 0 && <p className="text-sm text-slate-700">Sem registos ainda.</p>}
         <ul className="space-y-1 text-sm">
           {dietas.map((d, i) => (

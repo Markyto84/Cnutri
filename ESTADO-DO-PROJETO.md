@@ -83,8 +83,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   as opções originais diante da tradução automática do navegador (19/10/2026)
 - ✅ Projeto unificado na pasta acima, com o histórico Git, dependências e banco preservados;
   os caminhos anteriores apontam para a mesma cópia (19/10/2026)
-- ✅ Tema corporativo com fundo `#808080`, painéis `#c8c8c8`, campos suaves e textos escuros;
-  alertas e botões mantêm cores funcionais. Paleta em `frontend/src/index.css` (19/10/2026)
+- ✅ Tema corporativo Blue `#0070AD` e Vibrant Blue `#17ABDA`, fundo suave `#EDF5FA`, painéis
+  brancos e campos/textos em tons azulados. Paleta em `frontend/src/index.css`, substituindo
+  o tema cinza anterior (20/10/2026)
 - ✅ Pacote de produção para Linux: backend/Dockerfile, frontend/Dockerfile + nginx.conf,
   docker-compose.prod.yml, README com guia completo
 - ✅ Backup do banco testado: `backups/backup-dietas-2026-10-16.sql` (não versionado)
@@ -181,6 +182,14 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Backup validado antes do login por usuário: `backups/backup-dietas-2026-10-20-173506-antes-login-usuario.dump`,
   fora do Git. Quatro testes adicionais (46 aprovados), incluindo migração em schema PostgreSQL
   isolado com rollback; frontend compilado e Login/Admin sem avisos de lint
+- ✅ Nova paleta aplicada a login, formulários Médico/Enfermagem, gestão, administração, relatórios,
+  dashboard da cozinha e entregas. Cabeçalhos com borda Vibrant Blue, ações principais Blue e
+  destaques/entregas/exportação Vibrant Blue com texto escuro; alertas e indicadores funcionais
+  mantêm identificação própria. Contraste de texto de 5,36:1 no Blue e 4,92:1 no Vibrant Blue
+- ✅ Cores exatas conferidas no navegador, seleção de equipe e telas administrativas/operacionais
+  revisadas com dados fictícios. Cozinha e entregas verificadas em 390 pixels, sem rolagem horizontal.
+  Compilação do frontend aprovada; lint com três avisos preexistentes. Atualização visual servida
+  pelo Vite sem reiniciar os serviços ou alterar dados do banco (20/10/2026)
 
 ## 5. Pendências / decisões em aberto
 
@@ -239,8 +248,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   API podem aparecer trocados se o navegador traduzir a página; validar também o acesso pelo IP
 - **Estrutura única:** editar a pasta canônica indicada na seção 2. Os caminhos anteriores são
   junções para ela; as versões arquivadas ficam fora do projeto. O nome do Compose mantém o volume do banco
-- **Tema:** manter a escala neutra no `@theme` de `frontend/src/index.css`; usar as classes existentes
-  para que kiosk, login, cozinha, gestão e administração compartilhem a mesma paleta
+- **Tema:** usar os tokens `brand` (#0070AD), `brand-vibrant` (#17ABDA), `brand-ink` e a escala azulada
+  no `@theme` de `frontend/src/index.css`. Texto branco no Blue e escuro no Vibrant Blue. Cabeçalhos
+  compartilham `brand-header`; conservar as cores funcionais de erros, restrições e estados de produção
 - **Slug da filial:** `unidade-havai` (URL dos quiosques); mudar slug quebra links antigos
 
 ## 7. Dados do banco (fonte da verdade)

@@ -5,7 +5,7 @@ import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.j
 
 const COLUNAS = [
   { status: 'PENDENTE', titulo: 'Pendentes', cor: 'border-t-amber-500' },
-  { status: 'EM_PREPARO', titulo: 'Em preparo', cor: 'border-t-blue-500' },
+  { status: 'EM_PREPARO', titulo: 'Em preparo', cor: 'border-t-brand' },
   { status: 'PRONTO', titulo: 'Prontos', cor: 'border-t-emerald-600' },
 ]
 
@@ -41,12 +41,12 @@ function Dashboard({ filialId }) {
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
     <CabecalhoOperacao modo="cozinha" painel={painel} filialId={filialId} />
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
-    {aviso && <p role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-blue-900">{aviso}</p>}
+    {aviso && <p role="status" className="mb-4 rounded-lg bg-brand-soft p-3 text-brand-ink">{aviso}</p>}
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
     {!painel.carregando && !painel.indisponivel && <>
       <nav aria-label="Etapas da cozinha" className="mb-4 grid grid-cols-3 gap-2 md:hidden">
         {COLUNAS.map((col) => <button key={col.status} onClick={() => setFiltro(col.status)} aria-pressed={filtro === col.status}
-          className={`min-h-14 rounded-xl px-2 py-3 text-sm font-semibold ${filtro === col.status ? 'bg-blue-700 text-white' : 'bg-panel'}`}>
+          className={`min-h-14 rounded-xl px-2 py-3 text-sm font-semibold ${filtro === col.status ? 'bg-brand text-white' : 'bg-panel'}`}>
           {col.titulo}<span className="ml-1">({painel.pedidos.filter((p) => p.status === col.status).length})</span>
         </button>)}
       </nav>
@@ -60,8 +60,8 @@ function Dashboard({ filialId }) {
               <ResumoPedido pedido={pedido} />
               <div className="mt-4 flex flex-wrap gap-2">
                 {col.status !== 'PRONTO' && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, col.status === 'PENDENTE' ? 'EM_PREPARO' : 'PRONTO')}
-                  className={`${BOTAO} flex-1 bg-blue-700 text-white hover:bg-blue-600`}>{col.status === 'PENDENTE' ? 'Iniciar preparo' : 'Marcar pronto'}</button>}
-                {col.status === 'PRONTO' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} flex-1 bg-emerald-700 text-center text-white`}>Abrir entregas</Link>}
+                  className={`${BOTAO} flex-1 bg-brand text-white hover:bg-brand-hover`}>{col.status === 'PENDENTE' ? 'Iniciar preparo' : 'Marcar pronto'}</button>}
+                {col.status === 'PRONTO' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} flex-1 bg-brand-vibrant text-center text-brand-ink hover:bg-brand-vibrant-hover`}>Abrir entregas</Link>}
                 <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido)} className={`${BOTAO} bg-slate-100`} aria-label={`Reimprimir pedido ${pedido.id}`}>Reimprimir</button>
                 <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, 'CANCELADO')} className={`${BOTAO} bg-red-50 text-red-800`} aria-label={`Cancelar pedido ${pedido.id}`}>Cancelar</button>
               </div>

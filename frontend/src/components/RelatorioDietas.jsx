@@ -85,12 +85,12 @@ export default function RelatorioDietas({ filialId, filiais }) {
       <label className="min-w-0 text-sm font-semibold">Período baseado em<select className={CAMPO} value={filtros.data_base} onChange={(e) => alterar('data_base', e.target.value)}><option value="solicitacao">Data da solicitação</option><option value="entrega">Data da entrega</option></select></label>
       <label className="min-w-0 text-sm font-semibold">Formulário<select className={CAMPO} value={filtros.tipo_solicitacao} onChange={(e) => alterar('tipo_solicitacao', e.target.value)}><option value="">Todos</option><option value="PACIENTE">Enfermagem</option><option value="MEDICO">Médico</option></select></label>
       <label className="min-w-0 text-sm font-semibold">Situação<select className={CAMPO} value={filtros.status} onChange={(e) => alterar('status', e.target.value)}><option value="">Todas</option>{Object.entries(SITUACOES).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>
-      <button className={`${BOTAO} bg-blue-700 text-white`}>Consultar dietas</button>
+      <button className={`${BOTAO} bg-brand text-white`}>Consultar dietas</button>
     </form>
     {alterados && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Filtros alterados. Clique em Consultar dietas para atualizar o resultado e a exportação.</p>}
     <div className="grid items-end gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_auto]">
       <label className="min-w-0 text-sm font-semibold">Abrir relatório em<select className={CAMPO} disabled={exportando} value={formato} onChange={(e) => setFormato(e.target.value)}>{Object.entries(FORMATOS).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>
-      <button onClick={exportar} disabled={exportando || carregando || alterados || !resultado} className={`${BOTAO} bg-emerald-700 text-white`}>{exportando ? 'Preparando arquivo…' : 'Exportar relatório'}</button>
+      <button onClick={exportar} disabled={exportando || carregando || alterados || !resultado} className={`${BOTAO} bg-brand-vibrant text-brand-ink hover:bg-brand-vibrant-hover`}>{exportando ? 'Preparando arquivo…' : 'Exportar relatório'}</button>
       <p className="text-xs text-slate-700 sm:col-span-2">A exportação inclui todos os resultados do filtro, mesmo de outras páginas. Para Google Sheets, baixe o CSV e importe o arquivo.</p>
     </div>
     {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">{erro}</p>}

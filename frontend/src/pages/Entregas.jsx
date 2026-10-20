@@ -62,10 +62,10 @@ function PaginaEntregas({ filialId }) {
     {!painel.carregando && !painel.indisponivel && <section aria-label="Refeições prontas para entrega">
       <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">Selecione a refeição e indique a copeira que fará a entrega.</p></div>
       {!prontos.length && <div className="rounded-2xl bg-panel p-8 text-center"><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="mt-2 text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{prontos.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-emerald-600 bg-panel p-4 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{prontos.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4 shadow-sm">
         <ResumoPedido pedido={pedido} />
         {pedido.concluido_em && <p className="mt-3 text-xs text-slate-700">Pronto às {new Date(pedido.concluido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
-        <div className="mt-auto pt-4"><button onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-emerald-700 text-base text-white hover:bg-emerald-600`}>Entregar</button></div>
+        <div className="mt-auto pt-4"><button onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-brand-vibrant text-base text-brand-ink hover:bg-brand-vibrant-hover`}>Entregar</button></div>
       </article>)}</div>
     </section>}
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
@@ -125,7 +125,7 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
         </select>
       </label>
       <p className="text-sm text-slate-700">A lista mostra as copeiras com login ativo nesta unidade. O nome e o horário ficam registrados na entrega.</p>
-      {!copeiras.length && <Link to={`/login?unidade=${filialId}`} className="block font-semibold text-blue-800 underline">Entrar no plantão com uma conta de copeira</Link>}
+      {!copeiras.length && <Link to={`/login?unidade=${filialId}`} className="block font-semibold text-brand underline">Entrar no plantão com uma conta de copeira</Link>}
       </> : <>
         <p className="text-sm text-slate-700"><strong>Copeira:</strong> {copeiras.find((c) => c.id === Number(copeiraId))?.nome || 'Indisponível no plantão'}</p>
         {!disponivel && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">A copeira saiu do plantão. Volte e selecione uma copeira online.</p>}
@@ -138,7 +138,7 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
       </>}
       <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
         <button type="button" disabled={enviando} onClick={() => etapa === 1 ? onFechar() : setEtapa(1)} className={`${BOTAO} bg-slate-50`}>Voltar</button>
-        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao) || (etapa === 2 && (!tracos.length || recebedor.trim().length < 3))} className={`${BOTAO} bg-emerald-700 text-white`}>{enviando ? 'Registrando…' : etapa === 1 ? 'Continuar para assinatura' : 'Finalizar entrega'}</button>
+        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao) || (etapa === 2 && (!tracos.length || recebedor.trim().length < 3))} className={`${BOTAO} bg-brand text-white hover:bg-brand-hover`}>{enviando ? 'Registrando…' : etapa === 1 ? 'Continuar para assinatura' : 'Finalizar entrega'}</button>
       </div>
     </form>
   </dialog>
