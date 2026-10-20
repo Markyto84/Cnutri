@@ -40,8 +40,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
-- ✅ Ícone da aba do navegador substituído pela imagem enviada pelo usuário, preservada em
-  `frontend/public/cnutri-icon.png` e aplicada a todas as páginas pelo HTML principal (20/10/2026)
+- ✅ Ícone da aba baseado na imagem enviada pelo usuário, com nitidez melhorada e sem os pontos
+  azuis à esquerda. Versão atual em `frontend/public/cnutri-icon-v2.png`, aplicada a todas as páginas
+  pelo HTML principal; imagem original preservada em `cnutri-icon.png` (20/10/2026)
 - ✅ Formulário de Enfermagem com **14 campos na ordem**: Leito → Andar/Setor (lista) →
   Internado +6h? (Sim/Não) → Prontuário → Nome do Paciente → Matrícula → Data de Nascimento (data) →
   Sexo (MASCULINO/FEMININO) → Refeição (DESJEJUM/ALMOÇO/LANCHE DA TARDE/JANTAR/CEIA/KIT LANCHE) →
