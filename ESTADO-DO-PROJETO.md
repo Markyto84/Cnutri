@@ -40,6 +40,7 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Título da aba do navegador definido como **Cnutri** em todas as páginas (20/10/2026)
 - ✅ Ícone da aba baseado na imagem enviada pelo usuário, com nitidez melhorada e sem os pontos
   azuis à esquerda. Versão atual em `frontend/public/cnutri-icon-v2.png`, aplicada a todas as páginas
   pelo HTML principal; imagem original preservada em `cnutri-icon.png` (20/10/2026)
