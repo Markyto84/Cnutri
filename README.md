@@ -108,8 +108,8 @@ Campos configurados sem resposta mostram **Não informado**. Datas são apresent
 dietas pelo nome e textos longos quebram conforme a largura do papel, sem truncar refeições,
 nomes ou observações.
 
-A fonte da filipeta usa **14 pontos** (39 pixels a 203 dpi), inclusive nos rótulos e nas observações.
-Cabeçalhos e alertas mantêm o negrito. A largura útil comporta 22 caracteres por linha nesse tamanho;
+A fonte da filipeta usa **12 pontos** (34 pixels a 203 dpi), inclusive nos rótulos e nas observações.
+Cabeçalhos e alertas mantêm o negrito. A largura útil comporta 26 caracteres por linha nesse tamanho;
 o espaçamento entre linhas e a quebra dos textos são calculados pelas métricas da fonte.
 
 O texto é desenhado no servidor com **Pillow e DejaVu Sans Mono**, incluindo `ã, õ, ç, á`, e enviado
