@@ -6,7 +6,7 @@ import { useAuth } from '../context/auth.js'
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-blue-600'
 const PRIMARIO = 'rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50'
 const SECUNDARIO = 'rounded-lg bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200 disabled:opacity-50'
-const PERFIS = { ADMIN_TI: 'Administrador', NUTRICIONISTA: 'Gestor de nutrição', COZINHA: 'Cozinha' }
+const PERFIS = { ADMIN_TI: 'Administrador', NUTRICIONISTA: 'Gestor de nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
 
 function mensagemErro(e) {
   const detalhe = e.response?.data?.detail
@@ -89,6 +89,7 @@ function Unidades({ filiais, onConcluido }) {
           {f.ativa && <a href={`/${f.codigo_slug}`} target="_blank" rel="noreferrer" className={SECUNDARIO}>Abrir formulário</a>}
           <Link to={`/gestao?unidade=${f.id}`} className={SECUNDARIO}>Gerenciar unidade</Link>
           <Link to={`/cozinha/${f.id}`} className={SECUNDARIO}>Painel da cozinha</Link>
+          <Link to={`/entregas/${f.id}`} className={SECUNDARIO}>Entregas das copeiras</Link>
         </div>
       </article>)}
       {!filiais.length && <p className="rounded-xl bg-panel p-5">Cadastre a primeira unidade para começar.</p>}

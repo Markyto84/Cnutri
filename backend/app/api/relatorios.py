@@ -38,7 +38,7 @@ async def consumo_medico(filial_id: int, db: AsyncSession = Depends(get_db), _: 
     pedidos = (
         await db.execute(
             select(Pedido)
-            .where(Pedido.filial_id == filial_id, Pedido.tipo_solicitacao == "MEDICO", Pedido.status == "PRONTO")
+            .where(Pedido.filial_id == filial_id, Pedido.tipo_solicitacao == "MEDICO", Pedido.status.in_(("PRONTO", "ENTREGUE")))
         )
     ).scalars().all()
 

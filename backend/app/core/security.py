@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from .config import settings
 from .database import get_db
-from ..models.models import Filial, Usuario
+from ..models.models import Filial, SessaoCopeira, Usuario
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -33,7 +33,7 @@ def verificar_senha(senha: str, hash_: str) -> bool:
     return pwd_context.verify(senha, hash_)
 
 
-def criar_token(usuario: Usuario) -> str:
+def criar_token(usuario: Usuario, sessao_id: str | None = None) -> str:
     expira = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRA_MINUTOS)
     payload = {
         "sub": str(usuario.id),
@@ -41,6 +41,8 @@ def criar_token(usuario: Usuario) -> str:
         "nome": usuario.nome,
         "exp": expira,
     }
+    if sessao_id:
+        payload["jti"] = sessao_id
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 
@@ -59,6 +61,11 @@ async def get_current_user(
     ).scalar_one_or_none()
     if usuario is None or not usuario.ativo:
         raise CREDENCIAIS_INVALIDAS
+    if usuario.perfil.nome == "COPEIRA":
+        sessao_id = payload.get("jti")
+        sessao = await db.get(SessaoCopeira, sessao_id) if isinstance(sessao_id, str) else None
+        if not sessao or sessao.usuario_id != usuario.id or sessao.encerrada_em is not None:
+            raise CREDENCIAIS_INVALIDAS
     return usuario
 
 

@@ -3,6 +3,7 @@ import logging
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from .core.security import hash_senha
 from .models.models import (
@@ -34,6 +35,13 @@ USUARIOS_DEMO = [
 
 
 async def executar_seed(db: AsyncSession) -> None:
+    # Novos perfis também devem ser criados nas bases já existentes.
+    if (await db.execute(select(Perfil).where(Perfil.nome == "COPEIRA"))).scalar_one_or_none() is None:
+        db.add(Perfil(nome="COPEIRA"))
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()  # outro processo pode ter criado o mesmo perfil
     total = (await db.execute(select(func.count(Filial.id)))).scalar_one()
     if total > 0:
         return  # base já inicializada

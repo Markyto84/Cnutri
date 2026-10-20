@@ -1,6 +1,6 @@
 """Painel de produção da cozinha: Kanban, mudança de status e reimpressão."""
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -53,11 +53,19 @@ async def alterar_status(
     await verificar_acesso_filial(pedido.filial_id, usuario, db)
 
     anterior = pedido.status
+    if anterior == "ENTREGUE":
+        raise HTTPException(409, "Este pedido já foi entregue")
     if anterior == dados.status:
         return pedido
-    pedido.status = dados.status
+    valores = {"status": dados.status}
     if dados.status == "PRONTO":
-        pedido.concluido_em = func.now()  # relógio do banco (evita conflito de timezone no asyncpg)
+        valores["concluido_em"] = func.now()
+    alterado = await db.scalar(
+        update(Pedido).where(Pedido.id == pedido.id, Pedido.status == anterior)
+        .values(**valores).returning(Pedido.id).execution_options(synchronize_session=False)
+    )
+    if alterado is None:
+        raise HTTPException(409, "Outro painel já atualizou este pedido")
     db.add(
         HistoricoPedido(
             pedido_id=pedido.id,

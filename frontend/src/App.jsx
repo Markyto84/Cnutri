@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Kiosk from './pages/Kiosk.jsx'
 import Cozinha from './pages/Cozinha.jsx'
+import Entregas from './pages/Entregas.jsx'
 import Login from './pages/Login.jsx'
 import Gestao from './pages/Gestao.jsx'
 import Admin from './pages/Admin.jsx'
@@ -10,7 +11,8 @@ export default function App() {
   return (
     <AuthProvider><Routes>
       <Route path="/:slug" element={<Kiosk />} />
-      <Route path="/cozinha/:filialId" element={<RotaProtegida perfis={['ADMIN_TI', 'NUTRICIONISTA', 'COZINHA']}><Cozinha /></RotaProtegida>} />
+      <Route path="/cozinha/:filialId" element={<Cozinha />} />
+      <Route path="/entregas/:filialId" element={<Entregas />} />
       <Route path="/login" element={<Login />} />
       <Route path="/gestao" element={<RotaProtegida perfis={['ADMIN_TI', 'NUTRICIONISTA']}><Gestao /></RotaProtegida>} />
       <Route path="/admin" element={<RotaProtegida perfis={['ADMIN_TI']}><Admin /></RotaProtegida>} />

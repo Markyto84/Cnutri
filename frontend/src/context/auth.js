@@ -10,5 +10,5 @@ export function inicioDoUsuario(usuario) {
   if (usuario?.perfil === 'ADMIN_TI') return '/admin'
   if (usuario?.perfil === 'NUTRICIONISTA') return '/gestao'
   const filial = usuario?.filiais?.find((f) => f.ativa)
-  return filial ? `/cozinha/${filial.id}` : '/sem-unidades'
+  return filial ? `/${usuario?.perfil === 'COPEIRA' ? 'entregas' : 'cozinha'}/${filial.id}` : '/sem-unidades'
 }

@@ -71,6 +71,7 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 |---|---|
 | Kiosk (enfermagem/médico) | `http://IP-DO-SERVIDOR/unidade-havai` |
 | Cozinha (Kanban) | `http://IP-DO-SERVIDOR/cozinha/1` |
+| Entregas das copeiras | `http://IP-DO-SERVIDOR/entregas/1` |
 | Administração | `http://IP-DO-SERVIDOR/admin` |
 | Login | `http://IP-DO-SERVIDOR/login` |
 
@@ -151,6 +152,8 @@ Na primeira execução, cria o ambiente Python e instala as dependências que es
 Execuções seguintes reutilizam os processos desta pasta. Os logs ficam em `work/logs/`.
 
 - Formulário: `http://localhost:5173/unidade-havai`
+- Cozinha: `http://localhost:5173/cozinha/1` (sem login)
+- Entregas: `http://localhost:5173/entregas/1`
 - Login: `http://localhost:5173/login`
 - Pela rede: `http://IP-DESTA-MAQUINA:5173/unidade-havai`
 
@@ -182,15 +185,45 @@ O perfil **Administrador** entra diretamente em `/admin` após o login e tem ace
   acessar a gestão de dietas, refeições, formulários e relatórios da unidade escolhida. Novas unidades
   recebem cópias independentes dos formulários e das dietas da unidade de origem selecionada.
 - **Credenciais:** criar e editar nome, e-mail, senha, perfil e unidades de acesso; ativar ou desativar
-  contas. Os perfis disponíveis são Administrador, Gestor de nutrição e Cozinha. A própria conta
+  contas. Os perfis disponíveis são Administrador, Gestor de nutrição, Cozinha e Copeira. A própria conta
   administrativa não pode ser desativada nem perder seu perfil pelo mesmo usuário.
 - **Impressoras:** associar uma impressora padrão por unidade, alterar/remover o IP e testar a conexão.
 
-Gestores e operadores de cozinha acessam apenas suas unidades vinculadas e ativas. As permissões
-são verificadas na API e nas conexões de atualização da cozinha. O administrador pode retornar ao
-painel pelo link **Administração** nas telas de Gestão e Cozinha.
+Gestão, administração, relatórios e o canal interno autenticado continuam verificando perfil e
+unidades permitidas. O administrador pode retornar ao painel pelo link **Administração** nas telas
+de Gestão e Cozinha.
 
-### Testes da administração e impressão
+## Cozinha, plantão e entregas no computador e no celular
+
+O dashboard `/cozinha/{id}` e a página `/entregas/{id}` abrem sem login para unidades ativas.
+Na cozinha, os pedidos passam por **Pendentes → Em preparo → Prontos**. No celular, botões de etapa
+mostram uma coluna por vez; no computador, as três colunas aparecem juntas. A página de entregas
+mostra somente as refeições prontas, em cartões com botão **Entregar**. Ambas usam botões de toque
+de pelo menos 44 pixels e a caixa de seleção se ajusta à largura da tela.
+
+Para cadastrar uma copeira, abra **Administração → Credenciais**, escolha o perfil **Copeira** e
+vincule as unidades de trabalho. Nenhuma conta de copeira é criada automaticamente. Ela acessa
+**Entrar no plantão** com a credencial cadastrada; enquanto a sessão estiver conectada, seu nome
+fica disponível na unidade selecionada. A presença é renovada a cada 30 segundos. **Sair do plantão**
+encerra a sessão imediatamente; fechar o navegador ou perder a conexão remove o nome após até
+três minutos sem renovação. Sessões simultâneas da mesma pessoa não duplicam seu nome.
+
+Ao tocar em **Entregar**, selecione uma copeira online e confirme. O servidor verifica novamente
+se ela está no plantão e se o pedido continua pronto, grava nome, usuário, data/hora e origem da
+entrega, e muda o pedido para **ENTREGUE**. Ele sai das listas de prontos e de entregas, mantendo
+o histórico e os indicadores de consumo. Confirmações repetidas ou concorrentes são bloqueadas.
+
+As rotas `/api/operacao` e o WebSocket `/ws/operacao/{id}` fornecem os dados operacionais para
+essas telas. Prontuário, registro profissional, matrícula, sexo e data de nascimento não são
+publicados nesse canal; a idade é calculada no servidor. O canal interno `/ws/cozinha/{id}` segue
+restrito a perfis de operação autorizados. Atualização por consulta a cada dez segundos complementa
+o WebSocket; a lista de copeiras é consultada a cada cinco segundos.
+
+As tabelas `sessoes_copeiras` e `entregas_pedidos` e o perfil `COPEIRA` são criados na inicialização,
+preservando usuários, pedidos e configurações existentes. O backup local anterior a essa atualização
+fica em `backups/backup-dietas-2026-10-20-antes-entregas.dump`, fora do Git.
+
+### Testes da administração, entregas e impressão
 
 Os testes usam um banco SQLite temporário em memória, sem modificar o PostgreSQL em uso:
 
@@ -200,7 +233,10 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 21 testes: oito da administração e treze das filipetas, incluindo campos completos nos dois fluxos,
+São 31 testes: oito da administração, dez de operação/plantão/entrega e treze das filipetas.
+Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
+concorrência, proteção do canal interno e preservação do consumo após a entrega.
+As verificações de filipeta incluem campos completos nos dois fluxos,
 textos extensos, acentos, campos novos/antigos e igualdade entre impressão automática e reimpressão.
 Os testes também reconstroem a imagem transmitida e conferem pixels, polaridade, limites dos blocos
 e glifos diferentes para letras com e sem acento.

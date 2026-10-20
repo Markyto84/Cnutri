@@ -50,7 +50,7 @@ class FilialOut(FilialBase):
 class UsuarioBase(BaseModel):
     nome: str = Field(min_length=1, max_length=100)
     email: str = Field(min_length=3, max_length=120, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-    perfil: Literal["ADMIN_TI", "NUTRICIONISTA", "COZINHA"]
+    perfil: Literal["ADMIN_TI", "NUTRICIONISTA", "COZINHA", "COPEIRA"]
     filial_ids: list[int] = Field(default_factory=list)
 
     @field_validator("nome", "email", mode="before")
@@ -104,6 +104,14 @@ class TokenResponse(BaseModel):
 class ImpressoraUpdate(BaseModel):
     ip_impressora: str | None = None
     _validar_ip = field_validator("ip_impressora", mode="before")(FilialBase.validar_ip.__func__)
+
+
+class PresencaUpdate(BaseModel):
+    filial_id: int = Field(gt=0)
+
+
+class EntregaCreate(BaseModel):
+    copeira_id: int = Field(gt=0)
 
 
 # ─── Dietas ──────────────────────────────────────────────────────────────────

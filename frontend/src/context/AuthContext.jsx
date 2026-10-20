@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { AuthContext, inicioDoUsuario, useAuth } from './auth.js'
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
+  const [plantaoOnline, setPlantaoOnline] = useState(false)
+  const { pathname } = useLocation()
+  const unidadeNaPagina = pathname.match(/^\/(?:entregas|cozinha)\/(\d+)/)?.[1]
+  const filialPresenca = unidadeNaPagina
+    ? usuario?.filiais?.find((f) => f.id === Number(unidadeNaPagina) && f.ativa)?.id
+    : usuario?.filiais?.find((f) => f.ativa)?.id
   const [carregando, setCarregando] = useState(() => Boolean(localStorage.getItem('token')))
 
   useEffect(() => {
@@ -17,6 +23,28 @@ export function AuthProvider({ children }) {
       .finally(() => { if (!controller.signal.aborted && (!localStorage.getItem('token') || localStorage.getItem('token') === tokenInicial)) setCarregando(false) })
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    if (usuario?.perfil !== 'COPEIRA' || !filialPresenca) return
+    const controller = new AbortController()
+    const token = localStorage.getItem('token')
+    async function confirmar() {
+      if (localStorage.getItem('token') !== token) return
+      try {
+        await api.post('/auth/presenca', { filial_id: filialPresenca }, { signal: controller.signal, ignorarRedirecionamento401: true })
+        if (!controller.signal.aborted) setPlantaoOnline(true)
+      } catch (erro) {
+        if (controller.signal.aborted) return
+        setPlantaoOnline(false)
+        if (erro.response?.status === 401) setUsuario(null)
+      }
+    }
+    confirmar()
+    const intervalo = setInterval(confirmar, 30000)
+    const aoVoltar = () => { if (!document.hidden) confirmar() }
+    document.addEventListener('visibilitychange', aoVoltar)
+    return () => { controller.abort(); clearInterval(intervalo); document.removeEventListener('visibilitychange', aoVoltar) }
+  }, [usuario?.id, usuario?.perfil, filialPresenca])
 
   useEffect(() => {
     function sincronizar(evento) {
@@ -45,9 +73,15 @@ export function AuthProvider({ children }) {
   }
 
   function sair() {
+    const token = localStorage.getItem('token')
+    const encerramento = token ? api.post('/auth/logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }, ignorarRedirecionamento401: true,
+    }).catch(() => {}) : Promise.resolve()
     for (const chave of ['token', 'perfil', 'nome']) localStorage.removeItem(chave)
     setUsuario(null)
+    setPlantaoOnline(false)
     setCarregando(false)
+    return encerramento
   }
 
   async function atualizarUsuario() {
@@ -57,7 +91,7 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  return <AuthContext.Provider value={{ usuario, carregando, entrar, sair, atualizarUsuario }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ usuario, carregando, entrar, sair, atualizarUsuario, plantaoOnline }}>{children}</AuthContext.Provider>
 }
 
 export function RotaProtegida({ perfis, children }) {

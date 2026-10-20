@@ -10,8 +10,10 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 
 - **Kiosk público** (`/unidade-havai`): postos de enfermagem/médico, sem login, rastreabilidade
   por registro profissional (CRM/COREN/Matrícula) + nome do solicitante
-- **Painel da Cozinha** (`/cozinha/1`): Kanban em tempo real (WebSocket), alerta sonoro,
-  destaque vermelho para dietas severas, reimpressão de filipetas
+- **Painel da Cozinha** (`/cozinha/1`): dashboard sem login, Kanban em tempo real (WebSocket),
+  alerta sonoro, destaque para dietas severas, reimpressão de filipetas; responsivo para celular
+- **Entregas das copeiras** (`/entregas/1`): refeições prontas, seleção de copeira online por login
+  e confirmação com registro de responsável e horário; responsivo para celular
 - **Gestão de Nutrição** (`/gestao`): catálogo de dietas, motor de formulários dinâmicos, relatórios
 - **Admin TI** (`/admin`): filiais, IPs de impressoras, usuários/perfis (RBAC)
 
@@ -24,7 +26,7 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 - **Dev (Windows):** `.\start.ps1` (Postgres na porta **5433**, backend na 8000, frontend na 5173)
 - **Produção (Linux):** `docker compose -f docker-compose.prod.yml up -d --build` — nginx na porta 80
   com proxy de `/api` e `/ws`
-- **Auth:** JWT; perfis: `ADMIN_TI`, `NUTRICIONISTA`, `COZINHA`
+- **Auth:** JWT; perfis: `ADMIN_TI`, `NUTRICIONISTA`, `COZINHA`, `COPEIRA`
 
 ## 3. Como rodar (desenvolvimento)
 
@@ -92,8 +94,8 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Cadastro e edição de credenciais, senha, perfil e vínculos de unidades, com ativação/desativação
   e proteção da própria conta administrativa. API não expõe hashes de senha
 - ✅ Impressora padrão por unidade, validação de IP e teste de conexão TCP 9100 sem imprimir
-- ✅ Acesso de Gestão, Cozinha, relatórios e WebSocket limitado às unidades permitidas; ADMIN_TI tem
-  acesso global. Sessão e saída sincronizadas entre abas do navegador
+- ✅ Acesso de Gestão, relatórios e WebSocket interno limitado a perfis e unidades permitidas;
+  ADMIN_TI tem acesso global. Sessão e saída sincronizadas entre abas do navegador
 - ✅ Oito testes de integração administrativa em SQLite isolado, sem alterar o banco do hospital
 - ✅ Filipeta da cozinha com os campos dos formulários Médico e Enfermagem (exceto Sexo e Prontuário), nome e registro
   do solicitante, rótulos/ordem de cada unidade e inclusão automática de novos campos. Dados antigos
@@ -115,6 +117,23 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - ✅ Sexo e Prontuário omitidos somente da filipeta, preservados nos formulários e nos pedidos.
   Rodapé “Entrega à recepção” com espaço para assinatura e data/hora em branco para preenchimento
   manual, presente nos dois fluxos e na reimpressão (20/10/2026)
+- ✅ Dashboard da cozinha e página de entregas públicos por unidade ativa. API e WebSocket
+  operacionais excluem prontuário, registro profissional, matrícula, sexo e nascimento; a idade
+  é calculada no servidor. Gestão e administração continuam protegidas (20/10/2026)
+- ✅ Perfil COPEIRA disponível em Administração → Credenciais, com vínculos por unidade. Login
+  abre o plantão, heartbeat de 30 segundos renova a presença por três minutos e logout encerra
+  a sessão. Nomes disponíveis somente na unidade do plantão, sem duplicar sessões da pessoa
+- ✅ Página `/entregas/{id}` mostra somente PRONTO; botão Entregar abre seleção de copeira online.
+  Confirmação grava usuário/nome/horário/IP em `entregas_pedidos`, histórico e status ENTREGUE.
+  Pedido sai das listas de prontos; atualizações concorrentes e entrega duplicada são bloqueadas
+- ✅ Cozinha e entregas adaptadas para computador e celular: etapas em abas no celular, cartões
+  em uma coluna, controles de pelo menos 44 pixels e diálogo ajustado à tela. Fluxo verificado
+  no navegador com pedidos e credenciais fictícios em banco separado, sem alterar pedidos reais
+- ✅ Relatório de consumo médico mantém refeições após entrega. Dez testes novos de operação
+  totalizam 31 testes aprovados, além do build do frontend e lint dos arquivos alterados
+- ✅ Backup antes das entregas: `backups/backup-dietas-2026-10-20-antes-entregas.dump`, validado
+  com pg_restore, fora do Git. Novas tabelas e perfil criados no startup; nenhuma copeira real
+  cadastrada automaticamente
 
 ## 5. Pendências / decisões em aberto
 
@@ -138,6 +157,13 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   nas rotas. Campos extras salvos também são impressos; o informativo estático de horários fica no kiosk
 - **Recebimento:** os IDs `sexo` e `prontuario` são ocultados somente no gerador da filipeta. O rodapé
   tem Assinatura e Data e hora para preenchimento manual; preservar os dados originais nos pedidos
+- **Operação pública:** usar `/api/operacao` e `/ws/operacao/{id}` com projeção explícita dos dados
+  operacionais. O canal interno `/ws/cozinha/{id}` exige perfil de operação, JWT e unidade permitida
+- **Entregas:** somente PRONTO pode virar ENTREGUE, com copeira online vinculada à unidade.
+  Manter UPDATE condicionado ao status anterior e chave única por pedido; rotas internas também
+  não podem sobrescrever ENTREGUE. Preservar `concluido_em` (fim do preparo) para o SLA
+- **Plantão:** sessões COPEIRA usam JWT com `jti`, presença persistida por três minutos e renovação
+  a cada 30 segundos. Logout fecha a sessão; atividade em uma unidade não publica presença em outra
 - **Acentos na impressão:** `compor_linhas_filipeta()` mantém o texto Unicode, e `impressao_raster.py`
   desenha as letras com as fontes versionadas em `app/assets/fonts/`. Não voltar ao envio de caracteres
   CP850/CP437 à POS80: a tabela interna do equipamento substitui os acentos por outros glifos

@@ -1,0 +1,125 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { operacao, useOperacao } from '../hooks/useOperacao.js'
+import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
+
+export default function Entregas() {
+  const { filialId } = useParams()
+  return <PaginaEntregas key={filialId} filialId={filialId} />
+}
+
+function PaginaEntregas({ filialId }) {
+  const painel = useOperacao(filialId)
+  const [copeiras, setCopeiras] = useState([])
+  const [erroPlantao, setErroPlantao] = useState('')
+  const [selecionado, setSelecionado] = useState(null)
+  const [aviso, setAviso] = useState('')
+  const prontos = painel.pedidos.filter((p) => p.status === 'PRONTO')
+    .sort((a, b) => (a.concluido_em || a.criado_em).localeCompare(b.concluido_em || b.criado_em))
+
+  const carregarCopeiras = useCallback(async (signal) => {
+    try {
+      const { data } = await operacao.get(`/unidades/${filialId}/copeiras`, { signal })
+      if (signal?.aborted) return
+      setCopeiras(data)
+      setErroPlantao('')
+    } catch (e) {
+      if (signal?.aborted) return
+      setErroPlantao(e.response?.data?.detail || 'Não foi possível atualizar as copeiras do plantão')
+      setCopeiras([])
+    }
+  }, [filialId])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const inicial = setTimeout(() => carregarCopeiras(controller.signal), 0)
+    const intervalo = setInterval(() => carregarCopeiras(controller.signal), 5000)
+    return () => { controller.abort(); clearTimeout(inicial); clearInterval(intervalo) }
+  }, [carregarCopeiras])
+
+  async function escolher(pedido) {
+    setSelecionado(pedido)
+    await carregarCopeiras()
+  }
+
+  function concluida(entrega) {
+    setSelecionado(null)
+    painel.aplicarPedido({ id: entrega.pedido_id, status: 'ENTREGUE' })
+    const horario = new Date(entrega.entregue_em).toLocaleString('pt-BR')
+    setAviso(`Pedido #${entrega.pedido_id} entregue por ${entrega.copeira_nome} em ${horario}.`)
+  }
+
+  return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
+    <CabecalhoOperacao modo="entregas" painel={painel} filialId={filialId} />
+    {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
+    {aviso && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-4 text-emerald-950">{aviso}</p>}
+    <div className="mb-4 grid grid-cols-2 gap-3">
+      <div className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">Refeições prontas</p><strong className="text-3xl">{prontos.length}</strong></div>
+      <div className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">Copeiras online</p><strong className="text-3xl">{copeiras.length}</strong></div>
+    </div>
+    {erroPlantao && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-amber-950">{erroPlantao}</p>}
+    {!painel.carregando && !painel.indisponivel && <section aria-label="Refeições prontas para entrega">
+      <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">Selecione a refeição e indique a copeira que fará a entrega.</p></div>
+      {!prontos.length && <div className="rounded-2xl bg-panel p-8 text-center"><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="mt-2 text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{prontos.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-emerald-600 bg-panel p-4 shadow-sm">
+        <ResumoPedido pedido={pedido} />
+        {pedido.concluido_em && <p className="mt-3 text-xs text-slate-700">Pronto às {new Date(pedido.concluido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
+        <div className="mt-auto pt-4"><button onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-emerald-700 text-base text-white hover:bg-emerald-600`}>Entregar</button></div>
+      </article>)}</div>
+    </section>}
+    {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
+    {selecionado && <ModalEntrega pedido={selecionado} filialId={filialId} copeiras={copeiras} erroPlantao={erroPlantao}
+      pronto={prontos.some((p) => p.id === selecionado.id)} onFechar={() => setSelecionado(null)} onConcluir={concluida}
+      onRecarregar={() => { carregarCopeiras(); painel.recarregar() }} />}
+  </main>
+}
+
+function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFechar, onConcluir, onRecarregar }) {
+  const dialogo = useRef(null)
+  const [copeiraId, setCopeiraId] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
+  const disponivel = copeiras.some((c) => c.id === Number(copeiraId))
+
+  useEffect(() => {
+    const atual = dialogo.current
+    atual.showModal()
+    return () => { if (atual.open) atual.close() }
+  }, [])
+
+  async function confirmar(evento) {
+    evento.preventDefault()
+    if (enviando || !disponivel || !pronto) return
+    setEnviando(true)
+    setErro('')
+    try {
+      const { data } = await operacao.post(`/unidades/${filialId}/pedidos/${pedido.id}/entregar`, { copeira_id: Number(copeiraId) })
+      onConcluir(data)
+    } catch (e) {
+      setErro(e.response?.data?.detail || 'Não foi possível confirmar a entrega. Atualize a lista antes de tentar novamente')
+      onRecarregar()
+    } finally { setEnviando(false) }
+  }
+
+  return <dialog ref={dialogo} aria-labelledby="titulo-entrega" onCancel={(e) => { e.preventDefault(); if (!enviando) onFechar() }}
+    className="m-auto max-h-[90dvh] overflow-y-auto rounded-2xl bg-panel p-5 text-slate-900 shadow-2xl backdrop:bg-black/60" style={{ width: 'min(28rem, calc(100vw - 2rem))' }}>
+    <form onSubmit={confirmar} className="space-y-4">
+      <div><h2 id="titulo-entrega" className="text-xl font-bold">Entregar refeição</h2><p className="mt-1 text-sm text-slate-700">Pedido #{pedido.id} · {pedido.nome_paciente || pedido.solicitante_nome}</p></div>
+      {!pronto && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-amber-900">Esta refeição já foi atualizada em outro painel e não está disponível para entrega.</p>}
+      {(erro || erroPlantao) && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-900">{erro || erroPlantao}</p>}
+      <label className="block text-sm font-semibold">Copeira do plantão
+        <select required value={disponivel ? copeiraId : ''} onChange={(e) => setCopeiraId(e.target.value)} disabled={enviando || !copeiras.length || !pronto}
+          className="mt-2 min-h-12 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 text-base font-normal">
+          <option value="">{copeiras.length ? 'Selecionar copeira' : 'Nenhuma copeira online'}</option>
+          {copeiras.map((copeira) => <option key={copeira.id} value={copeira.id}>{copeira.nome}</option>)}
+        </select>
+      </label>
+      <p className="text-sm text-slate-700">A lista mostra as copeiras com login ativo nesta unidade. O nome e o horário ficam registrados na entrega.</p>
+      {!copeiras.length && <Link to={`/login?unidade=${filialId}`} className="block font-semibold text-blue-800 underline">Entrar no plantão com uma conta de copeira</Link>}
+      <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
+        <button type="button" disabled={enviando} onClick={onFechar} className={`${BOTAO} bg-slate-50`}>Voltar</button>
+        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao)} className={`${BOTAO} bg-emerald-700 text-white`}>{enviando ? 'Registrando…' : 'Confirmar entrega'}</button>
+      </div>
+    </form>
+  </dialog>
+}

@@ -32,6 +32,7 @@ export default function Gestao() {
           </select>
           {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Administração</Link>}
           <Link to={`/cozinha/${filialId}`} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Cozinha</Link>
+          <Link to={`/entregas/${filialId}`} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Entregas</Link>
           <button onClick={sair} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">
             Sair
           </button>

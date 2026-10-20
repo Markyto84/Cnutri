@@ -118,3 +118,23 @@ class HistoricoPedido(Base):
     data_hora: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     pedido: Mapped[Pedido] = relationship(back_populates="historico")
+
+
+class SessaoCopeira(Base):
+    __tablename__ = "sessoes_copeiras"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    filial_id: Mapped[int | None] = mapped_column(ForeignKey("filiais.id", ondelete="CASCADE"), index=True)
+    presenca_ate: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    encerrada_em: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class EntregaPedido(Base):
+    __tablename__ = "entregas_pedidos"
+
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), primary_key=True)
+    copeira_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    copeira_nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    entregue_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    ip_origem: Mapped[str | None] = mapped_column(String(45))

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { inicioDoUsuario, useAuth } from '../context/auth.js'
 
@@ -9,6 +9,7 @@ export default function Login() {
   const [erro, setErro] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const navegar = useNavigate()
+  const [parametros] = useSearchParams()
   const { entrar } = useAuth()
 
   async function submeter(e) {
@@ -19,7 +20,10 @@ export default function Login() {
       const dados = new URLSearchParams({ username: email, password: senha })
       const r = await api.post('/auth/login', dados)
       const sessao = entrar(r.data)
-      navegar(inicioDoUsuario(sessao), { replace: true })
+      const unidade = Number(parametros.get('unidade'))
+      const destino = sessao.perfil === 'COPEIRA' && sessao.filiais.some((f) => f.id === unidade && f.ativa)
+        ? `/entregas/${unidade}` : inicioDoUsuario(sessao)
+      navegar(destino, { replace: true })
     } catch (err) {
       setErro(err.response?.data?.detail || 'Falha no login')
     } finally {
@@ -31,7 +35,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-app-background p-4">
       <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl bg-panel p-8 shadow-xl">
         <h1 className="text-center text-2xl font-bold text-slate-900">🏥 Dietas Hospitalares</h1>
-        <p className="text-center text-sm text-slate-700">Acesso administrativo e de produção</p>
+        <p className="text-center text-sm text-slate-700">Gestão e entrada das copeiras no plantão</p>
 
         {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
 
