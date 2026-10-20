@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 LARGURA_PONTOS = 576  # área de impressão de 72 mm em papel de 80 mm, 203 dpi
 RESOLUCAO_DPI = 203
-TAMANHO_FONTE_PT = 12
+TAMANHO_FONTE_PT = 10
 TAMANHO_FONTE_PIXELS = round(TAMANHO_FONTE_PT * RESOLUCAO_DPI / 72)
 MARGEM_HORIZONTAL = 24
 ALTURA_BLOCO = 128  # blocos pequenos para o buffer das impressoras térmicas
