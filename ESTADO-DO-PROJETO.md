@@ -170,12 +170,23 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   start.ps1 inicia serviços ausentes em sessão independente via WMI e janela oculta, preservando
   estado de processos para stop.ps1. Verificado acesso pela rede em 5173 e saúde da API; não há
   inicialização automática após reiniciar o Windows (20/10/2026)
+- ✅ Login alterado de e-mail para nome de usuário definido em Administração → Credenciais,
+  com senha, nome completo e perfil separados. Nomes de 3 a 50 caracteres (letras sem acento,
+  números, ponto, hífen e sublinhado), sem distinguir maiúsculas/minúsculas e com unicidade no
+  banco. Novas contas dispensam e-mail; login antigo por e-mail deixa de ser aceito (20/10/2026)
+- ✅ Migração PostgreSQL automática em `core/login_usuarios.py`: adiciona `nome_usuario`, deriva
+  nomes iniciais do e-mail legado, resolve colisões com sufixo e preserva nomes já definidos.
+  Senhas, IDs, perfis, vínculos e sessões mantidos. Quatro contas atuais migradas; acesso TI inicial
+  com `admin` e a senha existente. Conferência de integridade antes/depois preservando os dados originais
+- ✅ Backup validado antes do login por usuário: `backups/backup-dietas-2026-10-20-173506-antes-login-usuario.dump`,
+  fora do Git. Quatro testes adicionais (46 aprovados), incluindo migração em schema PostgreSQL
+  isolado com rollback; frontend compilado e Login/Admin sem avisos de lint
 
 ## 5. Pendências / decisões em aberto
 
 1. **Dietas severas:** nenhuma marcada com destaque vermelho ainda
 2. **Senhas do seed** precisam ser trocadas antes de produção
-   (admin@hospital.local / nutricao@hospital.local / cozinha@hospital.local — senha `Trocar@123`)
+   (usuários admin / nutricao / cozinha — senha `Trocar@123`)
 3. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
    ou dependente de grupo de dieta
 4. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
@@ -215,6 +226,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   CP850/CP437 à POS80: a tabela interna do equipamento substitui os acentos por outros glifos
 - **Proteção de edição:** o PUT de formulários exige `versao` (timestamp `atualizado_em` carregado);
   divergência → 409. Ao salvar no editor, recarrega a versão nova
+- **Login:** autenticar por `usuarios.nome_usuario` normalizado, nunca por e-mail. O índice único
+  `uq_usuarios_nome_usuario` usa lower(nome_usuario); somente ADMIN_TI cria/edita nomes de acesso.
+  Preservar IDs e hashes de senha na migração, nomes já escolhidos pela TI e vínculo do JWT por ID
 - **SQLAlchemy async:** relacionamentos usados em contexto async precisam de `selectinload`
   (evita MissingGreenlet)
 - **Timestamps:** usar `func.now()` do banco em colunas `TIMESTAMP` (asyncpg rejeita datetime

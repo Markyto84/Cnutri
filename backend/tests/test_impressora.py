@@ -228,7 +228,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             filial = Filial(nome="Unidade Teste", codigo_slug="unidade-teste", ip_impressora="192.0.2.10")
             outra = Filial(nome="Outra Unidade", codigo_slug="outra-unidade")
             perfil = Perfil(nome="COZINHA")
-            usuario = Usuario(nome="Operador Teste", email="cozinha@teste.local", senha_hash="não utilizado", perfil=perfil, filiais=[filial])
+            usuario = Usuario(nome="Operador Teste", nome_usuario="cozinha", email="cozinha@teste.local", senha_hash="não utilizado", perfil=perfil, filiais=[filial])
             db.add_all([filial, outra, usuario])
             await db.flush()
             self.filial_id = filial.id

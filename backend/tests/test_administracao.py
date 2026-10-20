@@ -50,11 +50,11 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
             for tipo, esquema in self.esquemas.items():
                 db.add(FormularioConfig(filial_id=a.id, tipo_publico=tipo, esquema_json=deepcopy(esquema)))
             db.add(Dieta(filial_id=a.id, nome="GERAL", ativa=True, severa=False))
-            admin = Usuario(nome="Admin Teste", email="admin@teste.local", senha_hash=HASH, perfil=perfis["ADMIN_TI"], filiais=[])
+            admin = Usuario(nome="Admin Teste", nome_usuario="admin", email="admin@teste.local", senha_hash=HASH, perfil=perfis["ADMIN_TI"], filiais=[])
             db.add_all([
                 admin,
-                Usuario(nome="Gestor Teste", email="gestor@teste.local", senha_hash=HASH, perfil=perfis["NUTRICIONISTA"], filiais=[a]),
-                Usuario(nome="Cozinha Teste", email="cozinha@teste.local", senha_hash=HASH, perfil=perfis["COZINHA"], filiais=[a]),
+                Usuario(nome="Gestor Teste", nome_usuario="gestor", email="gestor@teste.local", senha_hash=HASH, perfil=perfis["NUTRICIONISTA"], filiais=[a]),
+                Usuario(nome="Cozinha Teste", nome_usuario="cozinha", email="cozinha@teste.local", senha_hash=HASH, perfil=perfis["COZINHA"], filiais=[a]),
             ])
             await db.commit()
             self.admin_id = admin.id
@@ -65,15 +65,15 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
 
         app.dependency_overrides[get_db] = banco_teste
         self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://teste")
-        self.admin = await self.entrar("admin@teste.local")
+        self.admin = await self.entrar("admin")
 
     async def asyncTearDown(self):
         await self.client.aclose()
         app.dependency_overrides.clear()
         await self.engine.dispose()
 
-    async def entrar(self, email, senha=SENHA):
-        resposta = await self.client.post("/api/auth/login", data={"username": email, "password": senha})
+    async def entrar(self, nome_usuario, senha=SENHA):
+        resposta = await self.client.post("/api/auth/login", data={"username": nome_usuario, "password": senha})
         self.assertEqual(resposta.status_code, 200, resposta.text)
         return {"Authorization": "Bearer " + resposta.json()["access_token"]}
 
@@ -109,47 +109,84 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repetido.status_code, 409)
 
     async def test_criar_editar_credencial_senha_e_desativar(self):
-        dados = {"nome": "Nova Pessoa", "email": "PESSOA@teste.local", "senha": SENHA, "perfil": "NUTRICIONISTA", "filial_ids": [self.b]}
+        dados = {"nome": "Nova Pessoa", "nome_usuario": "PESSOA", "senha": SENHA, "perfil": "NUTRICIONISTA", "filial_ids": [self.b]}
         resposta = await self.client.post("/api/admin/usuarios", headers=self.admin, json=dados)
         self.assertEqual(resposta.status_code, 201, resposta.text)
         usuario = resposta.json()
-        self.assertEqual(usuario["email"], "pessoa@teste.local")
+        self.assertEqual(usuario["nome_usuario"], "pessoa")
         self.assertEqual([f["id"] for f in usuario["filiais"]], [self.b])
-        await self.entrar("pessoa@teste.local")
+        await self.entrar("pessoa")
         dados.update(nome="Pessoa Editada", senha="Outra@123", perfil="COZINHA", ativo=True)
         editado = await self.client.patch(f"/api/admin/usuarios/{usuario['id']}", headers=self.admin, json=dados)
         self.assertEqual(editado.status_code, 200, editado.text)
         self.assertEqual(editado.json()["perfil"], "COZINHA")
-        antigo = await self.client.post("/api/auth/login", data={"username": "pessoa@teste.local", "password": SENHA})
+        antigo = await self.client.post("/api/auth/login", data={"username": "pessoa", "password": SENHA})
         self.assertEqual(antigo.status_code, 401)
-        token = await self.entrar("pessoa@teste.local", "Outra@123")
+        token = await self.entrar("pessoa", "Outra@123")
         dados.update(ativo=False, senha=None)
         desativado = await self.client.patch(f"/api/admin/usuarios/{usuario['id']}", headers=self.admin, json=dados)
         self.assertEqual(desativado.status_code, 200, desativado.text)
         self.assertFalse(desativado.json()["ativo"])
         self.assertEqual((await self.client.get("/api/auth/me", headers=token)).status_code, 401)
 
+    async def test_login_somente_por_usuario_sem_diferenciar_maiusculas(self):
+        token = await self.entrar("  AdMiN  ")
+        me = await self.client.get("/api/auth/me", headers=token)
+        self.assertEqual(me.json()["nome_usuario"], "admin")
+        for login, senha in (("admin@teste.local", SENHA), ("inexistente", SENHA), ("admin", "SenhaErrada")):
+            resposta = await self.client.post("/api/auth/login", data={"username": login, "password": senha})
+            self.assertEqual(resposta.status_code, 401)
+            self.assertEqual(resposta.json()["detail"], "Usuário ou senha inválidos")
+
+    async def test_renomear_login_preserva_senha_sessao_e_rejeita_duplicado(self):
+        dados = {"nome": "Pessoa Teste", "nome_usuario": " PESSOA.TESTE ", "senha": SENHA, "perfil": "NUTRICIONISTA", "filial_ids": [self.a]}
+        novo = await self.client.post("/api/admin/usuarios", headers=self.admin, json=dados)
+        self.assertEqual(novo.status_code, 201, novo.text)
+        usuario = novo.json()
+        self.assertEqual(usuario["nome_usuario"], "pessoa.teste")
+        token = await self.entrar("pessoa.teste")
+        dados.update(nome_usuario="pessoa_nova", senha=None)
+        rota = f"/api/admin/usuarios/{usuario['id']}"
+        editado = await self.client.patch(rota, headers=self.admin, json=dados)
+        self.assertEqual(editado.status_code, 200, editado.text)
+        await self.entrar("PESSOA_NOVA")
+        self.assertEqual((await self.client.post("/api/auth/login", data={"username": "pessoa.teste", "password": SENHA})).status_code, 401)
+        self.assertEqual((await self.client.get("/api/auth/me", headers=token)).json()["nome_usuario"], "pessoa_nova")
+        dados["nome_usuario"] = "AdMiN"
+        self.assertEqual((await self.client.patch(rota, headers=self.admin, json=dados)).status_code, 409)
+        await self.entrar("pessoa_nova")
+
+    async def test_usuario_obrigatorio_valido_e_administrado_somente_pela_ti(self):
+        dados = {"nome": "Pessoa Teste", "senha": SENHA, "perfil": "NUTRICIONISTA", "filial_ids": [self.a]}
+        for valor in (None, "", "ab", "a" * 51, "com espaço", "pessoa@teste.local", "joão", ".pessoa", 123):
+            resposta = await self.client.post("/api/admin/usuarios", headers=self.admin, json={**dados, "nome_usuario": valor})
+            self.assertEqual(resposta.status_code, 422, (valor, resposta.text))
+        self.assertEqual((await self.client.post("/api/admin/usuarios", headers=self.admin, json=dados)).status_code, 422)
+        token = await self.entrar("gestor")
+        self.assertEqual((await self.client.post("/api/admin/usuarios", headers=token, json={**dados, "nome_usuario": "pessoa"})).status_code, 403)
+        self.assertEqual((await self.client.patch(f"/api/admin/usuarios/{self.admin_id}", headers=token, json={**dados, "nome_usuario": "admin"})).status_code, 403)
+
     async def test_nao_admin_nao_cadastra_nem_acessa_outra_unidade(self):
-        for email in ("gestor@teste.local", "cozinha@teste.local"):
-            token = await self.entrar(email)
+        for nome_usuario in ("gestor", "cozinha"):
+            token = await self.entrar(nome_usuario)
             self.assertEqual((await self.client.get("/api/admin/usuarios", headers=token)).status_code, 403)
             self.assertEqual((await self.client.get(f"/api/pedidos?filial_id={self.a}", headers=token)).status_code, 200)
             self.assertEqual((await self.client.get(f"/api/pedidos?filial_id={self.b}", headers=token)).status_code, 403)
             me = (await self.client.get("/api/auth/me", headers=token)).json()
             self.assertEqual([f["id"] for f in me["filiais"]], [self.a])
-        gestor = await self.entrar("gestor@teste.local")
+        gestor = await self.entrar("gestor")
         for rota in (f"/api/gestao/dietas?filial_id={self.b}", f"/api/gestao/formularios/{self.b}/MEDICO",
                      f"/api/relatorios/sla?filial_id={self.b}", f"/api/relatorios/dietas?filial_id={self.b}"):
             self.assertEqual((await self.client.get(rota, headers=gestor)).status_code, 403, rota)
 
-    async def test_validar_vinculos_email_e_proteger_conta_administradora(self):
-        dados = {"nome": "Teste", "email": "novo@teste.local", "senha": SENHA, "perfil": "COZINHA", "filial_ids": []}
+    async def test_validar_vinculos_usuario_e_proteger_conta_administradora(self):
+        dados = {"nome": "Teste", "nome_usuario": "novo", "senha": SENHA, "perfil": "COZINHA", "filial_ids": []}
         self.assertEqual((await self.client.post("/api/admin/usuarios", headers=self.admin, json=dados)).status_code, 422)
         dados["filial_ids"] = [9999]
         self.assertEqual((await self.client.post("/api/admin/usuarios", headers=self.admin, json=dados)).status_code, 422)
-        dados.update(email="ADMIN@teste.local", filial_ids=[self.a])
+        dados.update(nome_usuario="ADMIN", filial_ids=[self.a])
         self.assertEqual((await self.client.post("/api/admin/usuarios", headers=self.admin, json=dados)).status_code, 409)
-        dados.update(nome="Admin", email="admin@teste.local", perfil="ADMIN_TI", ativo=False, senha=None)
+        dados.update(nome="Admin", nome_usuario="admin", perfil="ADMIN_TI", ativo=False, senha=None)
         resposta = await self.client.patch(f"/api/admin/usuarios/{self.admin_id}", headers=self.admin, json=dados)
         self.assertEqual(resposta.status_code, 409)
 
@@ -174,7 +211,7 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.post(rota + "/testar", headers=self.admin)).status_code, 400)
 
     async def test_unidade_inativa_bloqueia_formulario_e_operacao(self):
-        token = await self.entrar("gestor@teste.local")
+        token = await self.entrar("gestor")
         resposta = await self.client.patch(f"/api/admin/filiais/{self.a}", headers=self.admin, json={
             "nome": "Unidade A", "codigo_slug": "unidade-a", "ativa": False,
         })
@@ -183,7 +220,7 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get(f"/api/pedidos?filial_id={self.a}", headers=token)).status_code, 403)
 
     async def test_websocket_exige_credencial_e_vinculo_da_unidade(self):
-        token = (await self.entrar("cozinha@teste.local"))["Authorization"].removeprefix("Bearer ")
+        token = (await self.entrar("cozinha"))["Authorization"].removeprefix("Bearer ")
         with patch("app.main.SessionLocal", self.sessoes):
             anonimo = SocketTeste([])
             await ws_cozinha(anonimo, self.a)

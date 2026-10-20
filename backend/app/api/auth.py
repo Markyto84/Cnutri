@@ -1,8 +1,8 @@
-"""Autenticação: login com e-mail/matrícula + palavra-passe (JWT)."""
+"""Autenticação: nome de usuário definido pela TI e senha (JWT)."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from uuid import uuid4
@@ -11,6 +11,7 @@ from ..core.database import get_db
 from ..core.security import criar_token, filiais_permitidas, get_current_user, oauth2_scheme, verificar_acesso_filial, verificar_senha
 from ..core.config import settings
 from ..core.presenca import TEMPO_PRESENCA, agora_utc
+from ..core.login_usuarios import normalizar_usuario
 from ..models.models import SessaoCopeira, Usuario
 from ..schemas.schemas import FilialOut, PresencaUpdate, TokenResponse, UsuarioOut
 
@@ -21,12 +22,12 @@ router = APIRouter(prefix="/api/auth", tags=["Autenticação"])
 async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     resultado = await db.execute(
         select(Usuario).options(selectinload(Usuario.perfil)).where(
-            Usuario.email == form.username.lower().strip()
+            func.lower(Usuario.nome_usuario) == normalizar_usuario(form.username)
         )
     )
     usuario = resultado.scalar_one_or_none()
     if usuario is None or not verificar_senha(form.password, usuario.senha_hash):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou palavra-passe inválidos")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário ou senha inválidos")
     if not usuario.ativo:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Utilizador desativado")
     filiais = await filiais_permitidas(usuario, db)

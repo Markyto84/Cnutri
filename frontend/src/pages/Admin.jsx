@@ -140,7 +140,7 @@ function Credenciais({ filiais, usuarios, usuarioAtual, onConcluido }) {
   return <div className="grid items-start gap-6 lg:grid-cols-[1fr_390px]">
     <div className="space-y-3">{usuarios.map((u) => <article key={u.id} className="rounded-xl bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-bold">{u.nome} {u.id === usuarioAtual.id && <span className="text-sm font-normal">(sua conta)</span>}</h2>
-        <p className="mt-1 text-sm text-slate-700">{u.email} · {PERFIS[u.perfil]} · {u.ativo ? 'Ativo' : 'Inativo'}</p></div>
+        <p className="mt-1 break-all text-sm text-slate-700">Usuário: <strong>{u.nome_usuario}</strong> · {PERFIS[u.perfil]} · {u.ativo ? 'Ativo' : 'Inativo'}</p></div>
         <button onClick={() => setEditando(u)} className={SECUNDARIO} aria-label={`Editar credencial ${u.nome}`}>Editar credencial</button></div>
       <p className="mt-3 text-sm text-slate-700">{u.perfil === 'ADMIN_TI' ? 'Acesso a todas as unidades' : u.filiais.map((f) => f.nome).join(', ') || 'Sem unidades vinculadas'}</p>
     </article>)}</div>
@@ -150,7 +150,7 @@ function Credenciais({ filiais, usuarios, usuarioAtual, onConcluido }) {
 }
 
 function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onConcluido }) {
-  const vazio = () => ({ nome: '', email: '', senha: '', perfil: 'NUTRICIONISTA', ativo: true, filial_ids: [] })
+  const vazio = () => ({ nome: '', nome_usuario: '', senha: '', perfil: 'NUTRICIONISTA', ativo: true, filial_ids: [] })
   const [form, setForm] = useState(() => usuario ? { ...usuario, senha: '', filial_ids: usuario.filiais.map((f) => f.id) } : vazio())
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState(null)
@@ -164,7 +164,7 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
     }
     setSalvando(true)
     try {
-      const dados = { nome: form.nome, email: form.email, perfil: form.perfil, ativo: form.ativo, filial_ids: form.perfil === 'ADMIN_TI' ? [] : form.filial_ids }
+      const dados = { nome: form.nome, nome_usuario: form.nome_usuario, perfil: form.perfil, ativo: form.ativo, filial_ids: form.perfil === 'ADMIN_TI' ? [] : form.filial_ids }
       if (form.senha) dados.senha = form.senha
       if (usuario) await api.patch(`/admin/usuarios/${usuario.id}`, dados)
       else await api.post('/admin/usuarios', dados)
@@ -177,7 +177,10 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
     <h2 className="text-lg font-bold">{usuario ? 'Editar credencial' : 'Nova credencial'}</h2>
     <Aviso erro={erro} />
     <Campo titulo="Nome"><input required maxLength={100} className={CAMPO} value={form.nome} onChange={(e) => alterar('nome', e.target.value)} /></Campo>
-    <Campo titulo="E-mail de acesso"><input required type="email" autoComplete="off" maxLength={120} className={CAMPO} value={form.email} onChange={(e) => alterar('email', e.target.value)} /></Campo>
+    <Campo titulo="Nome de usuário"><input required type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+      minLength={3} maxLength={50} pattern={'[a-zA-Z0-9][a-zA-Z0-9._\\-]{2,49}'} placeholder="Ex.: maria.silva" aria-describedby="ajuda-nome-usuario"
+      className={CAMPO} value={form.nome_usuario} onChange={(e) => alterar('nome_usuario', e.target.value.toLowerCase())} /></Campo>
+    <p id="ajuda-nome-usuario" className="text-xs text-slate-700">De 3 a 50 caracteres, começando por letra ou número. Use letras sem acento, números, ponto, hífen ou sublinhado. Cada nome deve ser único.</p>
     <Campo titulo={usuario ? 'Nova senha (opcional)' : 'Senha'}><input required={!usuario} type="password" autoComplete="new-password" minLength={6} maxLength={72}
       placeholder={usuario ? 'Preencha para substituir a senha' : 'Mínimo de 6 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>
     <Campo titulo="Perfil de acesso"><select disabled={propria} className={CAMPO} value={form.perfil} onChange={(e) => alterar('perfil', e.target.value)}>

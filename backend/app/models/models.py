@@ -1,7 +1,7 @@
 """Modelos SQLAlchemy — espelham o DDL da especificação técnica."""
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,7 +38,9 @@ class Usuario(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nome: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    nome_usuario: Mapped[str] = mapped_column(String(50), nullable=False)
+    # E-mails anteriores são preservados como dado legado, sem uso na autenticação.
+    email: Mapped[str | None] = mapped_column(String(120), unique=True, nullable=True)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     perfil_id: Mapped[int] = mapped_column(ForeignKey("perfis.id", ondelete="RESTRICT"), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -48,6 +50,7 @@ class Usuario(Base):
     filiais: Mapped[list["Filial"]] = relationship(
         secondary="usuarios_filiais", lazy="selectin"
     )
+    __table_args__ = (Index("uq_usuarios_nome_usuario", func.lower(nome_usuario), unique=True),)
 
 
 class UsuarioFilial(Base):

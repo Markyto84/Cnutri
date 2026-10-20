@@ -53,10 +53,10 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             db.add_all([a, b, perfil, admin, gestor])
             await db.flush()
             self.a, self.b = a.id, b.id
-            ana = Usuario(nome="Ana Teste", email="ana@teste.local", senha_hash=HASH, perfil=perfil, filiais=[a, b])
-            bia = Usuario(nome="Bia Teste", email="bia@teste.local", senha_hash=HASH, perfil=perfil, filiais=[a])
-            db.add_all([ana, bia, Usuario(nome="Admin Teste", email="admin@teste.local", senha_hash=HASH, perfil=admin, filiais=[])])
-            db.add(Usuario(nome="Gestor B", email="gestor@teste.local", senha_hash=HASH, perfil=gestor, filiais=[b]))
+            ana = Usuario(nome="Ana Teste", nome_usuario="ana", email="ana@teste.local", senha_hash=HASH, perfil=perfil, filiais=[a, b])
+            bia = Usuario(nome="Bia Teste", nome_usuario="bia", email="bia@teste.local", senha_hash=HASH, perfil=perfil, filiais=[a])
+            db.add_all([ana, bia, Usuario(nome="Admin Teste", nome_usuario="admin", email="admin@teste.local", senha_hash=HASH, perfil=admin, filiais=[])])
+            db.add(Usuario(nome="Gestor B", nome_usuario="gestor", email="gestor@teste.local", senha_hash=HASH, perfil=gestor, filiais=[b]))
             await db.flush()
             self.ana, self.bia = ana.id, bia.id
             self.pedidos = {}
@@ -82,8 +82,8 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides.clear()
         await self.engine.dispose()
 
-    async def entrar(self, email="ana@teste.local"):
-        resposta = await self.client.post("/api/auth/login", data={"username": email, "password": SENHA})
+    async def entrar(self, nome_usuario="ana"):
+        resposta = await self.client.post("/api/auth/login", data={"username": nome_usuario, "password": SENHA})
         self.assertEqual(resposta.status_code, 200, resposta.text)
         return {"Authorization": "Bearer " + resposta.json()["access_token"]}
 
@@ -126,7 +126,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.b}/copeiras")).json(), [])
         self.assertEqual((await self.client.post("/api/auth/presenca", headers=token, json={"filial_id": self.a})).status_code, 200)
         self.assertEqual(len((await self.client.get(self.base + "/copeiras")).json()), 1)
-        bia = await self.entrar("bia@teste.local")
+        bia = await self.entrar("bia")
         self.assertEqual((await self.client.post("/api/auth/presenca", headers=bia, json={"filial_id": self.b})).status_code, 403)
 
     async def test_duas_abas_ou_sessoes_nao_duplicam_nome(self):
@@ -148,7 +148,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(pedido_id, [p["id"] for p in (await self.client.get(self.base + "/pedidos")).json()])
         self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
         self.assertEqual((await self.client.patch(self.base + f"/pedidos/{pedido_id}/status", json={"status": "PRONTO"})).status_code, 409)
-        admin = await self.entrar("admin@teste.local")
+        admin = await self.entrar("admin")
         self.assertEqual((await self.client.patch(f"/api/pedidos/{pedido_id}/status", headers=admin, json={"status": "PRONTO"})).status_code, 409)
         async with self.sessoes() as db:
             self.assertEqual(await db.scalar(select(func.count()).select_from(EntregaPedido)), 1)
@@ -159,7 +159,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_painel_interno_nao_sobrescreve_entrega_concorrente(self):
         pedido_id = self.pedidos["PRONTO"]
-        admin = await self.entrar("admin@teste.local")
+        admin = await self.entrar("admin")
 
         async def entrega_durante_leitura(filial_id, usuario, db):
             # Simula a entrega confirmada depois que o painel leu o status antigo.
@@ -179,7 +179,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             pedido = await db.get(Pedido, pedido_id)
             pedido.tipo_solicitacao = "MEDICO"
             await db.commit()
-        admin = await self.entrar("admin@teste.local")
+        admin = await self.entrar("admin")
         rota = f"/api/relatorios/consumo-medico?filial_id={self.a}"
         antes = (await self.client.get(rota, headers=admin)).json()
         await self.entrar()
@@ -234,10 +234,10 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         for rota in (relatorio, imagem):
             self.assertEqual((await self.client.get(rota)).status_code, 401)
             self.assertEqual((await self.client.get(rota, headers=copeira)).status_code, 403)
-        gestor_b = await self.entrar("gestor@teste.local")
+        gestor_b = await self.entrar("gestor")
         for rota in (relatorio, imagem):
             self.assertEqual((await self.client.get(rota, headers=gestor_b)).status_code, 403)
-        admin = await self.entrar("admin@teste.local")
+        admin = await self.entrar("admin")
         resultado = (await self.client.get(relatorio, headers=admin)).json()
         self.assertEqual(resultado["total"], 1)
         item = resultado["itens"][0]
@@ -274,7 +274,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
                 (await db.get(Pedido, pedido_id)).status = "ENTREGUE"
                 db.add(EntregaPedido(pedido_id=pedido_id, copeira_id=self.ana, copeira_nome="Ana Teste", entregue_em=horario))
             await db.commit()
-        admin = await self.entrar("admin@teste.local")
+        admin = await self.entrar("admin")
         rota = f"/api/relatorios/entregas?filial_id={self.a}"
         for dia in ("2026-10-20", "2026-10-21"):
             resposta = await self.client.get(rota + f"&data_inicio={dia}&data_fim={dia}", headers=admin)

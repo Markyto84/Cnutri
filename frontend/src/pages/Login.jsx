@@ -4,7 +4,7 @@ import { api } from '../services/api.js'
 import { inicioDoUsuario, useAuth } from '../context/auth.js'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [nomeUsuario, setNomeUsuario] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState(null)
   const [carregando, setCarregando] = useState(false)
@@ -17,7 +17,7 @@ export default function Login() {
     setCarregando(true)
     setErro(null)
     try {
-      const dados = new URLSearchParams({ username: email, password: senha })
+      const dados = new URLSearchParams({ username: nomeUsuario.trim(), password: senha })
       const r = await api.post('/auth/login', dados)
       const sessao = entrar(r.data)
       const unidade = Number(parametros.get('unidade'))
@@ -39,22 +39,32 @@ export default function Login() {
 
         {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
 
+        <label className="block text-sm font-medium text-slate-900">Usuário
         <input
-          type="email"
-          placeholder="E-mail ou matrícula"
-          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          name="username"
+          placeholder="Nome de usuário"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={50}
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
+          value={nomeUsuario}
+          onChange={(e) => setNomeUsuario(e.target.value)}
           required
-        />
+        /></label>
+        <label className="block text-sm font-medium text-slate-900">Senha
         <input
           type="password"
-          placeholder="Palavra-passe"
-          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
+          name="password"
+          autoComplete="current-password"
+          placeholder="Senha"
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-600"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
           required
-        />
+        /></label>
         <button
           type="submit"
           disabled={carregando}
@@ -64,7 +74,7 @@ export default function Login() {
         </button>
 
         <p className="text-center text-xs text-slate-700">
-          Demo: admin@hospital.local / Trocar&#64;123
+          Use o usuário e a senha fornecidos pelo administrador de TI.
         </p>
       </form>
     </div>

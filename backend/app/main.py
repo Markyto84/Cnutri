@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import admin, auth, gestao, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
+from .core.login_usuarios import migrar_login_usuarios
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
 from .models.models import Base
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
     # Cria as tabelas (MVP; migrações com Alembic podem ser adicionadas depois)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(migrar_login_usuarios)
     async with SessionLocal() as db:
         await executar_seed(db)
     yield

@@ -18,7 +18,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 CREDENCIAIS_INVALIDAS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="E-mail ou palavra-passe inválidos",
+    detail="Usuário ou senha inválidos",
     headers={"WWW-Authenticate": "Bearer"},
 )
 

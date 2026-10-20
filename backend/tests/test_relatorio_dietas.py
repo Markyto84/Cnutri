@@ -38,9 +38,9 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
             geral = Dieta(nome="GERAL", filial_id=a.id)
             pastosa = Dieta(nome="PASTOSA · Antiga", filial_id=b.id, ativa=False)
             usuarios = {
-                "admin": Usuario(nome="Admin Teste", email="admin@teste.local", senha_hash=HASH, perfil=perfis["ADMIN_TI"], filiais=[]),
-                "gestor": Usuario(nome="Gestor A", email="gestor@teste.local", senha_hash=HASH, perfil=perfis["NUTRICIONISTA"], filiais=[a]),
-                "cozinha": Usuario(nome="Cozinha Teste", email="cozinha@teste.local", senha_hash=HASH, perfil=perfis["COZINHA"], filiais=[a]),
+                "admin": Usuario(nome="Admin Teste", nome_usuario="admin", email="admin@teste.local", senha_hash=HASH, perfil=perfis["ADMIN_TI"], filiais=[]),
+                "gestor": Usuario(nome="Gestor A", nome_usuario="gestor", email="gestor@teste.local", senha_hash=HASH, perfil=perfis["NUTRICIONISTA"], filiais=[a]),
+                "cozinha": Usuario(nome="Cozinha Teste", nome_usuario="cozinha", email="cozinha@teste.local", senha_hash=HASH, perfil=perfis["COZINHA"], filiais=[a]),
             }
             db.add_all([geral, pastosa, *usuarios.values()])
             await db.flush()

@@ -28,9 +28,9 @@ DIETAS_DEMO = [
 ]
 
 USUARIOS_DEMO = [
-    ("Administrador TI", "admin@hospital.local", "Trocar@123", "ADMIN_TI"),
-    ("Nutricionista Demo", "nutricao@hospital.local", "Trocar@123", "NUTRICIONISTA"),
-    ("Cozinha Demo", "cozinha@hospital.local", "Trocar@123", "COZINHA"),
+    ("Administrador TI", "admin", "Trocar@123", "ADMIN_TI"),
+    ("Nutricionista Demo", "nutricao", "Trocar@123", "NUTRICIONISTA"),
+    ("Cozinha Demo", "cozinha", "Trocar@123", "COZINHA"),
 ]
 
 
@@ -61,9 +61,9 @@ async def executar_seed(db: AsyncSession) -> None:
     db.add(filial)
     await db.flush()
 
-    for nome, email, senha, perfil_nome in USUARIOS_DEMO:
+    for nome, nome_usuario, senha, perfil_nome in USUARIOS_DEMO:
         usuario = Usuario(
-            nome=nome, email=email, senha_hash=hash_senha(senha), perfil_id=perfis[perfil_nome].id
+            nome=nome, nome_usuario=nome_usuario, senha_hash=hash_senha(senha), perfil_id=perfis[perfil_nome].id
         )
         db.add(usuario)
         await db.flush()

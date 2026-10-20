@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ..core.login_usuarios import PADRAO_USUARIO, normalizar_usuario
+
 TipoPublico = Literal["MEDICO", "ENFERMAGEM"]
 TipoSolicitacao = Literal["MEDICO", "PACIENTE"]
 StatusPedido = Literal["PENDENTE", "EM_PREPARO", "PRONTO", "CANCELADO"]
@@ -50,15 +52,16 @@ class FilialOut(FilialBase):
 # ─── Usuários ────────────────────────────────────────────────────────────────
 class UsuarioBase(BaseModel):
     nome: str = Field(min_length=1, max_length=100)
-    email: str = Field(min_length=3, max_length=120, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    nome_usuario: str = Field(min_length=3, max_length=50, pattern=PADRAO_USUARIO)
     perfil: Literal["ADMIN_TI", "NUTRICIONISTA", "COZINHA", "COPEIRA"]
     filial_ids: list[int] = Field(default_factory=list)
 
-    @field_validator("nome", "email", mode="before")
+    @field_validator("nome", "nome_usuario", mode="before")
     @classmethod
     def normalizar_texto(cls, valor: str, info) -> str:
-        valor = valor.strip()
-        return valor.lower() if info.field_name == "email" else valor
+        if not isinstance(valor, str):
+            return valor
+        return normalizar_usuario(valor) if info.field_name == "nome_usuario" else valor.strip()
 
 
 def validar_senha(senha: str | None) -> str | None:
@@ -82,7 +85,7 @@ class UsuarioOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     nome: str
-    email: str
+    nome_usuario: str
     ativo: bool
     perfil: str
     filiais: list[FilialOut]

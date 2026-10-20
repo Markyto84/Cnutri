@@ -77,11 +77,11 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 
 **Utilizadores iniciais (trocar as senhas imediatamente!):**
 
-| Perfil | E-mail | Senha |
+| Perfil | Usuário | Senha |
 |---|---|---|
-| Admin TI | admin@hospital.local | `Trocar@123` |
-| Nutricionista | nutricao@hospital.local | `Trocar@123` |
-| Cozinha | cozinha@hospital.local | `Trocar@123` |
+| Admin TI | admin | `Trocar@123` |
+| Nutricionista | nutricao | `Trocar@123` |
+| Cozinha | cozinha | `Trocar@123` |
 
 ### 6. Comandos úteis
 
@@ -187,7 +187,7 @@ O perfil **Administrador** entra diretamente em `/admin` após o login e tem ace
 - **Unidades:** criar, editar, ativar ou desativar unidades; abrir o formulário e o painel da cozinha;
   acessar a gestão de dietas, refeições, formulários e relatórios da unidade escolhida. Novas unidades
   recebem cópias independentes dos formulários e das dietas da unidade de origem selecionada.
-- **Credenciais:** criar e editar nome, e-mail, senha, perfil e unidades de acesso; ativar ou desativar
+- **Credenciais:** criar e editar nome, nome de usuário, senha, perfil e unidades de acesso; ativar ou desativar
   contas. Os perfis disponíveis são Administrador, Gestor de nutrição, Cozinha e Copeira. A própria conta
   administrativa não pode ser desativada nem perder seu perfil pelo mesmo usuário.
 - **Impressoras:** associar uma impressora padrão por unidade, alterar/remover o IP e testar a conexão.
@@ -196,6 +196,22 @@ O perfil **Administrador** entra diretamente em `/admin` após o login e tem ace
 Gestão, administração, relatórios e o canal interno autenticado continuam verificando perfil e
 unidades permitidas. O administrador pode retornar ao painel pelo link **Administração** nas telas
 de Gestão e Cozinha.
+
+### Login por nome de usuário
+
+O acesso em `/login` usa **Usuário** e **Senha**. Em **Administração → Credenciais**, o administrador
+de TI define o **Nome de usuário** de cada pessoa, separado do nome completo. Não é necessário
+cadastrar e-mail. O nome de acesso deve ter de 3 a 50 caracteres, começar por letra ou número e
+conter apenas letras sem acento, números, ponto, hífen ou sublinhado. Maiúsculas e minúsculas são
+equivalentes; o cadastro salva o nome em minúsculas e bloqueia nomes já usados por outra conta.
+
+Na atualização de uma base PostgreSQL existente, a inicialização cria o campo `nome_usuario` e
+preenche as contas com o texto anterior ao `@` do e-mail antigo. Acentos e caracteres inválidos são
+normalizados; colisões recebem um sufixo com o ID, e nomes muito curtos recebem `usuario{ID}`.
+O administrador pode alterar esses nomes depois. Senhas, IDs, perfis, vínculos, sessões e históricos
+são preservados; e-mails antigos ficam no banco como dados legados e deixam de servir para login.
+Executar a migração novamente preserva os nomes já definidos pela TI. A unicidade também é
+verificada no banco, sem diferenciar maiúsculas e minúsculas.
 
 ## Relatório de dietas por período e exportação
 
@@ -285,8 +301,11 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 42 testes: oito da administração, catorze de operação/plantão/entrega, treze das filipetas e
-sete do relatório de dietas e exportações.
+São 46 testes: onze da administração/login, catorze de operação/plantão/entrega, treze das filipetas,
+sete do relatório de dietas e exportações e um de migração PostgreSQL.
+O teste de migração só roda quando `CNUTRI_TEST_POSTGRES_URL` aponta explicitamente para um banco
+de testes PostgreSQL com permissão para criar schemas. Ele usa um schema exclusivo e reverte toda
+a transação ao terminar; sem essa variável, esse teste é omitido e os outros 45 usam SQLite isolado.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
@@ -298,6 +317,9 @@ e glifos diferentes para letras com e sem acento.
 Os testes do novo relatório cobrem limites de data/hora e fuso, unidade/perfil, filtros, paginação,
 exportação completa nos três formatos, acentos, datas tipadas, textos que se parecem com fórmulas,
 resultado vazio e rejeição de truncamento no Excel.
+Os testes de login verificam o acesso por usuário, rejeição do e-mail antigo, maiúsculas/minúsculas,
+renomeação mantendo senha e sessão, nomes inválidos/duplicados e cadastro restrito à TI. A migração
+é verificada com contas legadas, colisões, preservação de senha/vínculo e repetição sem perda de dados.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub

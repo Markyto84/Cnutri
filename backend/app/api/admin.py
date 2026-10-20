@@ -4,7 +4,7 @@ from copy import deepcopy
 import socket
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -136,14 +136,13 @@ async def listar_usuarios(db: AsyncSession = Depends(get_db), _: Usuario = Depen
 
 @router.post("/usuarios", response_model=UsuarioOut, status_code=status.HTTP_201_CREATED)
 async def criar_usuario(dados: UsuarioCreate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
-    email = dados.email.lower().strip()
-    existe = (await db.execute(select(Usuario).where(Usuario.email == email))).scalar_one_or_none()
+    existe = (await db.execute(select(Usuario).where(func.lower(Usuario.nome_usuario) == dados.nome_usuario))).scalar_one_or_none()
     if existe:
-        raise HTTPException(status.HTTP_409_CONFLICT, "E-mail já cadastrado")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Nome de usuário já cadastrado")
     perfil, filiais = await validar_credencial(dados, db)
-    usuario = Usuario(nome=dados.nome, email=email, senha_hash=hash_senha(dados.senha), perfil=perfil, filiais=filiais)
+    usuario = Usuario(nome=dados.nome, nome_usuario=dados.nome_usuario, senha_hash=hash_senha(dados.senha), perfil=perfil, filiais=filiais)
     db.add(usuario)
-    await confirmar(db, "E-mail já cadastrado")
+    await confirmar(db, "Nome de usuário já cadastrado")
     await db.refresh(usuario)
     return UsuarioOut.model_validate(usuario)
 
@@ -163,11 +162,11 @@ async def atualizar_usuario(usuario_id: int, dados: UsuarioUpdate, db: AsyncSess
         if len(administradores) <= 1:
             raise HTTPException(status.HTTP_409_CONFLICT, "Mantenha pelo menos um administrador ativo")
     perfil, filiais = await validar_credencial(dados, db)
-    usuario.nome, usuario.email = dados.nome, dados.email
+    usuario.nome, usuario.nome_usuario = dados.nome, dados.nome_usuario
     usuario.perfil, usuario.filiais, usuario.ativo = perfil, filiais, dados.ativo
     if dados.senha is not None:
         usuario.senha_hash = hash_senha(dados.senha)
-    await confirmar(db, "E-mail já cadastrado")
+    await confirmar(db, "Nome de usuário já cadastrado")
     await db.refresh(usuario)
     await gerenciador_ws.encerrar_usuario(usuario.id)
     return UsuarioOut.model_validate(usuario)
