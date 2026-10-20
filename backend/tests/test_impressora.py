@@ -2,30 +2,54 @@
 from copy import deepcopy
 import json
 from pathlib import Path
-import re
+from struct import unpack
 import unittest
 from unittest.mock import patch
 
 import httpx
+from PIL import Image, ImageChops, ImageOps
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.database import Base, get_db
 from app.core.security import criar_token
 from app.main import app
 from app.models.models import Dieta, Filial, FormularioConfig, Pedido, Perfil, Usuario
-from app.services.impressora import LARGURA_LINHA, _centralizar, _esquerda, montar_filipeta
+from app.services.impressora import LARGURA_LINHA, compor_linhas_filipeta, montar_filipeta
+from app.services.impressao_raster import (
+    ALTURA_BLOCO, LARGURA_PONTOS, LinhaImpressao, codificar_imagem,
+    rasterizar_filipeta, renderizar_filipeta,
+)
 
 SNAPSHOT = Path(__file__).resolve().parents[2] / "configuracoes/formularios-unidade-havai.json"
 ESQUEMAS = json.loads(SNAPSHOT.read_text(encoding="utf-8"))["formularios"]
 
 
-def texto_impresso(buffer):
-    sem_comandos = re.sub(rb"\x1b(?:@|[!t].)", b"", buffer, flags=re.DOTALL)
-    return sem_comandos.removesuffix(b"\x1dVB\x00").decode("cp850")
+def texto_impresso(linhas):
+    return "\n".join(linha.texto for linha in linhas)
 
 
 def texto_corrido(buffer):
     return " ".join(texto_impresso(buffer).split())
+
+
+def decodificar_raster(buffer):
+    """Leitor independente do pacote enviado à impressora para conferir seus pixels."""
+    assert buffer.startswith(b"\x1b@\x1ba\x00")
+    pos, blocos = 5, []
+    while buffer[pos:pos + 4] == b"\x1dv0\x00":
+        largura, altura = unpack("<HH", buffer[pos + 4:pos + 8])
+        inicio, fim = pos + 8, pos + 8 + largura * altura
+        assert fim <= len(buffer)
+        bits = Image.frombytes("1", (largura * 8, altura), buffer[inicio:fim])
+        blocos.append(ImageOps.invert(bits.convert("L")))
+        pos = fim
+    assert buffer[pos:] == b"\n\n\x1dVB\x00"
+    imagem = Image.new("L", (blocos[0].width, sum(bloco.height for bloco in blocos)), 255)
+    topo = 0
+    for bloco in blocos:
+        imagem.paste(bloco, (0, topo))
+        topo += bloco.height
+    return imagem, blocos
 
 
 def pedido_medico():
@@ -60,7 +84,7 @@ def pedido_paciente():
 class FilipetaTest(unittest.TestCase):
     def test_medico_inclui_todos_os_campos_e_identifica_o_solicitante(self):
         pedido = pedido_medico()
-        buffer = montar_filipeta(pedido, "Unidade de Teste", ESQUEMAS["MEDICO"])
+        buffer = compor_linhas_filipeta(pedido, "Unidade de Teste", ESQUEMAS["MEDICO"])
         texto = texto_corrido(buffer)
         for campo in ESQUEMAS["MEDICO"]["campos"]:
             self.assertIn(campo["rotulo"] + ":", texto)
@@ -75,7 +99,7 @@ class FilipetaTest(unittest.TestCase):
 
     def test_enfermagem_inclui_prontuario_matricula_nascimento_cardapio_e_restricoes(self):
         pedido = pedido_paciente()
-        texto = texto_corrido(montar_filipeta(pedido, "Unidade de Teste", ESQUEMAS["ENFERMAGEM"], "PASTOSA"))
+        texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade de Teste", ESQUEMAS["ENFERMAGEM"], "PASTOSA"))
         for campo in ESQUEMAS["ENFERMAGEM"]["campos"]:
             self.assertIn(campo["rotulo"] + ":", texto)
         for chave, valor in pedido.dados_dinamicos.items():
@@ -92,7 +116,7 @@ class FilipetaTest(unittest.TestCase):
             {"id": "ramal", "rotulo": "Ramal para contato", "tipo": "texto"},
             {"id": "equipe", "rotulo": "Equipe solicitante", "tipo": "radio"},
         ]}
-        texto = texto_corrido(montar_filipeta(pedido, "Unidade", esquema))
+        texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade", esquema))
         self.assertIn("Ramal para contato: 4321", texto)
         self.assertIn("Equipe solicitante: Médica", texto)
         self.assertLess(texto.index("Ramal para contato:"), texto.index("Equipe solicitante:"))
@@ -103,7 +127,7 @@ class FilipetaTest(unittest.TestCase):
     def test_sem_configuracao_ou_json_legado_nao_perde_campos_fixos(self):
         pedido = pedido_paciente()
         pedido.dados_dinamicos = None
-        texto = texto_corrido(montar_filipeta(pedido, "Unidade", dieta_nome="GERAL"))
+        texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade", dieta_nome="GERAL"))
         self.assertIn("Prontuário: PR-0000456", texto)
         self.assertIn("Nome do Paciente: Paciente Fictício da Validação", texto)
         self.assertIn("Tipo de Dieta: GERAL", texto)
@@ -113,23 +137,18 @@ class FilipetaTest(unittest.TestCase):
         pedido = pedido_medico()
         pedido.dados_dinamicos.update({"jejum": False, "quantidade": 0, "itens": ["Água", "Chá"], "detalhes": {"Ramal": "9876"}})
         esquema = {"campos": [{"id": "opcional", "rotulo": "Campo opcional", "tipo": "texto"}]}
-        texto = texto_corrido(montar_filipeta(pedido, "Unidade", esquema))
+        texto = texto_corrido(compor_linhas_filipeta(pedido, "Unidade", esquema))
         for trecho in ("Campo opcional: Não informado", "Jejum: Não", "Quantidade: 0", "Itens: Água; Chá", "Detalhes: Ramal: 9876"):
             self.assertIn(trecho, texto)
 
     def test_quebra_linhas_sem_cortar_palavras_longas_ou_observacoes(self):
         palavra = "X" * 125
-        texto = "Início " + palavra + "\nFim da observação, sem truncar a última palavra."
-        for funcao in (_esquerda, _centralizar):
-            with self.subTest(alinhamento=funcao.__name__):
-                saida = funcao(texto).decode("cp850")
-                self.assertTrue(all(len(linha) <= LARGURA_LINHA for linha in saida.splitlines()))
-                self.assertEqual("".join(saida.split()), "".join(texto.split()))
         pedido = pedido_paciente()
         pedido.nome_paciente = "Nome extenso " * 15 + "FINAL DO NOME"
-        pedido.observacoes_alergias = "Atenção " * 60 + "FINAL DA OBSERVAÇÃO"
-        buffer = montar_filipeta(pedido, "Unidade extensa " * 8, ESQUEMAS["ENFERMAGEM"])
+        pedido.observacoes_alergias = palavra + "\n" + "Atenção " * 60 + "FINAL DA OBSERVAÇÃO"
+        buffer = compor_linhas_filipeta(pedido, "Unidade extensa " * 8, ESQUEMAS["ENFERMAGEM"])
         self.assertTrue(all(len(linha) <= LARGURA_LINHA for linha in texto_impresso(buffer).splitlines()))
+        self.assertIn(palavra, "".join(texto_impresso(buffer).split()))
         self.assertIn("FINAL DO NOME", texto_corrido(buffer))
         self.assertIn("FINAL DA OBSERVAÇÃO", texto_corrido(buffer))
 
@@ -137,9 +156,7 @@ class FilipetaTest(unittest.TestCase):
         pedido = pedido_medico()
         pedido.solicitante_nome = "Conceic\u0327a\u0303o Áéíóú Çãõ º"
         pedido.observacoes_alergias = "Primeira\x1b\x1d\x00\x0c\r\nÚltima"
-        buffer = montar_filipeta(pedido, "Unidade", ESQUEMAS["MEDICO"], severa=True)
-        self.assertTrue(buffer.startswith(b"\x1b@\x1bt\x02"))
-        self.assertTrue(buffer.endswith(b"\x1dVB\x00"))
+        buffer = compor_linhas_filipeta(pedido, "Unidade", ESQUEMAS["MEDICO"], severa=True)
         texto = texto_impresso(buffer)
         self.assertIn("Conceição Áéíóú Çãõ º", texto)
         self.assertIn("RESTRIÇÃO SEVERA", texto)
@@ -148,6 +165,45 @@ class FilipetaTest(unittest.TestCase):
         self.assertNotIn("\x1d", texto)
         self.assertNotIn("\x00", texto)
         self.assertNotIn("?", texto)
+
+
+class RasterTest(unittest.TestCase):
+    def test_pacote_preserva_pixels_polaridade_e_blocos_sem_cortar_a_ultima_linha(self):
+        imagem = Image.new("L", (LARGURA_PONTOS, ALTURA_BLOCO * 3 + 9), 255)
+        imagem.putpixel((0, 0), 0)
+        imagem.putpixel((25, ALTURA_BLOCO), 0)
+        imagem.putpixel((LARGURA_PONTOS - 1, imagem.height - 1), 0)
+        reconstruida, blocos = decodificar_raster(codificar_imagem(imagem))
+        self.assertEqual([bloco.height for bloco in blocos], [128, 128, 128, 9])
+        self.assertIsNone(ImageChops.difference(imagem, reconstruida).getbbox())
+
+    def test_acentos_sao_desenhados_com_glifos_distintos_sem_remover_o_acento(self):
+        for acentuada, base in zip("ãõçáÃÕÇÁ", "aocaAOCA"):
+            with self.subTest(letra=acentuada):
+                imagem, _ = decodificar_raster(rasterizar_filipeta([LinhaImpressao(acentuada)]))
+                simples, _ = decodificar_raster(rasterizar_filipeta([LinhaImpressao(base)]))
+                simbolo, _ = decodificar_raster(rasterizar_filipeta([LinhaImpressao("?")]))
+                self.assertIsNotNone(ImageChops.difference(imagem, simples).getbbox())
+                self.assertIsNotNone(ImageChops.difference(imagem, simbolo).getbbox())
+        pedido = pedido_medico()
+        pedido.solicitante_nome = "a\u0303o\u0303c\u0327a\u0301"
+        linhas = compor_linhas_filipeta(pedido, "Unidade")
+        self.assertIn("Solicitante: ãõçá", texto_impresso(linhas))
+        decomposto = montar_filipeta(pedido, "Unidade")
+        pedido.solicitante_nome = "ãõçá"
+        self.assertEqual(decomposto, montar_filipeta(pedido, "Unidade"))
+
+    def test_simbolos_chegam_ao_desenho_e_filipeta_extensa_cabe_no_papel(self):
+        pedido = pedido_paciente()
+        pedido.observacoes_alergias = "Atenção: ação, maçã, coração, café.\n" * 40 + "FINAL ≤ 10 ± 2"
+        linhas = compor_linhas_filipeta(pedido, "Unidade extensa " * 8, ESQUEMAS["ENFERMAGEM"], "PASTOSA", True)
+        self.assertIn("FINAL ≤ 10 ± 2", texto_impresso(linhas))
+        imagem, blocos = decodificar_raster(montar_filipeta(pedido, "Unidade extensa " * 8, ESQUEMAS["ENFERMAGEM"], "PASTOSA", True))
+        esperado = renderizar_filipeta(linhas).convert("1", dither=Image.Dither.NONE).convert("L")
+        self.assertIsNone(ImageChops.difference(esperado, imagem).getbbox())
+        self.assertTrue(all(bloco.height <= ALTURA_BLOCO for bloco in blocos))
+        self.assertIsNone(ImageOps.invert(imagem.crop((0, 0, 6, imagem.height))).getbbox())
+        self.assertIsNone(ImageOps.invert(imagem.crop((LARGURA_PONTOS - 6, 0, LARGURA_PONTOS, imagem.height))).getbbox())
 
 
 class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
@@ -192,18 +248,25 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             "tipo_solicitacao", "solicitante_identificacao", "solicitante_nome", "nome_paciente",
             "leito", "prontuario", "dieta_id", "observacoes_alergias", "dados_dinamicos",
         )}
-        with patch("app.api.public_kiosk.imprimir_filipeta", return_value=True) as imprimir:
+        with (
+            patch("app.api.public_kiosk.imprimir_filipeta", return_value=True) as imprimir,
+            patch("app.services.impressora.rasterizar_filipeta", wraps=rasterizar_filipeta) as desenhar,
+        ):
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json=payload)
             self.assertEqual(resposta.status_code, 201, resposta.text)
             imprimir.assert_called_once()
             ip, original = imprimir.call_args.args
             self.assertEqual(ip, "192.0.2.10")
+            desenhar.assert_called_once()
+            conteudo = texto_corrido(desenhar.call_args.args[0])
+            imagem, _ = decodificar_raster(original)
+            self.assertEqual(imagem.width, LARGURA_PONTOS)
         with patch("app.api.pedidos.imprimir_filipeta", return_value=True) as reimprimir:
             repetida = await self.client.post(f"/api/pedidos/{resposta.json()['id']}/reimprimir", headers=self.headers)
             self.assertEqual(repetida.status_code, 200, repetida.text)
             self.assertTrue(repetida.json()["impresso"])
             reimprimir.assert_called_once_with(ip, original)
-        return texto_corrido(original)
+        return conteudo
 
     async def test_medico_impressao_e_reimpressao_identicas_com_config_da_unidade(self):
         texto = await self.conferir_envio_e_reimpressao(pedido_medico())

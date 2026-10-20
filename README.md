@@ -106,8 +106,14 @@ com os rótulos e a ordem configurados para cada unidade. Campos adicionados pel
 na impressão; valores antigos continuam visíveis mesmo se o campo for removido da configuração.
 Campos configurados sem resposta mostram **Não informado**. Datas são apresentadas como `DD/MM/AAAA`,
 dietas pelo nome e textos longos quebram em linhas de até 42 colunas, sem truncar refeições,
-nomes ou observações. Acentos em português usam a tabela
-[ESC/POS PC850](https://download4.epson.biz/sec_pubs/bs/pdf/h5000o_e.pdf).
+nomes ou observações.
+
+O texto é desenhado no servidor com **Pillow e DejaVu Sans Mono**, incluindo `ã, õ, ç, á`, e enviado
+como imagem monocromática ESC/POS em blocos de até 128 linhas de pixels. Assim, os acentos não dependem
+da tabela de caracteres interna da POS80. A área usada é de 576 pontos em papel de 80 mm; a impressora
+deve aceitar [impressão raster GS v 0](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lv_0.html).
+As fontes e sua licença ficam em `backend/app/assets/fonts/`, incluídas também na imagem Docker.
+Essa conversão acontece somente na impressão; os textos digitados permanecem preservados no banco.
 
 O envio automático e o botão de reimpressão da Cozinha usam o mesmo gerador. A reimpressão consulta
 os rótulos atuais da unidade e conserva todos os dados salvos no pedido. O alerta de restrição severa
@@ -185,8 +191,10 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 18 testes: oito da administração e dez das filipetas, incluindo campos completos nos dois fluxos,
+São 21 testes: oito da administração e treze das filipetas, incluindo campos completos nos dois fluxos,
 textos extensos, acentos, campos novos/antigos e igualdade entre impressão automática e reimpressão.
+Os testes também reconstroem a imagem transmitida e conferem pixels, polaridade, limites dos blocos
+e glifos diferentes para letras com e sem acento.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub

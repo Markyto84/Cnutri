@@ -15,14 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.models import Dieta, Filial, FormularioConfig, Pedido
+from .impressao_raster import LinhaImpressao, rasterizar_filipeta
 
 logger = logging.getLogger(__name__)
 
-ESC = b"\x1b"
-GS = b"\x1d"
-
 LARGURA_LINHA = 42  # 80mm térmica padrão (~42 colunas)
-CODIFICACAO = "cp850"
 
 ROTULOS_PADRAO = {
     "solicitante_nome": "Solicitante",
@@ -59,20 +56,6 @@ def _linhas(texto: str, largura: int) -> list[str]:
     for paragrafo in texto.split("\n"):
         linhas.extend(textwrap.wrap(paragrafo, largura, break_on_hyphens=False) or [""])
     return linhas
-
-
-def _centralizar(texto: str, largura: int = LARGURA_LINHA) -> bytes:
-    return b"".join(
-        (" " * max(0, (largura - len(linha)) // 2) + linha + "\n").encode(CODIFICACAO, errors="replace")
-        for linha in _linhas(texto, largura)
-    )
-
-
-def _esquerda(texto: str) -> bytes:
-    return b"".join(
-        ("  " + linha + "\n").encode(CODIFICACAO, errors="replace")
-        for linha in _linhas(texto, LARGURA_LINHA - 2)
-    )
 
 
 def _preenchido(valor: Any) -> bool:
@@ -131,6 +114,36 @@ def _campos_filipeta(
         yield rotulo, _formatar_valor(valor, tipo)
 
 
+def compor_linhas_filipeta(
+    pedido: Pedido,
+    filial_nome: str,
+    esquema_json: dict | None = None,
+    dieta_nome: str | None = None,
+    severa: bool = False,
+) -> list[LinhaImpressao]:
+    """Conteúdo único para a impressão, com todos os campos e sem truncamento."""
+    linhas = []
+
+    def adicionar(texto: str, centralizada: bool = False, destaque: bool = False):
+        largura = LARGURA_LINHA // 2 if destaque else LARGURA_LINHA
+        if not centralizada:
+            largura -= 2
+        linhas.extend(LinhaImpressao(linha, centralizada, destaque) for linha in _linhas(texto, largura))
+
+    adicionar(f"PEDIDO #{pedido.id}", centralizada=True, destaque=True)
+    adicionar(filial_nome, centralizada=True)
+    adicionar("=" * LARGURA_LINHA, centralizada=True)
+
+    if severa:
+        adicionar("ATENÇÃO:\nRESTRIÇÃO SEVERA", centralizada=True, destaque=True)
+
+    adicionar(f"Tipo: {'MÉDICO' if pedido.tipo_solicitacao == 'MEDICO' else 'PACIENTE'}")
+    for rotulo, valor in _campos_filipeta(pedido, dieta_nome, esquema_json):
+        adicionar(f"{rotulo}: {valor}")
+    adicionar("=" * LARGURA_LINHA, centralizada=True)
+    return linhas
+
+
 def montar_filipeta(
     pedido: Pedido,
     filial_nome: str,
@@ -138,28 +151,8 @@ def montar_filipeta(
     dieta_nome: str | None = None,
     severa: bool = False,
 ) -> bytes:
-    """Imprime todos os campos, na ordem do formulário, sem cortar seus valores."""
-    dados = ESC + b"@"  # reset da impressora
-    # ESC t 2: PC850 (multilíngue), com os acentos usados em português.
-    dados += ESC + b"t\x02"
-    dados += ESC + b"!\x38"  # negrito, dupla altura/largura
-    dados += _centralizar(f"PEDIDO #{pedido.id}", LARGURA_LINHA // 2)
-    dados += ESC + b"!\x00"  # fonte normal
-    dados += _centralizar(filial_nome)
-    dados += _centralizar("=" * LARGURA_LINHA)
-
-    if severa:
-        dados += ESC + b"!\x38"
-        dados += _centralizar("ATENÇÃO:\nRESTRIÇÃO SEVERA", LARGURA_LINHA // 2)
-        dados += ESC + b"!\x00"
-
-    dados += _esquerda(f"Tipo: {'MÉDICO' if pedido.tipo_solicitacao == 'MEDICO' else 'PACIENTE'}")
-    for rotulo, valor in _campos_filipeta(pedido, dieta_nome, esquema_json):
-        dados += _esquerda(f"{rotulo}: {valor}")
-    dados += _centralizar("=" * LARGURA_LINHA)
-    dados += b"\n\n"
-    dados += GS + b"V\x42\x00"  # corte de papel
-    return dados
+    """Envia letras já desenhadas, preservando acentos sem usar code pages."""
+    return rasterizar_filipeta(compor_linhas_filipeta(pedido, filial_nome, esquema_json, dieta_nome, severa))
 
 
 async def montar_filipeta_configurada(

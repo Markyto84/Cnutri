@@ -99,20 +99,26 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   do solicitante, rótulos/ordem de cada unidade e inclusão automática de novos campos. Dados antigos
   continuam visíveis mesmo após remoção do campo no gestor (20/10/2026)
 - ✅ Textos da filipeta quebram em linhas de 42 colunas, sem truncar nomes, refeições, cardápios ou
-  observações; datas em DD/MM/AAAA, acentos PC850 e campos configurados vazios como “Não informado”
+  observações; datas em DD/MM/AAAA e campos configurados vazios como “Não informado”
 - ✅ Impressão automática e reimpressão usam o mesmo gerador; dez testes de impressão adicionados,
   totalizando 18 testes isolados. Validação em papel depende da impressora real (20/10/2026)
+- ✅ Correção de `ã, õ, ç, á` na POS80: textos desenhados no servidor e enviados como imagem
+  monocromática ESC/POS (GS v 0), sem depender de code page. Pillow e fontes DejaVu Sans Mono
+  distribuídas com o backend; área de 576 pontos, blocos de até 128 linhas de pixels (20/10/2026)
+- ✅ Três testes de imagem adicionados, totalizando 21 testes: pixels/polaridade e divisão dos blocos,
+  glifos de acentos e preservação de símbolos e de filipetas extensas
+- ✅ Duas filipetas de teste enviadas à POS80 em 20/10/2026; usuário confirmou em papel que
+  “ã õ ç á | ação, maçã, coração” saíram corretamente após a correção
 
 ## 5. Pendências / decisões em aberto
 
 1. **Dietas severas:** nenhuma marcada com destaque vermelho ainda
-2. **Impressora térmica real:** IP já cadastrado na unidade Havaí; validar a nova filipeta em papel
-3. **Senhas do seed** precisam ser trocadas antes de produção
+2. **Senhas do seed** precisam ser trocadas antes de produção
    (admin@hospital.local / nutricao@hospital.local / cozinha@hospital.local — senha `Trocar@123`)
-4. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
+3. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
    ou dependente de grupo de dieta
-5. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
-6. **Produção:** HTTPS (proxy reverso), backup agendado diário, CORS_ORIGINS com URL real
+4. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
+5. **Produção:** HTTPS (proxy reverso), backup agendado diário, CORS_ORIGINS com URL real
 
 ## 6. Convenções técnicas importantes (não quebrar)
 
@@ -124,6 +130,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - **Filipetas:** `montar_filipeta_configurada()` carrega o esquema da unidade e do fluxo (PACIENTE →
   ENFERMAGEM). Usar esse caminho no envio e na reimpressão; não manter listas de campos separadas
   nas rotas. Campos extras salvos também são impressos; o informativo estático de horários fica no kiosk
+- **Acentos na impressão:** `compor_linhas_filipeta()` mantém o texto Unicode, e `impressao_raster.py`
+  desenha as letras com as fontes versionadas em `app/assets/fonts/`. Não voltar ao envio de caracteres
+  CP850/CP437 à POS80: a tabela interna do equipamento substitui os acentos por outros glifos
 - **Proteção de edição:** o PUT de formulários exige `versao` (timestamp `atualizado_em` carregado);
   divergência → 409. Ao salvar no editor, recarrega a versão nova
 - **SQLAlchemy async:** relacionamentos usados em contexto async precisam de `selectinload`
