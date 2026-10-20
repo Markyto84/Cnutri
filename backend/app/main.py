@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, auth, gestao, operacao, pedidos, public_kiosk, relatorios
+from .api import admin, auth, gestao, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.security import get_current_user, verificar_acesso_filial
@@ -42,6 +42,7 @@ app.include_router(pedidos.router)
 app.include_router(gestao.router)
 app.include_router(admin.router)
 app.include_router(relatorios.router)
+app.include_router(relatorio_dietas.router)
 app.include_router(operacao.router)
 
 

@@ -150,6 +150,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 O script inicia o PostgreSQL na porta **5433**, a API na **8000** e o frontend na **5173**.
 Na primeira execução, cria o ambiente Python e instala as dependências que estiverem ausentes.
 Execuções seguintes reutilizam os processos desta pasta. Os logs ficam em `work/logs/`.
+Quando precisa iniciar a API ou o frontend, usa uma sessão independente do terminal, via WMI.
+Fechar ou interromper o terminal de desenvolvimento não encerra esses serviços. Isso não configura
+inicialização automática após reiniciar o Windows; use `start.ps1` novamente nessa situação.
 
 - Formulário: `http://localhost:5173/unidade-havai`
 - Cozinha: `http://localhost:5173/cozinha/1` (sem login)
@@ -188,10 +191,41 @@ O perfil **Administrador** entra diretamente em `/admin` após o login e tem ace
   contas. Os perfis disponíveis são Administrador, Gestor de nutrição, Cozinha e Copeira. A própria conta
   administrativa não pode ser desativada nem perder seu perfil pelo mesmo usuário.
 - **Impressoras:** associar uma impressora padrão por unidade, alterar/remover o IP e testar a conexão.
+- **Relatórios:** consultar e exportar dietas e refeições médicas de uma unidade ou de todas as unidades.
 
 Gestão, administração, relatórios e o canal interno autenticado continuam verificando perfil e
 unidades permitidas. O administrador pode retornar ao painel pelo link **Administração** nas telas
 de Gestão e Cozinha.
+
+## Relatório de dietas por período e exportação
+
+Em **Gestão de Nutrição → Relatórios** ou **Administração → Relatórios**, informe a data e hora
+inicial e final e clique em **Consultar dietas**. Os horários usam Brasília (UTC-3), incluindo
+todo o minuto final selecionado. Escolha se o período corresponde à **solicitação** ou à
+**entrega** e, opcionalmente, filtre por formulário (Enfermagem ou Médico) e situação.
+O gestor consulta a unidade selecionada entre as suas unidades permitidas. O administrador
+pode escolher uma unidade, inclusive inativa, ou consultar todas.
+
+O relatório apresenta totais, resumo por unidade/dieta e solicitações em páginas de 25 registros.
+Em **Abrir relatório em**, escolha o formato e clique em **Exportar relatório**:
+
+- **Excel (.xlsx):** duas abas, **Resumo** e **Solicitações**, com números e datas tipados,
+  cabeçalhos fixos, filtros e textos com quebra de linha.
+- **LibreOffice Calc (.ods):** as mesmas duas abas em formato OpenDocument, com datas e números tipados.
+- **Google Sheets (.csv):** registros detalhados em UTF-8 com acentos, para abrir no Google Sheets
+  em **Arquivo → Importar**. O arquivo é baixado; não há envio automático a uma conta Google.
+
+Os arquivos incluem **todos os resultados dos filtros**, mesmo os de outras páginas. Alterar um
+filtro exige consultar novamente antes de exportar. O detalhamento inclui dieta, refeição,
+cardápio, equipe, suco, sobremesa, local/leito, observações, horários de solicitação/preparo/entrega,
+copeira, recebedor e indicação de assinatura registrada. A imagem da assinatura continua no
+relatório de comprovantes; prontuário, sexo, nascimento e matrícula não são exportados.
+Textos que se parecem com fórmulas são tratados como texto. Se um campo exceder o limite de
+32.767 caracteres do Excel, o sistema orienta usar CSV ou ODS, preservando o conteúdo completo.
+
+A consulta e os três formatos verificam perfil e unidades permitidas no servidor. A funcionalidade
+usa `openpyxl` e `odfpy`, incluídos em `backend/requirements.txt`. Ao atualizar uma instalação existente,
+pare os serviços e execute `start.ps1 -InstalarDependencias` para instalar essas dependências.
 
 ## Cozinha, plantão e entregas no computador e no celular
 
@@ -241,7 +275,7 @@ de quantidade e coordenadas e gera o PNG com Pillow; rejeita assinaturas vazias 
 Os backups do banco incluem os comprovantes. Antes dessa adição foi validado o backup
 `backups/backup-dietas-2026-10-20-antes-assinaturas.dump`, também fora do Git.
 
-### Testes da administração, entregas e impressão
+### Testes da administração, entregas, impressão e relatórios
 
 Os testes usam um banco SQLite temporário em memória, sem modificar o PostgreSQL em uso:
 
@@ -251,7 +285,8 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 35 testes: oito da administração, catorze de operação/plantão/entrega e treze das filipetas.
+São 42 testes: oito da administração, catorze de operação/plantão/entrega, treze das filipetas e
+sete do relatório de dietas e exportações.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
@@ -260,6 +295,9 @@ As verificações de filipeta incluem campos completos nos dois fluxos,
 textos extensos, acentos, campos novos/antigos e igualdade entre impressão automática e reimpressão.
 Os testes também reconstroem a imagem transmitida e conferem pixels, polaridade, limites dos blocos
 e glifos diferentes para letras com e sem acento.
+Os testes do novo relatório cobrem limites de data/hora e fuso, unidade/perfil, filtros, paginação,
+exportação completa nos três formatos, acentos, datas tipadas, textos que se parecem com fórmulas,
+resultado vazio e rejeição de truncamento no Excel.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub

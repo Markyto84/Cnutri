@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$InstalarDependencias)
+param([switch]$InstalarDependencias, [switch]$SessaoIndependente)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
@@ -43,6 +43,13 @@ function Wait-Http([string]$Url) {
     throw "O servico nao respondeu em $Url. Consulte os arquivos em $logsRoot."
 }
 
+function Show-ServiceInfo {
+    Write-Host "Cnutri em execucao a partir de: $projectRoot" -ForegroundColor Green
+    Write-Host 'Formulario: http://localhost:5173/unidade-havai'
+    Write-Host 'Login:      http://localhost:5173/login'
+    Write-Host "Logs:       $logsRoot"
+}
+
 $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
 $npmPath = (Get-Command npm.cmd -ErrorAction Stop).Source
 Get-Command docker.exe -ErrorAction Stop | Out-Null
@@ -72,6 +79,26 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendRoot 'node_modules\vite\bin
         & $npmPath ci
         Assert-CommandSucceeded 'instalar as dependencias do frontend'
     } finally { Pop-Location }
+}
+
+# O WMI inicia o supervisor fora da arvore do terminal. Interromper um comando de
+# desenvolvimento nao deve encerrar junto a API e o frontend que atendem a rede.
+# Dependencias foram preparadas acima; a sessao independente apenas as reutiliza.
+if (-not $SessaoIndependente -and (-not $backendProcess -or -not $frontendProcess)) {
+    $startupInfo = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+    $scriptPath = Join-Path $projectRoot 'start.ps1'
+    $commandLine = 'powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}" -SessaoIndependente' -f $scriptPath
+    $launch = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+        CommandLine = $commandLine
+        CurrentDirectory = $projectRoot
+        ProcessStartupInformation = $startupInfo
+    }
+    if ($launch.ReturnValue -ne 0) { throw "Falha ao iniciar a sessao independente (codigo $($launch.ReturnValue))." }
+    Wait-Http 'http://127.0.0.1:8000/api/health'
+    Wait-Http 'http://127.0.0.1:5173/api/health'
+    if (-not (Get-OwnedListener 8000) -or -not (Get-OwnedListener 5173)) { throw 'Os servicos iniciados nao pertencem a esta copia.' }
+    Show-ServiceInfo
+    return
 }
 
 if (-not $backendProcess) {
@@ -111,7 +138,4 @@ if (-not $frontendProcess) { throw 'O processo do frontend nao foi identificado.
 $serviceState.frontend = @{ id = $frontendProcess.Id; startedAt = $frontendProcess.StartTime.ToUniversalTime().ToString('o') }
 $serviceState | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
 
-Write-Host "Cnutri em execucao a partir de: $projectRoot" -ForegroundColor Green
-Write-Host 'Formulario: http://localhost:5173/unidade-havai'
-Write-Host 'Login:      http://localhost:5173/login'
-Write-Host "Logs:       $logsRoot"
+Show-ServiceInfo

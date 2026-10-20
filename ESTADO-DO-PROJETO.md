@@ -15,7 +15,7 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 - **Entregas das copeiras** (`/entregas/1`): refeições prontas, seleção de copeira online por login
   e recebimento com nome/assinatura, responsável e horário; responsivo para celular
 - **Gestão de Nutrição** (`/gestao`): catálogo de dietas, motor de formulários dinâmicos, relatórios
-- **Admin TI** (`/admin`): filiais, IPs de impressoras, usuários/perfis (RBAC)
+- **Admin TI** (`/admin`): filiais, IPs de impressoras, usuários/perfis (RBAC) e relatórios de todas as unidades
 
 ## 2. Stack e arquitetura
 
@@ -152,6 +152,24 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   horário do servidor, permissões, virada de data em Brasília, legado e rollback de falha.
   Desenho, limpeza e consulta do comprovante verificados em telas de 320 e 390 pixels, com
   dados fictícios em banco separado; frontend compilado e arquivos novos sem avisos de lint
+- ✅ Relatório de dietas e solicitações em Gestão → Relatórios e Administração → Relatórios,
+  com data/hora inicial e final em Brasília, período por solicitação ou entrega, formulário e
+  situação. Gestão limitada à unidade permitida; administração com uma ou todas as unidades,
+  inclusive inativas. Totais por unidade/dieta e detalhes paginados de 25 registros (20/10/2026)
+- ✅ Exportação de todos os registros filtrados para Excel (.xlsx), Calc (.ods) e Google Sheets
+  (.csv para Arquivo → Importar). XLSX/ODS com abas Resumo e Solicitações, datas/números tipados,
+  acentos e texto completo; CSV com UTF-8 BOM. Inclui campos dinâmicos, horários de preparo/entrega,
+  copeira, recebedor e indicação de assinatura, sem imagem nem prontuário/sexo/nascimento/matrícula
+- ✅ Textos semelhantes a fórmulas permanecem texto nos arquivos. Campos acima de 32.767 caracteres
+  geram orientação para CSV/ODS em vez de truncamento silencioso no XLSX. Dependências portáveis
+  openpyxl e odfpy em requirements.txt; nenhuma alteração no esquema do banco para o relatório
+- ✅ Sete testes de relatório adicionados, totalizando 42 aprovados; build do frontend aprovado.
+  Filtros de horário, escopo de gestor/admin, três downloads e tela móvel de 390 pixels verificados
+  no navegador com dados fictícios. XLSX importado e renderizado para conferência visual das abas
+- ✅ Serviços restabelecidos após API e frontend serem encerrados junto do terminal de trabalho.
+  start.ps1 inicia serviços ausentes em sessão independente via WMI e janela oculta, preservando
+  estado de processos para stop.ps1. Verificado acesso pela rede em 5173 e saúde da API; não há
+  inicialização automática após reiniciar o Windows (20/10/2026)
 
 ## 5. Pendências / decisões em aberto
 
@@ -183,6 +201,13 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - **Assinatura:** `EntregaCreate` exige nome do recebedor e traços normalizados; o servidor gera
   o PNG e salva em `recebimentos_entregas` na mesma transação da entrega. Não aceitar timestamp
   enviado pelo navegador. Consulta de comprovantes somente nos endpoints autenticados de relatório
+- **Relatório de dietas:** consulta e exportação usam os mesmos filtros e permissões em
+  `/api/relatorios/dietas-periodo`. Exportar todas as linhas, sem limitar à página da tela;
+  resumo e detalhes do arquivo vêm do mesmo conjunto de registros. Horários em Brasília;
+  Google Sheets recebe CSV por importação manual, sem publicação ou envio de dados à nuvem
+- **Processos locais:** start.ps1 inicia serviços ausentes via sessão WMI independente do terminal.
+  Preservar validação de pasta/porta e PID/data de criação no stop.ps1; não encerrar processos
+  por nome nem iniciar uma segunda cópia contra o mesmo banco. Logs e estado ficam fora do Git
 - **Plantão:** sessões COPEIRA usam JWT com `jti`, presença persistida por três minutos e renovação
   a cada 30 segundos. Logout fecha a sessão; atividade em uma unidade não publica presença em outra
 - **Acentos na impressão:** `compor_linhas_filipeta()` mantém o texto Unicode, e `impressao_raster.py`

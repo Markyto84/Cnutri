@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import RefeicoesMedicas from '../components/RefeicoesMedicas.jsx'
 import RelatorioEntregas from '../components/RelatorioEntregas.jsx'
+import RelatorioDietas from '../components/RelatorioDietas.jsx'
 import { SemUnidades } from '../context/AuthContext.jsx'
 import { useAuth } from '../context/auth.js'
 
@@ -384,6 +385,7 @@ function AbaRelatorios({ filialId }) {
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
+      <RelatorioDietas filialId={filialId} />
       <div className="rounded-xl bg-panel p-5">
         <h3 className="mb-3 font-bold text-blue-700">⏱️ SLA da Cozinha</h3>
         {sla && (

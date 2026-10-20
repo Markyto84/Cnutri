@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { useAuth } from '../context/auth.js'
+import RelatorioDietas from '../components/RelatorioDietas.jsx'
 
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-blue-600'
 const PRIMARIO = 'rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50'
@@ -63,7 +64,7 @@ export default function Admin() {
       ].map(([rotulo, total]) => <div key={rotulo} className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">{rotulo}</p><p className="mt-1 text-3xl font-bold">{total}</p></div>)}
     </div>
     <nav className="flex flex-wrap gap-2" aria-label="Administração">
-      {[['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras']].map(([id, rotulo]) =>
+      {[['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
         <button key={id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}>{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />
@@ -71,6 +72,7 @@ export default function Admin() {
       {aba === 'unidades' && <Unidades filiais={dados.filiais} onConcluido={concluido} />}
       {aba === 'credenciais' && <Credenciais filiais={dados.filiais} usuarios={dados.usuarios} usuarioAtual={usuario} onConcluido={concluido} />}
       {aba === 'impressoras' && <Impressoras filiais={dados.filiais} onConcluido={concluido} />}
+      {aba === 'relatorios' && <RelatorioDietas filiais={dados.filiais} />}
     </>}
   </div>
 }
