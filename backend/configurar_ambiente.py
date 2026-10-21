@@ -7,6 +7,7 @@ import secrets
 import subprocess
 
 from dotenv import dotenv_values
+from app.core.politica_senha import gerar_senha_temporaria
 
 BACKEND = Path(__file__).resolve().parent
 
@@ -35,7 +36,7 @@ def configurar():
     if len(atual.encode()) < 32 or atual == "troque-este-segredo-em-producao":
         linhas += "\nJWT_SECRET=" + json.dumps(secrets.token_urlsafe(64)) + "\n"
     if args.inicializar_admin and not valores.get("ADMIN_INICIAL_SENHA"):
-        linhas += "ADMIN_INICIAL_SENHA=" + json.dumps(secrets.token_urlsafe(24)) + "\n"
+        linhas += "ADMIN_INICIAL_SENHA=" + json.dumps(gerar_senha_temporaria()) + "\n"
     gravar_privado(caminho, linhas)
     print(f"Configuração privada preparada em {caminho}. Nenhum segredo foi exibido.")
 

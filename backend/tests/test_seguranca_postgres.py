@@ -17,7 +17,7 @@ from sqlalchemy import func
 from app.services.fila_impressao import processar_um
 
 SENHA = "TesteSeguro@123"
-NOVA = "TemporariaNova@2026"
+NOVA = "TempNova@12"
 
 
 @unittest.skipUnless(os.environ.get("CNUTRI_TEST_POSTGRES_URL"), "Requer PostgreSQL de teste")
@@ -70,7 +70,7 @@ class ConcorrenciaSenhaTest(unittest.IsolatedAsyncioTestCase):
             try:
                 with patch("app.api.auth.verificar_senha", wraps=verificar_senha) as conferir:
                     if troca:
-                        tarefa = asyncio.create_task(self.client.post("/api/auth/senha", headers=cabecalho, json={"senha_atual": SENHA, "nova_senha": "EscolhidaPeloUsuario@2026"}))
+                        tarefa = asyncio.create_task(self.client.post("/api/auth/senha", headers=cabecalho, json={"senha_atual": SENHA, "nova_senha": "Escolha@123"}))
                     else:
                         tarefa = asyncio.create_task(self.client.post("/api/auth/login", data={"username": "pessoa", "password": SENHA}))
                     await asyncio.wait_for(consulta.wait(), 5)

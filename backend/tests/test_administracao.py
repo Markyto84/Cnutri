@@ -13,7 +13,7 @@ from app.core.security import hash_senha
 from app.main import app, ws_cozinha
 from app.models.models import Dieta, Filial, FormularioConfig, Perfil, Usuario
 
-SENHA = "TesteSeguro@123"
+SENHA = "Teste@123"
 HASH = hash_senha(SENHA)
 
 
@@ -116,13 +116,13 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(usuario["nome_usuario"], "pessoa")
         self.assertEqual([f["id"] for f in usuario["filiais"]], [self.b])
         await self.entrar("pessoa")
-        dados.update(nome="Pessoa Editada", senha="OutraSegura@123", perfil="COZINHA", ativo=True)
+        dados.update(nome="Pessoa Editada", senha="Outra@123", perfil="COZINHA", ativo=True)
         editado = await self.client.patch(f"/api/admin/usuarios/{usuario['id']}", headers=self.admin, json=dados)
         self.assertEqual(editado.status_code, 200, editado.text)
         self.assertEqual(editado.json()["perfil"], "COZINHA")
         antigo = await self.client.post("/api/auth/login", data={"username": "pessoa", "password": SENHA})
         self.assertEqual(antigo.status_code, 401)
-        token = await self.entrar("pessoa", "OutraSegura@123")
+        token = await self.entrar("pessoa", "Outra@123")
         dados.update(ativo=False, senha=None)
         desativado = await self.client.patch(f"/api/admin/usuarios/{usuario['id']}", headers=self.admin, json=dados)
         self.assertEqual(desativado.status_code, 200, desativado.text)

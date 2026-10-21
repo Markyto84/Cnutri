@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { useAuth } from '../context/auth.js'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
+import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
 
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand'
 const PRIMARIO = 'rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50'
@@ -160,6 +161,7 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
 
   async function salvar(e) {
     e.preventDefault(); setErro(null)
+    if ((!usuario || form.senha) && !senhaValida(form.senha)) { setErro(REGRA_SENHA); return }
     if (form.perfil !== 'ADMIN_TI' && !filiais.some((f) => f.ativa && form.filial_ids.includes(f.id))) {
       setErro('Selecione pelo menos uma unidade ativa para este usuário.'); return
     }
@@ -182,9 +184,9 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
       minLength={3} maxLength={50} pattern={'[a-zA-Z0-9][a-zA-Z0-9._\\-]{2,49}'} placeholder="Ex.: maria.silva" aria-describedby="ajuda-nome-usuario"
       className={CAMPO} value={form.nome_usuario} onChange={(e) => alterar('nome_usuario', e.target.value.toLowerCase())} /></Campo>
     <p id="ajuda-nome-usuario" className="text-xs text-slate-700">De 3 a 50 caracteres, começando por letra ou número. Use letras sem acento, números, ponto, hífen ou sublinhado. Cada nome deve ser único.</p>
-    {propria ? <Link to="/senha" className="block text-sm font-semibold text-brand underline">Alterar minha senha com a senha atual</Link> : <Campo titulo={usuario ? 'Nova senha temporária (opcional)' : 'Senha temporária'}><input required={!usuario} type="password" autoComplete="new-password" minLength={12} maxLength={72}
-      placeholder={usuario ? 'Preencha para substituir a senha' : 'Mínimo de 12 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>}
-    {!propria && <p className="text-xs text-slate-700">Senhas criadas ou redefinidas pela TI devem ser trocadas pelo usuário no primeiro acesso.</p>}
+    {propria ? <Link to="/senha" className="block text-sm font-semibold text-brand underline">Alterar minha senha com a senha atual</Link> : <Campo titulo={usuario ? 'Nova senha temporária (opcional)' : 'Senha temporária'}><input required={!usuario} type="password" autoComplete="new-password" minLength={MIN_SENHA} maxLength={MAX_SENHA} pattern={PADRAO_SENHA} title={REGRA_SENHA} aria-describedby="regra-senha-temporaria"
+      placeholder={usuario ? 'Preencha para substituir a senha' : 'De 8 a 12 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>}
+    {!propria && <p id="regra-senha-temporaria" className="text-xs text-slate-700">{REGRA_SENHA} Senhas criadas ou redefinidas pela TI devem ser trocadas pelo usuário no primeiro acesso.</p>}
     <Campo titulo="Perfil de acesso"><select disabled={propria} className={CAMPO} value={form.perfil} onChange={(e) => alterar('perfil', e.target.value)}>
       {Object.entries(PERFIS).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></Campo>
     {form.perfil === 'ADMIN_TI' ? <p className="rounded-lg bg-slate-100 p-3 text-sm text-slate-700">Acesso a todas as unidades e configurações do sistema.</p>

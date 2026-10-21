@@ -3,13 +3,13 @@ import argparse
 import asyncio
 from datetime import datetime
 from pathlib import Path
-import secrets
 
 from configurar_ambiente import BACKEND, gravar_privado
 from app.core.credenciais_iniciais import contas_com_senha_inicial
 from app.core.database import SessionLocal, engine
 from app.core.login_usuarios import migrar_login_usuarios
 from app.core.migracao_seguranca import migrar_seguranca
+from app.core.politica_senha import gerar_senha_temporaria
 from app.core.security import hash_senha
 from app.core.sessoes import revogar_sessoes
 from app.models.models import Base
@@ -30,7 +30,7 @@ async def atualizar(arquivo: Path):
         linhas = ["CNUTRI — ACESSOS TEMPORÁRIOS", "", "Acesse /login e defina uma nova senha no primeiro acesso.",
             "Não envie este arquivo por chat nem o inclua no Git. Guarde-o sob responsabilidade da TI.", ""]
         for usuario in contas:
-            senha = secrets.token_urlsafe(24)
+            senha = gerar_senha_temporaria()
             linhas.extend([f"Usuário: {usuario.nome_usuario}", f"Senha temporária: {senha}", ""])
             usuario.senha_hash = hash_senha(senha)
             usuario.troca_senha_obrigatoria = True

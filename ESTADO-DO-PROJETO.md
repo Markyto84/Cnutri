@@ -40,6 +40,12 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Política de senhas novas ajustada a pedido do usuário: de 8 a 12 caracteres, com uma
+  maiúscula, um número e um caractere especial, no cadastro, reset e troca de senha. Gerador
+  de temporárias usa 12 caracteres; senhas existentes continuam válidas. Senha atual de admin
+  mantida conforme a decisão do usuário; a temporária do arquivo anterior já foi substituída.
+  Validação atual: 80 testes de backend e onze de frontend, incluindo limites e composição.
+
 - ✅ Itens 4–9 do review aplicados em 20/10/2026: sessões revogadas também fecham canais
   privados; revalidação periódica do WebSocket detecta expiração sem mensagens do cliente.
 - ✅ Fila de impressão persistida, processamento em segundo plano, até três tentativas de

@@ -54,7 +54,12 @@ Na pasta do projeto no servidor, crie um `.env`:
 ```bash
 cd /opt/projeto-dietas-hospitalares
 umask 077
-printf 'POSTGRES_PASSWORD=%s\nJWT_SECRET=%s\nADMIN_INICIAL_SENHA=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 48)" "$(openssl rand -hex 24)" > .env
+cnutri_admin_inicial=''
+until [[ "$cnutri_admin_inicial" =~ [A-Z] && "$cnutri_admin_inicial" =~ [0-9] && "$cnutri_admin_inicial" =~ [^[:alnum:][:space:]] ]]; do
+  cnutri_admin_inicial=$(openssl rand -base64 9)
+done
+printf 'POSTGRES_PASSWORD=%s\nJWT_SECRET=%s\nADMIN_INICIAL_SENHA=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 48)" "$cnutri_admin_inicial" > .env
+unset cnutri_admin_inicial
 chmod 600 .env
 ```
 
@@ -155,7 +160,10 @@ A gestão seleciona uma copeira online; o relatório identifica a copeira e quem
 Após cinco falhas para um usuário no mesmo IP em 15 minutos, o login fica limitado até terminar
 a janela; há também limite geral de 100 falhas por IP. Os registros ficam no banco e os logs não
 contêm senhas nem tokens. Logout encerra a sessão; troca/reset de senha revoga sessões anteriores.
-Senhas novas têm no mínimo 12 caracteres e até 72 bytes. A página `/senha` permite a troca pelo próprio usuário.
+Senhas novas têm **de 8 a 12 caracteres**, com pelo menos **uma letra maiúscula, um número
+e um caractere especial**. Espaço não conta como caractere especial. A regra vale no cadastro,
+na redefinição pela TI e na troca em `/senha`; as senhas temporárias geradas usam 12 caracteres.
+Senhas existentes continuam válidas até serem trocadas, inclusive as que têm mais de 12 caracteres.
 
 Veja [Segurança — itens 1 a 3](SEGURANCA-ITENS-1-3.md) para permissões, regras do formulário e validação.
 A preparação de HTTPS, recuperação automática e backups permanece no item 10 do review,
@@ -347,11 +355,11 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 76 testes de backend. Seis exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
+São 80 testes de backend. Seis exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
 para um banco de testes PostgreSQL com permissão para criar schemas. Usam schemas exclusivos,
 revertidos ou removidos ao terminar: duas migrações e quatro verificações de concorrência de
 senhas, repetição de pedidos e consumo da fila. Sem a variável, esses seis são omitidos; os outros
-70 usam SQLite isolado ou verificam serviços Python sem acessar registros do hospital.
+74 usam SQLite isolado ou verificam serviços Python sem acessar registros do hospital.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
@@ -369,8 +377,8 @@ renomeação mantendo senha e sessão, nomes inválidos/duplicados e cadastro re
 Também são verificados encerramento dos canais privados no logout/troca/reset, expiração
 de sessão já conectada, tentativas limitadas de impressão, transmissão incerta, preservação
 do documento, idempotência, limites dos turnos em Brasília e grupos com nomes iguais.
-No frontend, `npm test` executa oito testes de autorização, retorno seguro após o login,
-persistência da chave da solicitação e mensagens de impressão.
+No frontend, `npm test` executa onze testes de autorização, retorno seguro após o login,
+persistência da chave da solicitação, mensagens de impressão e regras das senhas novas.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub

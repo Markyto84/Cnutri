@@ -20,13 +20,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.config import Settings, settings
 from app.core.database import Base, get_db
 from app.core.presenca import agora_utc
+from app.core.politica_senha import validar_senha
 from app.core.security import hash_senha, verificar_senha
 from app.main import app, ws_cozinha
 from app.core.ws import gerenciador_ws
 from app.models.models import Dieta, EntregaPedido, Filial, FormularioConfig, HistoricoPedido, LimiteLogin, Pedido, Perfil, SessaoUsuario, Usuario
 
 SENHA = "TesteSeguro@123"
-NOVA = "MinhaNovaSenha@2026"
+NOVA = "Nova@123"
 HASH = hash_senha(SENHA)
 ESQUEMAS = json.loads((Path(__file__).resolve().parents[2] / "configuracoes/formularios-unidade-havai.json").read_text(encoding="utf-8"))["formularios"]
 
@@ -161,10 +162,10 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
         token = {"Authorization": "Bearer " + r.json()["access_token"]}
         admin = await self.entrar()
         r = await self.client.patch(f"/api/admin/usuarios/{self.ids['gestor']}", headers=admin, json={"nome": "Gestor", "nome_usuario": "gestor",
-            "perfil": "NUTRICIONISTA", "filial_ids": [self.a], "senha": "OutraTemporaria@2026"})
+            "perfil": "NUTRICIONISTA", "filial_ids": [self.a], "senha": "TempNova@12"})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual((await self.client.get("/api/auth/me", headers=token)).status_code, 401)
-        novo = await self.entrar("gestor", "OutraTemporaria@2026")
+        novo = await self.entrar("gestor", "TempNova@12")
         self.assertEqual((await self.client.get(f"/api/pedidos?filial_id={self.a}", headers=novo)).status_code, 403)
 
     async def test_logout_troca_e_reset_fecham_canais_privados_sem_fechar_o_dashboard(self):
@@ -186,7 +187,7 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
                         r = await self.client.post("/api/auth/senha", headers=token, json={"senha_atual": SENHA, "nova_senha": NOVA})
                     else:
                         r = await self.client.patch(f"/api/admin/usuarios/{self.ids[nome]}", headers=admin, json={"nome": "Gestor", "nome_usuario": nome,
-                            "perfil": "NUTRICIONISTA", "filial_ids": [self.a], "senha": "OutraTemporaria@2026"})
+                            "perfil": "NUTRICIONISTA", "filial_ids": [self.a], "senha": "TempNova@12"})
                     self.assertEqual(r.status_code, 200, r.text)
                     canal.close.assert_awaited_once_with(code=1008)
                     self.assertNotIn(canal, gerenciador_ws.usuarios)
@@ -225,6 +226,34 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
                 await asyncio.gather(tarefa, return_exceptions=True)
             gerenciador_ws.desconectar(self.a, canal)
 
+    async def test_regra_de_senha_vale_no_cadastro_reset_e_troca_sem_alterar_senhas_legadas(self):
+        admin, gestor = await self.entrar(), await self.entrar("gestor")
+        credencial = {"nome": "Pessoa Teste", "nome_usuario": "nova.pessoa", "perfil": "COZINHA", "filial_ids": [self.a]}
+        for senha in ("Ab1!xyz", "Ab1!abcdefghi", "abcdef1!", "Abcdefg1", "ABCDEF!@", "Teste12 "):
+            with self.subTest(senha=senha):
+                self.assertEqual((await self.client.post("/api/admin/usuarios", headers=admin, json={**credencial, "senha": senha})).status_code, 422)
+                self.assertEqual((await self.client.patch(f"/api/admin/usuarios/{self.ids['gestor']}", headers=admin,
+                    json={**credencial, "nome_usuario": "gestor", "perfil": "NUTRICIONISTA", "senha": senha})).status_code, 422)
+                self.assertEqual((await self.client.post("/api/auth/senha", headers=gestor,
+                    json={"senha_atual": SENHA, "nova_senha": senha})).status_code, 422)
+        await self.entrar("gestor")  # senha existente com mais de 12 caracteres continua válida.
+        self.assertEqual((await self.client.get("/api/auth/me", headers=gestor)).status_code, 200)
+        async with self.sessoes() as db:
+            self.assertIsNone(await db.scalar(select(Usuario).where(Usuario.nome_usuario == "nova.pessoa")))
+
+    async def test_cria_com_oito_caracteres_e_troca_para_doze_com_revogacao(self):
+        admin = await self.entrar()
+        r = await self.client.post("/api/admin/usuarios", headers=admin, json={"nome": "Pessoa Teste", "nome_usuario": "nova.pessoa",
+            "perfil": "COZINHA", "filial_ids": [self.a], "senha": "TESTE1!?"})
+        self.assertEqual(r.status_code, 201, r.text)
+        self.assertTrue(r.json()["troca_senha_obrigatoria"])
+        anterior = await self.entrar("nova.pessoa", "TESTE1!?")
+        troca = await self.client.post("/api/auth/senha", headers=anterior, json={"senha_atual": "TESTE1!?", "nova_senha": "NovaSenha12!"})
+        self.assertEqual(troca.status_code, 200, troca.text)
+        self.assertFalse(troca.json()["troca_senha_obrigatoria"])
+        self.assertEqual((await self.client.get("/api/auth/me", headers=anterior)).status_code, 401)
+        await self.entrar("nova.pessoa", "NovaSenha12!")
+
     async def test_cinco_falhas_limitam_login_persistido_sem_expor_senha_nos_logs(self):
         with self.assertLogs("cnutri.seguranca", level="WARNING") as logs:
             for _ in range(5):
@@ -259,7 +288,8 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
             await atualizar(arquivo)
             conteudo = arquivo.read_text(encoding="utf-8")
             senha = conteudo.split("Senha temporária: ")[1].splitlines()[0]
-            self.assertGreaterEqual(len(senha), 24)
+            self.assertEqual(len(senha), 12)
+            self.assertEqual(validar_senha(senha), senha)
             self.assertNotIn(senha, saida.getvalue())
             async with self.sessoes() as db:
                 admin = await db.get(Usuario, self.ids["admin"])

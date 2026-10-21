@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .core.security import hash_senha
 from .core.config import settings
-from .schemas.schemas import validar_senha
+from .core.politica_senha import validar_senha
 from .models.models import (
     Dieta,
     Filial,

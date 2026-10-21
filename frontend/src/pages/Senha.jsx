@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { destinoAposLogin, useAuth } from '../context/auth.js'
+import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
 
 export default function Senha() {
   const { usuario, entrar, sair } = useAuth()
@@ -17,7 +18,7 @@ export default function Senha() {
     evento.preventDefault()
     setErro('')
     if (nova !== confirmacao) { setErro('A confirmação deve ser igual à nova senha.'); return }
-    if (new TextEncoder().encode(nova).length > 72) { setErro('A senha excede 72 bytes. Use menos caracteres com acento.'); return }
+    if (!senhaValida(nova)) { setErro(REGRA_SENHA); return }
     setSalvando(true)
     try {
       const { data } = await api.post('/auth/senha', { senha_atual: atual, nova_senha: nova })
@@ -36,9 +37,9 @@ export default function Senha() {
       {usuario.troca_senha_obrigatoria && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Substitua a senha temporária fornecida pela TI para acessar o sistema.</p>}
       {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">{erro}</p>}
       <label className="block text-sm font-semibold">Senha atual<input required type="password" autoComplete="current-password" className={campo} value={atual} onChange={(e) => setAtual(e.target.value)} /></label>
-      <label className="block text-sm font-semibold">Nova senha<input required type="password" autoComplete="new-password" minLength={12} maxLength={72} className={campo} value={nova} onChange={(e) => setNova(e.target.value)} /></label>
-      <p className="text-xs text-slate-700">Use pelo menos 12 caracteres. Uma frase com palavras diferentes facilita a memorização.</p>
-      <label className="block text-sm font-semibold">Confirmar nova senha<input required type="password" autoComplete="new-password" minLength={12} maxLength={72} className={campo} value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} /></label>
+      <label className="block text-sm font-semibold">Nova senha<input required type="password" autoComplete="new-password" minLength={MIN_SENHA} maxLength={MAX_SENHA} pattern={PADRAO_SENHA} title={REGRA_SENHA} aria-describedby="regra-senha" className={campo} value={nova} onChange={(e) => setNova(e.target.value)} /></label>
+      <p id="regra-senha" className="text-xs text-slate-700">{REGRA_SENHA}</p>
+      <label className="block text-sm font-semibold">Confirmar nova senha<input required type="password" autoComplete="new-password" minLength={MIN_SENHA} maxLength={MAX_SENHA} className={campo} value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} /></label>
       <button disabled={salvando} className="min-h-12 w-full rounded-lg bg-brand px-4 py-3 font-bold text-white hover:bg-brand-hover disabled:opacity-50">{salvando ? 'Salvando…' : 'Salvar nova senha'}</button>
       <div className="flex flex-wrap gap-4 text-sm">
         {!usuario.troca_senha_obrigatoria && <button type="button" onClick={() => navegar(destinoAposLogin(usuario, parametros))} className="font-semibold text-brand underline">Voltar ao painel</button>}

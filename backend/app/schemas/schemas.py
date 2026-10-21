@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..core.login_usuarios import PADRAO_USUARIO, normalizar_usuario
+from ..core.politica_senha import MIN_SENHA, MAX_SENHA, validar_senha
 
 TipoPublico = Literal["MEDICO", "ENFERMAGEM"]
 TipoSolicitacao = Literal["MEDICO", "PACIENTE"]
@@ -64,19 +65,13 @@ class UsuarioBase(BaseModel):
         return normalizar_usuario(valor) if info.field_name == "nome_usuario" else valor.strip()
 
 
-def validar_senha(senha: str | None) -> str | None:
-    if senha is not None and (len(senha) < 12 or not senha.strip() or len(senha.encode("utf-8")) > 72):
-        raise ValueError("A senha deve ter pelo menos 12 caracteres e no máximo 72 bytes")
-    return senha
-
-
 class UsuarioCreate(UsuarioBase):
-    senha: str = Field(min_length=12, max_length=72)
+    senha: str = Field(min_length=MIN_SENHA, max_length=MAX_SENHA)
     _validar_senha = field_validator("senha")(validar_senha)
 
 
 class UsuarioUpdate(UsuarioBase):
-    senha: str | None = Field(default=None, min_length=12, max_length=72)
+    senha: str | None = Field(default=None, min_length=MIN_SENHA, max_length=MAX_SENHA)
     ativo: bool = True
     _validar_senha = field_validator("senha")(validar_senha)
 
@@ -109,7 +104,7 @@ class TokenResponse(BaseModel):
 
 class TrocaSenhaCreate(BaseModel):
     senha_atual: str = Field(min_length=1, max_length=72)
-    nova_senha: str = Field(min_length=12, max_length=72)
+    nova_senha: str = Field(min_length=MIN_SENHA, max_length=MAX_SENHA)
     _validar_senha = field_validator("nova_senha")(validar_senha)
 
 
