@@ -42,8 +42,10 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 - ✅ Política de senhas novas ajustada a pedido do usuário: de 8 a 12 caracteres, com uma
   maiúscula, um número e um caractere especial, no cadastro, reset e troca de senha. Gerador
-  de temporárias usa 12 caracteres; senhas existentes continuam válidas. Senha atual de admin
-  mantida conforme a decisão do usuário; a temporária do arquivo anterior já foi substituída.
+  de temporárias usa 12 caracteres; senhas existentes continuam válidas. Posteriormente, em
+  20/10/2026, o usuário solicitou redefinir admin: nova temporária entregue em arquivo privado
+  em work/, login conferido e troca obrigatória no próximo acesso. Sessões anteriores encerradas;
+  demais contas preservadas. O arquivo antigo de acessos não contém a senha atual de admin.
   Validação atual: 80 testes de backend e onze de frontend, incluindo limites e composição.
 
 - ✅ Itens 4–9 do review aplicados em 20/10/2026: sessões revogadas também fecham canais
