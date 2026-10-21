@@ -1,6 +1,7 @@
 """Redefinição concorrente de senha em schema PostgreSQL exclusivo, sem contas reais."""
 import asyncio
 import os
+import threading
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -12,8 +13,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.database import Base, get_db
 from app.core.security import hash_senha, verificar_senha
 from app.main import app
-from app.models.models import Filial, FormularioConfig, Pedido, Perfil, TrabalhoImpressao, Usuario
-from sqlalchemy import func
+from app.models.models import Filial, FormularioConfig, ImpressoraEtiqueta, Pedido, Perfil, TrabalhoImpressao, Usuario
+from sqlalchemy import func, update
 from app.services.fila_impressao import processar_um
 
 SENHA = "TesteSeguro@123"
@@ -120,3 +121,45 @@ class ConcorrenciaSenhaTest(unittest.IsolatedAsyncioTestCase):
             resultados = await asyncio.gather(processar_um(self.sessoes), processar_um(self.sessoes))
             self.assertEqual(sum(resultados), 1)
             transporte.assert_called_once()
+
+    async def test_status_fica_pronto_durante_transmissao_da_etiqueta(self):
+        await self.preparar_pedidos()
+        async with self.sessoes() as db:
+            filial = await db.scalar(select(Filial))
+            db.add(ImpressoraEtiqueta(filial_id=filial.id, ip="192.0.2.11"))
+            pedido = Pedido(filial_id=filial.id, tipo_solicitacao="PACIENTE", status="PRONTO", nome_paciente="Paciente Fictício",
+                solicitante_identificacao="TESTE", dados_dinamicos={"matricula": "0001", "refeicao": "ALMOÇO", "cardapio": "ARROZ E FEIJÃO"})
+            db.add(pedido)
+            await db.commit()
+            pedido_id, filial_id = pedido.id, filial.id
+        token = (await self.client.post("/api/auth/login", data={"username": "pessoa", "password": SENHA})).json()["access_token"]
+        r = await self.client.post(f"/api/operacao/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta", headers={"Authorization": "Bearer " + token})
+        self.assertEqual(r.status_code, 202, r.text)
+        enviando, liberar = asyncio.Event(), threading.Event()
+        loop = asyncio.get_running_loop()
+        def transporte(*_args):
+            loop.call_soon_threadsafe(enviando.set)
+            if not liberar.wait(3):
+                raise RuntimeError("Teste não liberou o envio")
+        async def entregar():
+            async with self.sessoes() as db:
+                await db.execute(update(Pedido).where(Pedido.id == pedido_id).values(status="ENTREGUE"))
+                await db.commit()
+        tarefas = []
+        try:
+            with patch("app.services.fila_impressao.enviar_filipeta", side_effect=transporte):
+                tarefas.append(asyncio.create_task(processar_um(self.sessoes)))
+                await asyncio.wait_for(enviando.wait(), 5)
+                tarefas.append(asyncio.create_task(entregar()))
+                await asyncio.sleep(0.05)
+                self.assertFalse(tarefas[1].done(), "A entrega alterou o status durante a transmissão da etiqueta")
+                liberar.set()
+                await asyncio.wait_for(asyncio.gather(*tarefas), 5)
+        finally:
+            liberar.set()
+            for tarefa in tarefas:
+                if not tarefa.done():
+                    tarefa.cancel()
+            await asyncio.gather(*tarefas, return_exceptions=True)
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, pedido_id)).etiqueta["estado"], "ENVIADO")

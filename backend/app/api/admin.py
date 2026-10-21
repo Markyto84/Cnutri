@@ -13,8 +13,8 @@ from ..core.database import get_db
 from ..core.security import exigir_perfis, hash_senha
 from ..core.sessoes import revogar_sessoes
 from ..core.ws import gerenciador_ws
-from ..models.models import Dieta, Filial, FormularioConfig, Perfil, Usuario
-from ..schemas.schemas import FilialCreate, FilialOut, FilialUpdate, ImpressoraUpdate, UsuarioCreate, UsuarioOut, UsuarioUpdate
+from ..models.models import Dieta, Filial, FormularioConfig, ImpressoraEtiqueta, Perfil, Usuario
+from ..schemas.schemas import FilialCreate, FilialOut, FilialUpdate, ImpressoraUpdate, ImpressoraEtiquetaOut, ImpressoraEtiquetaUpdate, UsuarioCreate, UsuarioOut, UsuarioUpdate
 from .gestao import ESQUEMA_PADRAO_ENFERMAGEM, ESQUEMA_PADRAO_MEDICO
 
 router = APIRouter(prefix="/api/admin", tags=["Administração"])
@@ -110,6 +110,44 @@ async def testar_impressora(filial_id: int, db: AsyncSession = Depends(get_db), 
     except OSError:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Não foi possível conectar à impressora na porta 9100")
     return {"conectada": True, "mensagem": "Conexão com a impressora confirmada na porta 9100"}
+
+
+@router.get("/filiais/{filial_id}/etiquetas", response_model=ImpressoraEtiquetaOut)
+async def obter_impressora_etiquetas(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
+    await unidade(filial_id, db)
+    return await db.get(ImpressoraEtiqueta, filial_id) or ImpressoraEtiquetaOut(filial_id=filial_id)
+
+
+@router.patch("/filiais/{filial_id}/etiquetas", response_model=ImpressoraEtiquetaOut)
+async def salvar_impressora_etiquetas(filial_id: int, dados: ImpressoraEtiquetaUpdate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
+    await unidade(filial_id, db)
+    impressora = await db.get(ImpressoraEtiqueta, filial_id)
+    if impressora is None:
+        impressora = ImpressoraEtiqueta(filial_id=filial_id)
+        db.add(impressora)
+    for chave, valor in dados.model_dump().items():
+        setattr(impressora, chave, valor)
+    await db.commit()
+    await db.refresh(impressora)
+    return impressora
+
+
+def conectar_etiquetas(ip, porta):
+    with socket.create_connection((ip, porta), timeout=3):
+        pass
+
+
+@router.post("/filiais/{filial_id}/etiquetas/testar")
+async def testar_impressora_etiquetas(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
+    await unidade(filial_id, db)
+    impressora = await db.get(ImpressoraEtiqueta, filial_id)
+    if not impressora or not impressora.ip:
+        raise HTTPException(400, "Cadastre o IP da impressora de etiquetas antes de testar")
+    try:
+        await asyncio.to_thread(conectar_etiquetas, impressora.ip, impressora.porta)
+    except OSError:
+        raise HTTPException(502, "Não foi possível conectar à impressora de etiquetas na porta configurada") from None
+    return {"conectada": True, "mensagem": "Conexão confirmada. O teste não envia etiquetas"}
 
 
 def consulta_usuarios():

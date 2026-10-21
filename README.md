@@ -283,6 +283,17 @@ A consulta e os três formatos verificam perfil e unidades permitidas no servido
 usa `openpyxl` e `odfpy`, incluídos em `backend/requirements.txt`. Ao atualizar uma instalação existente,
 pare os serviços e execute `start.ps1 -InstalarDependencias` para instalar essas dependências.
 
+## Etiquetas para refeições prontas
+
+Em **Administração → Impressoras → Impressora de etiquetas**, a TI configura marca/modelo,
+IP, porta, protocolo ZPL ou TSPL, resolução e intervalo do papel por unidade. O tamanho é
+**89 mm × 36 mm**. O cadastro é independente da impressora térmica das filipetas.
+
+Na cozinha, o botão **Etiqueta** aparece nos pedidos de pacientes em **Prontos**, para
+operadores autorizados. A prévia inclui unidade, paciente, matrícula, refeição e cardápio.
+O servidor valida o status antes de enfileirar e antes do envio. Veja [ETIQUETAS.md](ETIQUETAS.md)
+para configuração, estados da fila, privacidade e homologação no equipamento.
+
 ## Confirmação de pedidos e fila de impressão
 
 O kiosk mostra **Pedido #n registrado** e o estado do envio à impressora separadamente.
@@ -355,11 +366,12 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 80 testes de backend. Seis exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
+São 91 testes de backend. Oito exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
 para um banco de testes PostgreSQL com permissão para criar schemas. Usam schemas exclusivos,
-revertidos ou removidos ao terminar: duas migrações e quatro verificações de concorrência de
-senhas, repetição de pedidos e consumo da fila. Sem a variável, esses seis são omitidos; os outros
-74 usam SQLite isolado ou verificam serviços Python sem acessar registros do hospital.
+revertidos ou removidos ao terminar: três migrações e cinco verificações de concorrência de
+senhas, repetição de pedidos, consumo da fila e status durante o envio da etiqueta. Sem a
+variável, esses oito são omitidos; os outros 83 usam SQLite isolado ou verificam serviços
+Python sem acessar registros do hospital.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data

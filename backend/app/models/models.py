@@ -132,9 +132,17 @@ class Pedido(Base):
 
     @property
     def impressao(self):
-        if not self.trabalhos_impressao:
+        return self.estado_documento("FILIPETA")
+
+    @property
+    def etiqueta(self):
+        return self.estado_documento("ETIQUETA")
+
+    def estado_documento(self, tipo):
+        trabalhos = [t for t in self.trabalhos_impressao if (t.tipo_documento or "FILIPETA") == tipo]
+        if not trabalhos:
             return None
-        trabalho = self.trabalhos_impressao[-1]
+        trabalho = trabalhos[-1]
         return {"id": trabalho.id, "estado": trabalho.estado, "tentativas": trabalho.tentativas,
             "erro": trabalho.erro, "proxima_tentativa_em": trabalho.proxima_tentativa_em}
 
@@ -144,6 +152,8 @@ class TrabalhoImpressao(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tipo_documento: Mapped[str] = mapped_column(String(20), nullable=False, default="FILIPETA", server_default="FILIPETA")
+    configuracao: Mapped[dict | None] = mapped_column(JSONType)
     estado: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDENTE", index=True)
     tentativas: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     erro: Mapped[str | None] = mapped_column(String(250))
@@ -156,9 +166,21 @@ class TrabalhoImpressao(Base):
     solicitado_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"))
 
 
-Index("uq_impressao_ativa", TrabalhoImpressao.pedido_id, unique=True,
+Index("uq_impressao_ativa_tipo", TrabalhoImpressao.pedido_id, TrabalhoImpressao.tipo_documento, unique=True,
     postgresql_where=TrabalhoImpressao.estado.in_(("PENDENTE", "PROCESSANDO")),
     sqlite_where=TrabalhoImpressao.estado.in_(("PENDENTE", "PROCESSANDO")))
+
+
+class ImpressoraEtiqueta(Base):
+    __tablename__ = "impressoras_etiquetas"
+
+    filial_id: Mapped[int] = mapped_column(ForeignKey("filiais.id", ondelete="CASCADE"), primary_key=True)
+    modelo: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    ip: Mapped[str | None] = mapped_column(String(45))
+    porta: Mapped[int] = mapped_column(Integer, nullable=False, default=9100)
+    protocolo: Mapped[str] = mapped_column(String(8), nullable=False, default="ZPL")
+    resolucao: Mapped[int] = mapped_column(Integer, nullable=False, default=203)
+    intervalo_mm: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
 
 
 class HistoricoPedido(Base):

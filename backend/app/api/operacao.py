@@ -1,5 +1,6 @@
 """Cozinha e entregas por unidade, sem exigir login para abrir os painéis."""
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -8,11 +9,12 @@ from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.presenca import sessoes_online
 from ..core.ws import gerenciador_ws
-from ..models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
+from ..models.models import EntregaPedido, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
 from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc, pedido_operacional
 from ..services.assinatura import gerar_assinatura_png
+from ..services.etiquetas import campos_etiqueta, previa_png
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
@@ -103,6 +105,36 @@ async def reimprimir(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | 
     pedido = await obter_pedido(filial_id, pedido_id, db)
     filial = await unidade_ativa(filial_id, db)
     job = await enfileirar(db, pedido, filial, usuario.id, dados.confirmar_risco_duplicidade if dados else False)
+    await db.commit()
+    await db.refresh(pedido)
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
+    await notificar(pedido)
+    return resposta_fila(job)
+
+
+@router.get("/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta")
+async def previa_etiqueta(filial_id: int, pedido_id: int, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
+    filial = await verificar_acesso_filial(filial_id, usuario, db)
+    pedido = await obter_pedido(filial_id, pedido_id, db)
+    if pedido.status != "PRONTO":
+        raise HTTPException(409, "A etiqueta só está disponível para refeições prontas")
+    if not (pedido.nome_paciente or "").strip():
+        raise HTTPException(422, "Este pedido não possui nome de paciente para gerar a etiqueta")
+    impressora = await db.get(ImpressoraEtiqueta, filial_id)
+    try:
+        imagem = await run_in_threadpool(previa_png, campos_etiqueta(pedido, filial), impressora.resolucao if impressora else 203)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from None
+    return Response(imagem, media_type="image/png", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta", status_code=202)
+async def imprimir_etiqueta(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | None = None,
+    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
+    await verificar_acesso_filial(filial_id, usuario, db)
+    pedido = await obter_pedido(filial_id, pedido_id, db)
+    filial = await unidade_ativa(filial_id, db)
+    job = await enfileirar(db, pedido, filial, usuario.id, dados.confirmar_risco_duplicidade if dados else False, tipo="ETIQUETA")
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])

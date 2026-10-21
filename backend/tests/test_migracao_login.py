@@ -15,10 +15,36 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.login_usuarios import PADRAO_USUARIO, migrar_login_usuarios
 from app.core.migracao_seguranca import migrar_seguranca
 from app.core.migracao_operacao import migrar_operacao
+from app.core.migracao_etiquetas import migrar_etiquetas
 
 
 @unittest.skipUnless(os.environ.get("CNUTRI_TEST_POSTGRES_URL"), "Requer CNUTRI_TEST_POSTGRES_URL para testar a migração PostgreSQL")
 class MigracaoLoginTest(unittest.IsolatedAsyncioTestCase):
+    async def test_migracao_de_etiquetas_preserva_fila_e_separa_tipos_sem_reimprimir(self):
+        engine = create_async_engine(os.environ["CNUTRI_TEST_POSTGRES_URL"])
+        schema = "teste_etiquetas_" + uuid4().hex
+        try:
+            async with engine.connect() as conn:
+                transacao = await conn.begin()
+                try:
+                    await conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+                    await conn.exec_driver_sql(f'SET LOCAL search_path TO "{schema}"')
+                    await conn.exec_driver_sql("CREATE TABLE trabalhos_impressao (id INTEGER PRIMARY KEY, pedido_id INTEGER, estado VARCHAR(20), dados BYTEA)")
+                    await conn.exec_driver_sql("CREATE UNIQUE INDEX uq_impressao_ativa ON trabalhos_impressao (pedido_id) WHERE estado IN ('PENDENTE', 'PROCESSANDO')")
+                    await conn.exec_driver_sql("INSERT INTO trabalhos_impressao VALUES (1, 10, 'PENDENTE', decode('010203', 'hex'))")
+                    await conn.run_sync(migrar_etiquetas)
+                    await conn.run_sync(migrar_etiquetas)
+                    antigo = (await conn.exec_driver_sql("SELECT id, pedido_id, estado, dados, tipo_documento, configuracao FROM trabalhos_impressao")).one()
+                    self.assertEqual(tuple(antigo), (1, 10, "PENDENTE", b"\x01\x02\x03", "FILIPETA", None))
+                    await conn.exec_driver_sql("INSERT INTO trabalhos_impressao (id, pedido_id, estado, tipo_documento) VALUES (2, 10, 'PENDENTE', 'ETIQUETA')")
+                    with self.assertRaises(IntegrityError):
+                        async with conn.begin_nested():
+                            await conn.exec_driver_sql("INSERT INTO trabalhos_impressao (id, pedido_id, estado, tipo_documento) VALUES (3, 10, 'PENDENTE', 'ETIQUETA')")
+                    self.assertEqual((await conn.exec_driver_sql("SELECT count(*) FROM trabalhos_impressao")).scalar_one(), 2)
+                finally:
+                    await transacao.rollback()
+        finally:
+            await engine.dispose()
     async def test_migracao_operacional_preserva_pedidos_e_protege_chave_por_unidade(self):
         engine = create_async_engine(os.environ["CNUTRI_TEST_POSTGRES_URL"])
         schema = "teste_operacao_" + uuid4().hex

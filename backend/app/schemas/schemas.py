@@ -50,6 +50,30 @@ class FilialOut(FilialBase):
     ativa: bool
 
 
+class ImpressoraEtiquetaUpdate(BaseModel):
+    modelo: str = Field(default="", max_length=100)
+    ip: str | None = None
+    porta: int = Field(default=9100, ge=1, le=65535)
+    protocolo: Literal["ZPL", "TSPL"] = "ZPL"
+    resolucao: Literal[203, 300] = 203
+    intervalo_mm: int = Field(default=2, ge=0, le=10)
+
+    @field_validator("modelo")
+    @classmethod
+    def limpar_modelo(cls, valor):
+        return valor.strip()
+
+    @field_validator("ip")
+    @classmethod
+    def validar_ip_etiqueta(cls, valor):
+        return FilialBase.validar_ip(valor)
+
+
+class ImpressoraEtiquetaOut(ImpressoraEtiquetaUpdate):
+    model_config = ConfigDict(from_attributes=True)
+    filial_id: int
+
+
 # ─── Usuários ────────────────────────────────────────────────────────────────
 class UsuarioBase(BaseModel):
     nome: str = Field(min_length=1, max_length=100)
@@ -224,6 +248,7 @@ class PedidoOut(BaseModel):
     criado_em: datetime
     concluido_em: datetime | None
     impressao: ImpressaoOut | None = None
+    etiqueta: ImpressaoOut | None = None
 
 
 class StatusUpdate(BaseModel):

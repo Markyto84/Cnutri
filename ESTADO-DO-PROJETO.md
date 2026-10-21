@@ -40,6 +40,14 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Etiquetas de 89 mm × 36 mm com unidade, paciente, matrícula, refeição e cardápio.
+  Cadastro por unidade em Administração → Impressoras, com modelo/IP/porta/ZPL ou TSPL/dpi.
+  Botão e prévia na cozinha somente em Prontos, com autorização e conferência do status também
+  no servidor/consumidor. Fila independente da filipeta, acentos rasterizados e reenvio controlado.
+  Nenhum IP de etiquetas ativado automaticamente; usuário ainda não possui os modelos/IPs.
+  Validação mais recente: 91 testes de backend, onze de frontend e build aprovados.
+  Detalhes e homologação física pendente em [ETIQUETAS.md](ETIQUETAS.md).
+
 - ✅ Política de senhas novas ajustada a pedido do usuário: de 8 a 12 caracteres, com uma
   maiúscula, um número e um caractere especial, no cadastro, reset e troca de senha. Gerador
   de temporárias usa 12 caracteres; senhas existentes continuam válidas. Posteriormente, em

@@ -203,12 +203,60 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
 function Impressoras({ filiais, onConcluido }) {
   const [filialId, setFilialId] = useState(filiais[0]?.id || '')
   const filial = filiais.find((f) => f.id === Number(filialId))
-  return <div className="max-w-3xl space-y-4 rounded-xl bg-panel p-5">
+  return <div className="max-w-3xl space-y-6 rounded-xl bg-panel p-5">
     <h2 className="text-lg font-bold">Impressora padrão por unidade</h2>
     <Campo titulo="Unidade da impressora"><select className={CAMPO} value={filialId} onChange={(e) => setFilialId(e.target.value)}>
       {filiais.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></Campo>
     {filial ? <FormularioImpressora key={filial.id} filial={filial} onConcluido={onConcluido} /> : <p>Cadastre uma unidade para adicionar sua impressora.</p>}
+    {filial && <FormularioImpressoraEtiqueta key={`etiquetas-${filial.id}`} filial={filial} onConcluido={onConcluido} />}
   </div>
+}
+
+function FormularioImpressoraEtiqueta({ filial, onConcluido }) {
+  const [form, setForm] = useState(null)
+  const [salvo, setSalvo] = useState(null)
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState(null)
+  const [sucesso, setSucesso] = useState(null)
+  const base = `/admin/filiais/${filial.id}/etiquetas`
+  useEffect(() => {
+    const controle = new AbortController()
+    api.get(base, { signal: controle.signal }).then(({ data }) => { setForm(data); setSalvo(data) })
+      .catch((e) => { if (!controle.signal.aborted) setErro(mensagemErro(e)) })
+    return () => controle.abort()
+  }, [base])
+  const alterar = (chave, valor) => { setForm((atual) => ({ ...atual, [chave]: valor })); setSucesso(null) }
+  const alterado = JSON.stringify(form) !== JSON.stringify(salvo)
+
+  async function salvar(e) {
+    e.preventDefault(); setOcupado(true); setErro(null); setSucesso(null)
+    try {
+      const { data } = await api.patch(base, { ...form, ip: form.ip?.trim() || null })
+      setForm(data); setSalvo(data); onConcluido('Impressora de etiquetas atualizada. Etiquetas disponíveis somente para refeições prontas.')
+    } catch (e) { setErro(mensagemErro(e)) } finally { setOcupado(false) }
+  }
+  async function testar() {
+    setOcupado(true); setErro(null); setSucesso(null)
+    try { setSucesso((await api.post(base + '/testar')).data.mensagem) }
+    catch (e) { setErro(mensagemErro(e)) } finally { setOcupado(false) }
+  }
+  return <section className="space-y-4 border-t border-slate-200 pt-6" aria-labelledby="titulo-impressora-etiquetas">
+    <div><h2 id="titulo-impressora-etiquetas" className="text-lg font-bold">Impressora de etiquetas</h2>
+      <p className="mt-1 text-sm text-slate-700">Etiquetas de 89 mm × 36 mm para refeições no status Pronto.</p></div>
+    <Aviso erro={erro} sucesso={sucesso} />
+    {!form ? !erro && <p>Carregando configuração de etiquetas…</p> : <form onSubmit={salvar} className="space-y-4">
+      <Campo titulo="Marca e modelo da impressora de etiquetas"><input maxLength={100} placeholder="Ex.: Gainsha ou Tally Dascom e o modelo" className={CAMPO} value={form.modelo} onChange={(e) => alterar('modelo', e.target.value)} /></Campo>
+      <div className="grid gap-4 sm:grid-cols-2"><Campo titulo="IP da impressora de etiquetas"><input placeholder="Ex.: 10.1.140.51" className={CAMPO} value={form.ip || ''} onChange={(e) => alterar('ip', e.target.value)} /></Campo>
+        <Campo titulo="Porta TCP"><input type="number" min={1} max={65535} required className={CAMPO} value={form.porta} onChange={(e) => alterar('porta', Number(e.target.value))} /></Campo>
+        <Campo titulo="Protocolo da impressora"><select className={CAMPO} value={form.protocolo} onChange={(e) => alterar('protocolo', e.target.value)}><option value="ZPL">ZPL</option><option value="TSPL">TSPL / TSC</option></select></Campo>
+        <Campo titulo="Resolução da impressora"><select className={CAMPO} value={form.resolucao} onChange={(e) => alterar('resolucao', Number(e.target.value))}><option value={203}>203 dpi</option><option value={300}>300 dpi</option></select></Campo>
+        <Campo titulo="Espaço entre etiquetas (mm, para TSPL)"><input required type="number" min={0} max={10} step={1} className={CAMPO} value={form.intervalo_mm} onChange={(e) => alterar('intervalo_mm', Number(e.target.value))} /></Campo></div>
+      <p className="text-sm text-slate-700">Confira o protocolo e a resolução no equipamento. Deixe o IP vazio para manter a impressora de etiquetas desativada. A impressora das filipetas tem sua própria configuração acima.</p>
+      <div className="flex flex-wrap gap-2"><button disabled={ocupado} className={PRIMARIO}>{ocupado ? 'Aguarde…' : 'Salvar impressora de etiquetas'}</button>
+        <button type="button" disabled={ocupado || !salvo?.ip || alterado} onClick={testar} className={SECUNDARIO}>Testar conexão de etiquetas</button></div>
+      {alterado && <p className="text-xs text-slate-700">Salve a configuração antes de testar a conexão.</p>}
+    </form>}
+  </section>
 }
 
 function FormularioImpressora({ filial, onConcluido }) {

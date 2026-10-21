@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react'
 import { textoImpressao } from '../services/solicitacoes.js'
 import { BOTAO } from './Operacao.jsx'
 
-export function EstadoImpressao({ impressao }) {
+export function EstadoImpressao({ impressao, etiqueta = false }) {
   if (!impressao) return null
   const falha = ['FALHA', 'INCERTO'].includes(impressao.estado)
   return <div className={`mt-3 rounded-lg p-3 text-xs ${falha ? 'bg-red-50 text-red-900' : 'bg-slate-100 text-slate-700'}`}>
-    <p className="font-semibold">{textoImpressao(impressao.estado)}</p>
+    <p className="font-semibold">{etiqueta ? textoImpressao(impressao.estado).replace(/Filipeta/g, 'Etiqueta').replace(/filipeta/g, 'etiqueta').replace(/^Impressão/, 'Impressão da etiqueta').replace(/^Envio/, 'Envio da etiqueta') : textoImpressao(impressao.estado)}</p>
     {impressao.erro && <p className="mt-1">{impressao.erro}{impressao.estado === 'PENDENTE' ? '. Nova tentativa agendada.' : ''}</p>}
   </div>
 }
