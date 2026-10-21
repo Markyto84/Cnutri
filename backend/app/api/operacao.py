@@ -9,8 +9,8 @@ from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.presenca import sessoes_online
 from ..core.ws import gerenciador_ws
 from ..models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
-from ..schemas.schemas import EntregaCreate, PedidoOut, StatusUpdate
-from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
+from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, StatusUpdate
+from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc, pedido_operacional
 from ..services.assinatura import gerar_assinatura_png
 
@@ -92,23 +92,22 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id))
     await db.commit()
     await db.refresh(pedido)
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
     await notificar(pedido)
     return serializar(pedido)
 
 
-@router.post("/unidades/{filial_id}/pedidos/{pedido_id}/reimprimir")
-async def reimprimir(filial_id: int, pedido_id: int, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
+@router.post("/unidades/{filial_id}/pedidos/{pedido_id}/reimprimir", status_code=202)
+async def reimprimir(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | None = None, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
     await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     filial = await unidade_ativa(filial_id, db)
-    if not filial.ip_impressora:
-        raise HTTPException(400, "Impressora não configurada para esta unidade")
-    buffer = await montar_filipeta_configurada(db, pedido, filial, pedido.dieta)
-    ok = imprimir_filipeta(filial.ip_impressora, buffer)
-    if ok:
-        db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=pedido.status, status_novo=pedido.status, impresso=True, alterado_por_usuario_id=usuario.id))
-        await db.commit()
-    return {"impresso": ok}
+    job = await enfileirar(db, pedido, filial, usuario.id, dados.confirmar_risco_duplicidade if dados else False)
+    await db.commit()
+    await db.refresh(pedido)
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
+    await notificar(pedido)
+    return resposta_fila(job)
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/entregar", status_code=201)
@@ -140,6 +139,7 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
         alterado_por_usuario_id=usuario.id))
     await db.commit()
     await db.refresh(pedido)
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
     await db.refresh(entrega)
     await notificar(pedido)
     return {"pedido_id": pedido.id, "status": "ENTREGUE", "copeira_id": entrega.copeira_id,

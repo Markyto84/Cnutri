@@ -8,8 +8,8 @@ from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.ws import gerenciador_ws
 from ..models.models import Filial, HistoricoPedido, Pedido, Usuario
-from ..schemas.schemas import PedidoOut, StatusUpdate
-from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
+from ..schemas.schemas import PedidoOut, ReimpressaoCreate, StatusUpdate
+from ..services.fila_impressao import enfileirar, resposta_fila
 
 router = APIRouter(prefix="/api/pedidos", tags=["Cozinha / Kanban"])
 PERFIS_OPERACAO = ("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
@@ -76,6 +76,7 @@ async def alterar_status(
     )
     await db.commit()
     await db.refresh(pedido)
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
 
     await gerenciador_ws.transmitir(
         pedido.filial_id,
@@ -87,9 +88,9 @@ async def alterar_status(
     return pedido
 
 
-@router.post("/{pedido_id}/reimprimir")
+@router.post("/{pedido_id}/reimprimir", status_code=202)
 async def reimprimir(
-    pedido_id: int,
+    pedido_id: int, dados: ReimpressaoCreate | None = None,
     db: AsyncSession = Depends(get_db),
     _: Usuario = Depends(exigir_perfis(*PERFIS_OPERACAO)),
 ):
@@ -103,20 +104,9 @@ async def reimprimir(
     await verificar_acesso_filial(pedido.filial_id, _, db)
 
     filial: Filial = pedido.filial
-    if not filial.ip_impressora:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Impressora não configurada para esta unidade")
-
-    buffer = await montar_filipeta_configurada(db, pedido, filial, pedido.dieta)
-    ok = imprimir_filipeta(filial.ip_impressora, buffer)
-    if ok:
-        db.add(
-            HistoricoPedido(
-                pedido_id=pedido.id,
-                status_anterior=pedido.status,
-                status_novo=pedido.status,
-                alterado_por_usuario_id=_.id,
-                impresso=True,
-            )
-        )
-        await db.commit()
-    return {"impresso": ok}
+    job = await enfileirar(db, pedido, filial, _.id, dados.confirmar_risco_duplicidade if dados else False)
+    await db.commit()
+    await db.refresh(pedido)
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
+    await gerenciador_ws.transmitir(pedido.filial_id, {"evento": "impressao_atualizada", "pedido": PedidoOut.model_validate(pedido).model_dump(mode="json")})
+    return resposta_fila(job)

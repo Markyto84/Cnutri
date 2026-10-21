@@ -1,5 +1,6 @@
 """Ponto de entrada FastAPI — Sistema de Gestão de Dietas Hospitalares."""
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket
@@ -10,13 +11,16 @@ from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.login_usuarios import migrar_login_usuarios
 from .core.migracao_seguranca import migrar_seguranca
+from .core.migracao_operacao import migrar_operacao
 from .core.credenciais_iniciais import conferir_credenciais_producao
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
 from .models.models import Base
 from .seed import executar_seed
+from .services.fila_impressao import executar_fila
 
 logging.basicConfig(level=logging.INFO)
+INTERVALO_VALIDACAO_WS = 30
 
 
 @asynccontextmanager
@@ -26,11 +30,22 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(migrar_login_usuarios)
         await conn.run_sync(migrar_seguranca)
+        await conn.run_sync(migrar_operacao)
     async with SessionLocal() as db:
         await executar_seed(db)
         if settings.APP_ENV == "production":
             await conferir_credenciais_producao(db)
-    yield
+    parar = asyncio.Event()
+    tarefa = asyncio.create_task(executar_fila(SessionLocal, parar))
+    try:
+        yield
+    finally:
+        parar.set()
+        try:
+            await asyncio.wait_for(tarefa, timeout=10)
+        except TimeoutError:
+            tarefa.cancel()
+            await asyncio.gather(tarefa, return_exceptions=True)
 
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
@@ -96,10 +111,23 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
         await websocket.close(code=1008)
         return
     await gerenciador_ws.conectar(filial_id, websocket, usuario_id)
+    proxima_validacao = asyncio.get_running_loop().time() + INTERVALO_VALIDACAO_WS
     try:
         while True:
-            # Mantém a conexão viva; mensagens do cliente são ignoradas
-            await websocket.receive_text()
+            agora = asyncio.get_running_loop().time()
+            if agora >= proxima_validacao:
+                async with SessionLocal() as db:
+                    atual = await get_current_user(protocolos[1], db)
+                    await verificar_acesso_filial(filial_id, atual, db)
+                    if atual.troca_senha_obrigatoria or atual.perfil.nome not in pedidos.PERFIS_OPERACAO:
+                        raise HTTPException(403, "Acesso encerrado")
+                proxima_validacao = agora + INTERVALO_VALIDACAO_WS
+            try:
+                await asyncio.wait_for(websocket.receive_text(), timeout=max(0.1, proxima_validacao - agora))
+            except TimeoutError:
+                pass
+    except HTTPException:
+        await websocket.close(code=1008)
     except Exception:
         pass
     finally:

@@ -42,7 +42,7 @@ async def preparar_consulta(
     if status:
         filtros.append(Pedido.status == status)
     return ConsultaDietas(filtros, {"inicio": inicio.astimezone(BRASILIA).isoformat(), "fim": fim.astimezone(BRASILIA).isoformat(),
-        "data_base": data_base, "unidades": [f.nome for f in filiais],
+        "data_base": data_base, "unidades": [f"{f.nome} ({f.codigo_slug})" for f in filiais],
         "tipo": TIPOS.get(tipo_solicitacao, "Todos"), "status": STATUS.get(status, "Todos")})
 
 
@@ -61,7 +61,7 @@ async def exportar(formato: Literal["xlsx", "ods", "csv"], consulta: ConsultaDie
     db: AsyncSession = Depends(get_db)):
     linhas = (await db.execute(consulta_base(consulta).order_by(Pedido.criado_em, Pedido.id))).all()
     itens = [detalhar(linha) for linha in linhas]
-    resumo, totais = agrupar((item["unidade"], item["dieta"], item["status"], 1) for item in itens)
+    resumo, totais = agrupar((item["unidade_id"], item["unidade_codigo"], item["unidade"], item["dieta_id"], item["dieta"], item["status"], 1) for item in itens)
     try:
         arquivo, mime = await run_in_threadpool(exportar_dietas, formato, itens, resumo, totais, consulta.contexto)
     except ValueError as erro:

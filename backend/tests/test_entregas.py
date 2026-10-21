@@ -189,6 +189,20 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get(rota, headers=admin)).json(), antes)
         self.assertEqual(sum(item["total"] for item in antes), 1)
 
+    async def test_consumo_medico_classifica_limites_de_turno_em_brasilia(self):
+        casos = [(datetime(2026, 10, 21, 8, 59), "Noite"), (datetime(2026, 10, 21, 9), "Manhã"),
+            (datetime(2026, 10, 21, 14, 59), "Manhã"), (datetime(2026, 10, 21, 15), "Tarde"),
+            (datetime(2026, 10, 21, 20, 59), "Tarde"), (datetime(2026, 10, 21, 21), "Noite"),
+            (datetime(2026, 10, 21, 2, 59), "Noite"), (datetime(2026, 10, 21, 3), "Noite")]
+        async with self.sessoes() as db:
+            for n, (data, _) in enumerate(casos):
+                db.add(Pedido(filial_id=self.a, tipo_solicitacao="MEDICO", solicitante_identificacao="TESTE",
+                    solicitante_nome=f"Caso {n}", criado_em=data, status="PRONTO"))
+            await db.commit()
+        resposta = await self.client.get(f"/api/relatorios/consumo-medico?filial_id={self.a}", headers=self.operador)
+        self.assertEqual(resposta.status_code, 200, resposta.text)
+        self.assertEqual({r["solicitante"]: r["turno"] for r in resposta.json()}, {f"Caso {n}": turno for n, (_, turno) in enumerate(casos)})
+
     async def test_nao_entrega_sem_copeira_online_ou_sem_refeicao_pronta(self):
         rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
         self.assertEqual((await self.client.post(rota, headers=self.operador, json=self.comprovante())).status_code, 409)

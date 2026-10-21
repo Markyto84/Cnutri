@@ -11,6 +11,7 @@ from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 from openpyxl import load_workbook
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import select, update
 
 from app.core.database import Base, get_db
 from app.core.security import criar_token, hash_senha
@@ -114,6 +115,33 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(self.ids["antes"], ids)
         self.assertNotIn(self.ids["depois"], ids)
         self.assertEqual((await self.obter(inicio="2026-10-20T12:00:00", fim="2026-10-20T13:00:00"))["totais"], resultado["totais"])
+
+    async def test_unidades_homonimas_e_dietas_homonimas_permanecem_separadas_na_tela_e_xlsx(self):
+        async with self.sessoes() as db:
+            nome = (await db.get(Filial, self.a)).nome
+            (await db.get(Filial, self.b)).nome = nome
+            dieta = Dieta(filial_id=self.b, nome="GERAL")
+            homonima = Dieta(filial_id=self.a, nome="GERAL")
+            db.add_all([dieta, homonima])
+            await db.flush()
+            await db.execute(update(Pedido).where(Pedido.filial_id == self.b).values(dieta_id=dieta.id))
+            db.add(Pedido(filial_id=self.a, dieta_id=homonima.id, tipo_solicitacao="PACIENTE", solicitante_nome="Pessoa Fictícia",
+                solicitante_identificacao="TESTE", criado_em=datetime(2026, 10, 20, 15, 30)))
+            await db.commit()
+        resultado = await self.obter()
+        grupos = [g for g in resultado["resumo"] if g["dieta"] == "GERAL"]
+        self.assertEqual(len(grupos), 3)
+        self.assertEqual({g["unidade_id"] for g in grupos}, {self.a, self.b})
+        self.assertEqual(len({g["dieta_id"] for g in grupos}), 3)
+        self.assertEqual(len([g for g in grupos if g["unidade_id"] == self.a]), 2)
+        self.assertEqual({g["unidade_codigo"] for g in grupos}, {"hospital-a", "hospital-b"})
+        livro = load_workbook(BytesIO((await self.arquivo("xlsx")).content), read_only=True)
+        cabecalhos = [c.value for c in livro["Resumo"][7]]
+        codigo = cabecalhos.index("Código da unidade")
+        nomes = [r for r in livro["Resumo"].iter_rows(min_row=8, values_only=True) if r[0] == nome and r[1] == "GERAL"]
+        self.assertEqual(len(nomes), 3)
+        self.assertEqual({r[codigo] for r in nomes}, {"hospital-a", "hospital-b"})
+        livro.close()
 
     async def test_permissoes_da_consulta_e_dos_tres_formatos(self):
         self.assertEqual((await self.obter(token="gestor"))["totais"]["total"], 30)

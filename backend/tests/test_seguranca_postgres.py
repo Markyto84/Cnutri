@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.database import Base, get_db
 from app.core.security import hash_senha, verificar_senha
 from app.main import app
-from app.models.models import Perfil, Usuario
+from app.models.models import Filial, FormularioConfig, Pedido, Perfil, TrabalhoImpressao, Usuario
+from sqlalchemy import func
+from app.services.fila_impressao import processar_um
 
 SENHA = "TesteSeguro@123"
 NOVA = "TemporariaNova@2026"
@@ -90,3 +92,31 @@ class ConcorrenciaSenhaTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_troca_nao_sobrescreve_redefinicao_com_base_em_senha_antiga(self):
         await self.conferir_corrida(troca=True)
+
+    async def preparar_pedidos(self):
+        async with self.sessoes() as db:
+            filial = Filial(nome="Fictícia", codigo_slug="teste", ip_impressora="192.0.2.10")
+            db.add(filial)
+            await db.flush()
+            db.add(FormularioConfig(filial_id=filial.id, tipo_publico="MEDICO", esquema_json={"campos": []}))
+            await db.commit()
+        return {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM TESTE", "solicitante_nome": "Profissional Fictício"}
+
+    async def test_envios_simultaneos_com_mesma_chave_criam_um_pedido_e_um_trabalho(self):
+        payload = await self.preparar_pedidos()
+        chave = str(uuid4())
+        respostas = await asyncio.gather(*(self.client.post("/api/public/teste/pedidos", headers={"Idempotency-Key": chave}, json=payload) for _ in range(2)))
+        self.assertEqual(sorted(r.status_code for r in respostas), [200, 201], [r.text for r in respostas])
+        self.assertEqual(respostas[0].json()["id"], respostas[1].json()["id"])
+        async with self.sessoes() as db:
+            self.assertEqual(await db.scalar(select(func.count()).select_from(Pedido)), 1)
+            self.assertEqual(await db.scalar(select(func.count()).select_from(TrabalhoImpressao)), 1)
+
+    async def test_dois_consumidores_nao_enviam_mesma_filipeta_duas_vezes(self):
+        payload = await self.preparar_pedidos()
+        resposta = await self.client.post("/api/public/teste/pedidos", json=payload)
+        self.assertEqual(resposta.status_code, 201, resposta.text)
+        with patch("app.services.fila_impressao.enviar_filipeta") as transporte:
+            resultados = await asyncio.gather(processar_um(self.sessoes), processar_um(self.sessoes))
+            self.assertEqual(sum(resultados), 1)
+            transporte.assert_called_once()

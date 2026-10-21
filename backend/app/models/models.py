@@ -121,10 +121,44 @@ class Pedido(Base):
     ip_origem: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     concluido_em: Mapped[datetime | None] = mapped_column(DateTime)
+    chave_envio: Mapped[str | None] = mapped_column(String(36))
+    hash_envio: Mapped[str | None] = mapped_column(String(64))
+    __table_args__ = (UniqueConstraint("filial_id", "chave_envio", name="uq_pedido_chave_envio"),)
 
     filial: Mapped[Filial] = relationship()
     dieta: Mapped[Dieta | None] = relationship()
     historico: Mapped[list["HistoricoPedido"]] = relationship(back_populates="pedido", cascade="all, delete")
+    trabalhos_impressao: Mapped[list["TrabalhoImpressao"]] = relationship(lazy="selectin", order_by="TrabalhoImpressao.id")
+
+    @property
+    def impressao(self):
+        if not self.trabalhos_impressao:
+            return None
+        trabalho = self.trabalhos_impressao[-1]
+        return {"id": trabalho.id, "estado": trabalho.estado, "tentativas": trabalho.tentativas,
+            "erro": trabalho.erro, "proxima_tentativa_em": trabalho.proxima_tentativa_em}
+
+
+class TrabalhoImpressao(Base):
+    __tablename__ = "trabalhos_impressao"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDENTE", index=True)
+    tentativas: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    erro: Mapped[str | None] = mapped_column(String(250))
+    dados: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    proxima_tentativa_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    iniciado_em: Mapped[datetime | None] = mapped_column(DateTime)
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime)
+    reserva: Mapped[str | None] = mapped_column(String(36))
+    solicitado_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"))
+
+
+Index("uq_impressao_ativa", TrabalhoImpressao.pedido_id, unique=True,
+    postgresql_where=TrabalhoImpressao.estado.in_(("PENDENTE", "PROCESSANDO")),
+    sqlite_where=TrabalhoImpressao.estado.in_(("PENDENTE", "PROCESSANDO")))
 
 
 class HistoricoPedido(Base):

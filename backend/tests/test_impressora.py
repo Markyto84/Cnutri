@@ -16,6 +16,7 @@ from app.core.database import Base, get_db
 from app.core.security import criar_token
 from app.main import app
 from app.models.models import Dieta, Filial, FormularioConfig, Pedido, Perfil, SessaoUsuario, Usuario
+from app.services.fila_impressao import processar_um
 from app.services.impressora import LARGURA_LINHA, compor_linhas_filipeta, montar_filipeta
 from app.services.impressao_raster import (
     ALTURA_BLOCO, LARGURA_PONTOS, LinhaImpressao, codificar_imagem,
@@ -266,13 +267,16 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             "leito", "prontuario", "dieta_id", "observacoes_alergias", "dados_dinamicos",
         )}
         with (
-            patch("app.api.public_kiosk.imprimir_filipeta", return_value=True) as imprimir,
+            patch("app.services.fila_impressao.enviar_filipeta", return_value=None) as imprimir,
             patch("app.services.impressora.rasterizar_filipeta", wraps=rasterizar_filipeta) as desenhar,
         ):
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json=payload)
             self.assertEqual(resposta.status_code, 201, resposta.text)
             self.assertEqual(resposta.json()["prontuario"], payload["prontuario"])
             self.assertEqual(resposta.json()["dados_dinamicos"], payload["dados_dinamicos"])
+            imprimir.assert_not_called()
+            self.assertEqual(resposta.json()["impressao"]["estado"], "PENDENTE")
+            await processar_um(self.sessoes)
             imprimir.assert_called_once()
             ip, original = imprimir.call_args.args
             self.assertEqual(ip, "192.0.2.10")
@@ -291,10 +295,11 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             self.assertIn("____/____/________  ____:____", texto_impresso(linhas))
             imagem, _ = decodificar_raster(original)
             self.assertEqual(imagem.width, LARGURA_PONTOS)
-        with patch("app.api.pedidos.imprimir_filipeta", return_value=True) as reimprimir:
+        with patch("app.services.fila_impressao.enviar_filipeta", return_value=None) as reimprimir:
             repetida = await self.client.post(f"/api/pedidos/{resposta.json()['id']}/reimprimir", headers=self.headers)
-            self.assertEqual(repetida.status_code, 200, repetida.text)
-            self.assertTrue(repetida.json()["impresso"])
+            self.assertEqual(repetida.status_code, 202, repetida.text)
+            self.assertTrue(repetida.json()["enfileirado"])
+            await processar_um(self.sessoes)
             reimprimir.assert_called_once_with(ip, original)
         return conteudo
 
@@ -319,7 +324,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             filial = await db.get(Filial, self.filial_id)
             filial.ip_impressora = None
             await db.commit()
-        with patch("app.api.public_kiosk.imprimir_filipeta") as imprimir:
+        with patch("app.services.fila_impressao.enviar_filipeta") as imprimir:
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json={
                 "tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM 123", "solicitante_nome": "Exemplo",
                 "dados_dinamicos": pedido_medico().dados_dinamicos, "observacoes_alergias": "Sem restrições",
@@ -327,7 +332,9 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resposta.status_code, 201, resposta.text)
             imprimir.assert_not_called()
         repetida = await self.client.post(f"/api/pedidos/{resposta.json()['id']}/reimprimir", headers=self.headers)
-        self.assertEqual(repetida.status_code, 400)
+        self.assertEqual(repetida.status_code, 202)
+        self.assertEqual(repetida.json()["impressao"]["estado"], "FALHA")
+        self.assertIn("não configurada", repetida.json()["impressao"]["erro"])
 
 
 if __name__ == "__main__":

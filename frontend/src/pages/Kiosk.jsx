@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import FormDinamico from '../components/FormDinamico.jsx'
+import { chaveSalva, concluirTentativa, obterChaveEnvio, textoImpressao } from '../services/solicitacoes.js'
 
 export default function Kiosk({ slugPadrao }) {
   const { slug } = useParams()
@@ -13,14 +14,21 @@ export default function Kiosk({ slugPadrao }) {
   const [fluxo, setFluxo] = useState(null) // MEDICO | ENFERMAGEM
   const [enviando, setEnviando] = useState(false)
   const [erroEnvio, setErroEnvio] = useState(null)
+  const [resultado, setResultado] = useState(null)
   const [registro, setRegistro] = useState('') // CRM, COREN ou Matrícula — rastreabilidade obrigatória
   const [solicitanteNome, setSolicitanteNome] = useState('') // nome do profissional que solicita
 
   useEffect(() => {
+    const controller = new AbortController()
     api
-      .get(`/public/${slugFinal}/config`)
+      .get(`/public/${slugFinal}/config`, { signal: controller.signal })
       .then((r) => setConfig(r.data))
-      .catch((e) => setErro(e.response?.data?.detail || 'Erro ao contactar o servidor'))
+      .catch((e) => { if (!controller.signal.aborted) setErro(e.response?.data?.detail || 'Erro ao contactar o servidor') })
+    const chave = chaveSalva(slugFinal)
+    if (chave) api.get(`/public/${slugFinal}/solicitacoes/${chave}`, { signal: controller.signal })
+      .then(({ data }) => { setResultado(data); setTela('sucesso') })
+      .catch(() => { /* mantém a chave para repetir o envio após uma falha de rede */ })
+    return () => controller.abort()
   }, [slugFinal])
 
   if (erro)
@@ -67,24 +75,29 @@ export default function Kiosk({ slugPadrao }) {
     setEnviando(true)
     setErroEnvio(null)
     try {
-      await api.post(`/public/${slugFinal}/pedidos`, {
+      const resposta = await api.post(`/public/${slugFinal}/pedidos`, {
         ...Object.fromEntries(Object.entries(dados).filter(([k]) => fixos.includes(k))),
         dados_dinamicos: dinamicos,
         solicitante_nome: solicitanteNome.trim(),
         solicitante_identificacao: registro.trim(),
         tipo_solicitacao: fluxo === 'MEDICO' ? 'MEDICO' : 'PACIENTE',
         dieta_id: dados.dieta_id ? Number(dados.dieta_id) : null,
-      })
+      }, { headers: { 'Idempotency-Key': obterChaveEnvio(slugFinal) } })
+      setResultado(resposta.data)
       setTela('sucesso')
     } catch (e) {
-      setErroEnvio(traduzErro(e))
+      const anterior = e.response?.data?.detail
+      if (e.response?.status === 409 && anterior?.pedido_id) {
+        setResultado({ id: anterior.pedido_id, impressao: anterior.impressao, aviso: anterior.mensagem })
+        setTela('sucesso')
+      } else setErroEnvio(e.response ? traduzErro(e) : 'A conexão foi interrompida. Tente enviar novamente para consultar e confirmar a mesma solicitação.')
     } finally {
       setEnviando(false)
     }
   }
 
   if (tela === 'sucesso')
-    return <Sucesso onVoltar={() => { setTela('perfil'); setFluxo(null) }} />
+    return <Sucesso resultado={resultado} slug={slugFinal} onVoltar={() => { concluirTentativa(slugFinal); setResultado(null); setTela('perfil'); setFluxo(null) }} />
 
   return (
     <div className="min-h-screen bg-app-background text-slate-900 p-8">
@@ -154,19 +167,32 @@ export default function Kiosk({ slugPadrao }) {
   )
 }
 
-function Sucesso({ onVoltar }) {
+function Sucesso({ resultado, slug, onVoltar }) {
+  const [impressao, setImpressao] = useState(resultado.impressao)
   useEffect(() => {
-    const t = setTimeout(onVoltar, 5000) // retorno automático em 5 segundos
+    const t = setTimeout(onVoltar, 20000)
     return () => clearTimeout(t)
   }, [onVoltar])
+  useEffect(() => {
+    const chave = chaveSalva(slug)
+    if (!chave) return
+    const controller = new AbortController()
+    const intervalo = setInterval(() => api.get(`/public/${slug}/solicitacoes/${chave}`, { signal: controller.signal })
+      .then(({ data }) => setImpressao(data.impressao)).catch(() => {}), 2000)
+    return () => { clearInterval(intervalo); controller.abort() }
+  }, [slug])
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-app-background text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-app-background p-6 text-center">
       <div className="text-8xl">✅</div>
-      <h2 className="mt-6 text-3xl font-bold text-slate-950">Pedido enviado com sucesso!</h2>
-      <p className="mt-2 text-slate-950">A filipeta foi enviada à cozinha. Volta ao início em instantes…</p>
+      <h2 className="mt-6 text-3xl font-bold text-slate-950">Pedido #{resultado.id} registrado</h2>
+      <p className="mt-4 font-semibold text-brand" role="status">{textoImpressao(impressao?.estado)}</p>
+      {impressao?.erro && <p className="mt-2 max-w-xl text-sm text-red-800">{impressao.erro}</p>}
+      {['FALHA', 'INCERTO'].includes(impressao?.estado) && <p className="mt-2 text-sm text-slate-800">Informe o número do pedido à cozinha para conferir ou reenviar a filipeta.</p>}
+      {resultado.aviso && <p className="mt-4 max-w-xl rounded-lg bg-amber-50 p-4 text-sm text-amber-950">{resultado.aviso}</p>}
+      <p className="mt-5 text-sm text-slate-700">Guarde o número do pedido. Retorno ao início em 20 segundos.</p>
       <button onClick={onVoltar} className="mt-8 rounded-lg bg-slate-50 px-6 py-3 text-slate-800 hover:bg-slate-200">
-        Voltar agora
+        Nova solicitação
       </button>
     </div>
   )

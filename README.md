@@ -27,6 +27,11 @@ Projeto Cnutri/
 
 ## Como rodar em um servidor Linux
 
+O item 10 do review (HTTPS com domínio/certificado da TI e preparação operacional)
+foi adiado para o novo servidor. O roteiro Docker abaixo é a base existente e ainda
+precisa dessa etapa antes da implantação definitiva. A API deve usar **um único
+worker**, como fixado no Dockerfile, enquanto os eventos WebSocket estiverem em memória.
+
 ### 1. Instalar o Docker (se ainda não tiver)
 
 ```bash
@@ -153,7 +158,9 @@ contêm senhas nem tokens. Logout encerra a sessão; troca/reset de senha revoga
 Senhas novas têm no mínimo 12 caracteres e até 72 bytes. A página `/senha` permite a troca pelo próprio usuário.
 
 Veja [Segurança — itens 1 a 3](SEGURANCA-ITENS-1-3.md) para permissões, regras do formulário e validação.
-A preparação de HTTPS, recuperação automática e backups permanece no plano de produção do review.
+A preparação de HTTPS, recuperação automática e backups permanece no item 10 do review,
+adiado pelo usuário para outro servidor. Os itens 4–9 estão descritos em
+[Estabilização — itens 4 a 9](ESTABILIZACAO-ITENS-4-9.md).
 
 ## Desenvolvimento (Windows)
 
@@ -268,6 +275,20 @@ A consulta e os três formatos verificam perfil e unidades permitidas no servido
 usa `openpyxl` e `odfpy`, incluídos em `backend/requirements.txt`. Ao atualizar uma instalação existente,
 pare os serviços e execute `start.ps1 -InstalarDependencias` para instalar essas dependências.
 
+## Confirmação de pedidos e fila de impressão
+
+O kiosk mostra **Pedido #n registrado** e o estado do envio à impressora separadamente.
+Uma queda de rede permite repetir a tentativa com a mesma chave, retornando o pedido
+original. A confirmação pode ser recuperada ao recarregar a página. **Nova solicitação**
+ou o retorno automático após 20 segundos inicia outra tentativa.
+
+A fila fica no banco e é processada em segundo plano. A cozinha mostra os estados
+pendente, processando, enviado, falha e envio incerto. Falhas de conexão permitem até
+três tentativas; transmissões interrompidas exigem conferir o papel antes de reenviar.
+**Enviada à impressora** confirma transmissão TCP, sem afirmar que o papel saiu.
+Pedidos anteriores à atualização não são impressos automaticamente. Veja as regras
+de reenvio e compatibilidade da API em [ESTABILIZACAO-ITENS-4-9.md](ESTABILIZACAO-ITENS-4-9.md).
+
 ## Cozinha, plantão e entregas no computador e no celular
 
 O dashboard `/cozinha/{id}` e a página `/entregas/{id}` abrem sem login para unidades ativas.
@@ -326,13 +347,11 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 59 testes: onze da administração/login, catorze de operação/plantão/entrega, treze das filipetas,
-sete do relatório de dietas/exportações, onze de segurança/validação, dois de concorrência de senhas e um de migração PostgreSQL.
-O teste de migração só roda quando `CNUTRI_TEST_POSTGRES_URL` aponta explicitamente para um banco
-de testes PostgreSQL com permissão para criar schemas. Ele usa um schema exclusivo e reverte toda
-a transação ao terminar. Os dois testes de concorrência também exigem essa variável: usam schemas
-exclusivos, removidos ao terminar, e duas conexões para conferir o bloqueio de login/troca durante
-redefinição de senha. Sem a variável, esses três testes são omitidos e os outros 56 usam SQLite isolado.
+São 76 testes de backend. Seis exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
+para um banco de testes PostgreSQL com permissão para criar schemas. Usam schemas exclusivos,
+revertidos ou removidos ao terminar: duas migrações e quatro verificações de concorrência de
+senhas, repetição de pedidos e consumo da fila. Sem a variável, esses seis são omitidos; os outros
+70 usam SQLite isolado ou verificam serviços Python sem acessar registros do hospital.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
@@ -347,7 +366,11 @@ resultado vazio e rejeição de truncamento no Excel.
 Os testes de login verificam o acesso por usuário, rejeição do e-mail antigo, maiúsculas/minúsculas,
 renomeação mantendo senha e sessão, nomes inválidos/duplicados e cadastro restrito à TI. A migração
 é verificada com contas legadas, colisões, preservação de senha/vínculo e repetição sem perda de dados.
-No frontend, `npm test` executa quatro testes de autorização e retorno seguro após o login.
+Também são verificados encerramento dos canais privados no logout/troca/reset, expiração
+de sessão já conectada, tentativas limitadas de impressão, transmissão incerta, preservação
+do documento, idempotência, limites dos turnos em Brasília e grupos com nomes iguais.
+No frontend, `npm test` executa oito testes de autorização, retorno seguro após o login,
+persistência da chave da solicitação e mensagens de impressão.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub

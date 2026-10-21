@@ -1,5 +1,5 @@
 """Relatórios e indicadores gerenciais (Nutrição / Admin)."""
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
@@ -96,7 +96,10 @@ async def consumo_medico(filial_id: int, db: AsyncSession = Depends(get_db), _: 
 
     contagem: dict[tuple[str, str], int] = {}
     for p in pedidos:
-        hora = p.criado_em.hour if p.criado_em else 0
+        criado = p.criado_em
+        if criado and criado.tzinfo is None:
+            criado = criado.replace(tzinfo=timezone.utc)
+        hora = criado.astimezone(timezone(timedelta(hours=-3))).hour if criado else 0
         turno = "Manhã" if 6 <= hora < 12 else "Tarde" if 12 <= hora < 18 else "Noite"
         chave = (turno, p.solicitante_nome or p.solicitante_identificacao)
         contagem[chave] = contagem.get(chave, 0) + 1

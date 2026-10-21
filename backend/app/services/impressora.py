@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.concurrency import run_in_threadpool
 
 from ..models.models import Dieta, Filial, FormularioConfig, Pedido
 from .impressao_raster import LinhaImpressao, colunas_por_linha, rasterizar_filipeta
@@ -176,7 +177,7 @@ async def montar_filipeta_configurada(
         FormularioConfig.filial_id == pedido.filial_id,
         FormularioConfig.tipo_publico == tipo_publico,
     ))).scalar_one_or_none()
-    return montar_filipeta(
+    return await run_in_threadpool(montar_filipeta,
         pedido=pedido,
         filial_nome=filial.nome,
         esquema_json=config.esquema_json if config else None,
@@ -185,13 +186,30 @@ async def montar_filipeta_configurada(
     )
 
 
-def imprimir_filipeta(ip: str, dados: bytes, porta: int = 9100, timeout: float = 3.0) -> bool:
-    """Envia os bytes ESC/POS à impressora térmica. Retorna True se imprimiu."""
+class ErroEnvioImpressora(Exception):
+    def __init__(self, incerto=False):
+        self.incerto = incerto
+        super().__init__("O envio à impressora não foi concluído")
+
+
+def enviar_filipeta(ip: str, dados: bytes, porta: int = 9100, timeout: float = 3.0):
+    """Confirma somente o envio TCP; falha após conectar pode ter enviado parte do papel."""
     try:
-        with socket.create_connection((ip, porta), timeout=timeout) as sock:
+        sock = socket.create_connection((ip, porta), timeout=timeout)
+    except OSError:
+        raise ErroEnvioImpressora(incerto=False) from None
+    try:
+        with sock:
             sock.sendall(dados)
-        logger.info("Filipeta enviada para %s:%s", ip, porta)
+    except OSError:
+        raise ErroEnvioImpressora(incerto=True) from None
+
+
+def imprimir_filipeta(ip: str, dados: bytes, porta: int = 9100, timeout: float = 3.0) -> bool:
+    """Compatibilidade: True significa dados enviados, sem confirmação física de papel."""
+    try:
+        enviar_filipeta(ip, dados, porta, timeout)
         return True
-    except Exception as exc:  # impressora offline / IP errado → não trava o pedido
-        logger.warning("Falha ao imprimir em %s:%s — %s", ip, porta, exc)
+    except ErroEnvioImpressora:
+        logger.warning("Envio da filipeta não concluído")
         return False

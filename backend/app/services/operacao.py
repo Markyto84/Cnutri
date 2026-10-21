@@ -35,4 +35,5 @@ def pedido_operacional(dados: dict) -> dict:
         "dados_dinamicos": {k: v for k, v in dinamicos.items() if k in CAMPOS_OPERACIONAIS},
         "status": dados["status"], "criado_em": data_utc(dados.get("criado_em")),
         "concluido_em": data_utc(dados.get("concluido_em")),
+        "impressao": dados.get("impressao"),
     }

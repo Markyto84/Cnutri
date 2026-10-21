@@ -40,6 +40,23 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Itens 4–9 do review aplicados em 20/10/2026: sessões revogadas também fecham canais
+  privados; revalidação periódica do WebSocket detecta expiração sem mensagens do cliente.
+- ✅ Fila de impressão persistida, processamento em segundo plano, até três tentativas de
+  conexão e conferência obrigatória antes de reenviar transmissões incertas. Cozinha e kiosk
+  mostram o estado real do envio; transmissão TCP não confirma a saída física do papel.
+- ✅ Solicitações protegidas por chave UUID por unidade: repetir retorna o pedido original,
+  sem duplicar pedido, impressão ou evento; a confirmação mostra o número e permite recuperação.
+- ✅ Turnos médicos calculados em Brasília; resumo/exportações distinguem unidades e dietas
+  homônimas por IDs, exibindo o código da unidade. Docker da API fixado em um worker.
+- ✅ Validação atual: 76 testes de backend (seis PostgreSQL), oito de frontend e build aprovados;
+  lint com dois avisos anteriores em Gestao.jsx. Conferência desktop/mobile com dados fictícios.
+  Backup anterior validado e integridade dos dados preservada. Detalhes em
+  [ESTABILIZACAO-ITENS-4-9.md](ESTABILIZACAO-ITENS-4-9.md).
+- ⏳ Item 10 adiado pelo usuário para outro servidor, com domínio e certificado da TI.
+  Não ativar HTTPS/supervisão nesta estação sem retomar essa etapa. A URL atual continua
+  `http://10.1.140.15:5173`.
+
 - ✅ Itens 1–3 do review de 20/10/2026: segredo JWT privado sem padrão; senhas iniciais rotacionadas
   por ferramenta com arquivo de entrega privado; primeiro acesso exige nova senha; produção bloqueia configuração insegura.
 - ✅ Tentativas de autenticação limitadas e registradas; sessões persistidas para todos os perfis,
@@ -213,7 +230,9 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 3. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
    ou dependente de grupo de dieta
 4. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
-5. **Produção:** HTTPS (proxy reverso), backup agendado diário, CORS_ORIGINS com URL real
+5. **Produção / item 10:** adiado pelo usuário para outro servidor; já há domínio e certificado
+   da TI. Retomar HTTPS, início/recuperação automáticos, prontidão do banco, restrições de rede,
+   credencial do banco, backup agendado e CORS_ORIGINS com a URL definitiva nessa instalação.
 
 ## 6. Convenções técnicas importantes (não quebrar)
 
@@ -225,6 +244,13 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 - **Filipetas:** `montar_filipeta_configurada()` carrega o esquema da unidade e do fluxo (PACIENTE →
   ENFERMAGEM). Usar esse caminho no envio e na reimpressão; não manter listas de campos separadas
   nas rotas. Campos extras salvos também são impressos; o informativo estático de horários fica no kiosk
+- **Fila de impressão:** pedido e trabalho são persistidos juntos; TCP somente no consumidor em
+  segundo plano. PENDENTE/PROCESSANDO são únicos por pedido; INCERTO exige conferência explícita.
+  Não interpretar ENVIADO como confirmação física e não enfileirar registros antigos na migração.
+- **Repetição de envio:** manter `Idempotency-Key` por tentativa, unicidade por filial e hash do
+  conteúdo original. Não gerar outra chave no retry nem repetir impressão/evento no replay.
+- **API:** um único worker enquanto conexões/eventos WebSocket estiverem em memória. Escalar
+  exige compartilhar tanto os eventos quanto a revogação de canais entre os processos.
 - **Recebimento:** os IDs `sexo` e `prontuario` são ocultados somente no gerador da filipeta. O rodapé
   tem Assinatura e Data e hora para preenchimento manual; preservar os dados originais nos pedidos
 - **Operação pública:** usar `/api/operacao` e `/ws/operacao/{id}` com projeção explícita dos dados

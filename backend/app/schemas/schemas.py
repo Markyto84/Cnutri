@@ -199,6 +199,18 @@ class PedidoCreate(BaseModel):
         return valor.strip() if isinstance(valor, str) else valor
 
 
+class ImpressaoOut(BaseModel):
+    id: int
+    estado: str
+    tentativas: int
+    erro: str | None
+    proxima_tentativa_em: datetime | None = None
+
+
+class ReimpressaoCreate(BaseModel):
+    confirmar_risco_duplicidade: bool = False
+
+
 class PedidoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -216,6 +228,7 @@ class PedidoOut(BaseModel):
     status: str
     criado_em: datetime
     concluido_em: datetime | None
+    impressao: ImpressaoOut | None = None
 
 
 class StatusUpdate(BaseModel):

@@ -3,7 +3,13 @@
 A filial é identificada pelo slug na URL. A rastreabilidade é feita pelo
 registro profissional informado no envio da solicitação.
 """
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from hashlib import sha256
+import json
+from uuid import UUID, uuid4
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +17,7 @@ from ..core.database import get_db
 from ..core.ws import gerenciador_ws
 from ..models.models import Dieta, Filial, FormularioConfig, Pedido
 from ..schemas.schemas import PedidoCreate, PedidoOut
-from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
+from ..services.fila_impressao import enfileirar
 from ..services.validacao_pedidos import validar_pedido
 
 router = APIRouter(prefix="/api/public", tags=["Kiosk Público"])
@@ -49,10 +55,17 @@ async def obter_config_kiosk(slug: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{slug}/pedidos", response_model=PedidoOut, status_code=status.HTTP_201_CREATED)
-async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, db: AsyncSession = Depends(get_db)):
+async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, response: Response,
+    chave: UUID | None = Header(default=None, alias="Idempotency-Key"), db: AsyncSession = Depends(get_db)):
     filial = await obter_filial(slug, db)
+    filial_id = filial.id
 
-    dieta = await validar_pedido(db, filial.id, dados)
+    chave = str(chave or uuid4())
+    resumo = sha256(json.dumps(dados.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    existente = await buscar_envio(db, filial.id, chave)
+    if existente:
+        return conferir_repeticao(existente, resumo, response)
+    await validar_pedido(db, filial.id, dados)
 
     pedido = Pedido(
         filial_id=filial.id,
@@ -66,19 +79,45 @@ async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, db: Asy
         observacoes_alergias=dados.observacoes_alergias,
         dados_dinamicos=dados.dados_dinamicos,
         ip_origem=request.client.host if request.client else None,
-        status="PENDENTE",
+        status="PENDENTE", chave_envio=chave, hash_envio=resumo,
     )
     db.add(pedido)
-    await db.commit()
+    try:
+        await db.flush()
+        await enfileirar(db, pedido, filial)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        existente = await buscar_envio(db, filial_id, chave)
+        if existente:
+            return conferir_repeticao(existente, resumo, response)
+        raise
     await db.refresh(pedido)
-
-    # Impressão silenciosa da filipeta (não bloqueia o fluxo em caso de falha)
-    if filial.ip_impressora:
-        buffer = await montar_filipeta_configurada(db, pedido, filial, dieta)
-        imprimir_filipeta(filial.ip_impressora, buffer)
-
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
+    # A fila é processada fora da requisição; pedido e trabalho são gravados juntos.
     await gerenciador_ws.transmitir(
         filial.id,
         {"evento": "novo_pedido", "pedido": PedidoOut.model_validate(pedido).model_dump(mode="json")},
     )
     return pedido
+
+
+async def buscar_envio(db, filial_id, chave):
+    return await db.scalar(select(Pedido).options(selectinload(Pedido.dieta)).where(Pedido.filial_id == filial_id, Pedido.chave_envio == chave))
+
+
+def conferir_repeticao(pedido, resumo, response):
+    if pedido.hash_envio != resumo:
+        raise HTTPException(409, jsonable_encoder({"mensagem": "A solicitação anterior já foi registrada. Os novos dados não foram enviados", "pedido_id": pedido.id, "impressao": pedido.impressao}))
+    response.status_code = 200
+    return pedido
+
+
+@router.get("/{slug}/solicitacoes/{chave}")
+async def consultar_envio(slug: str, chave: UUID, db: AsyncSession = Depends(get_db)):
+    filial = await obter_filial(slug, db)
+    pedido = await buscar_envio(db, filial.id, str(chave))
+    if not pedido:
+        raise HTTPException(404, "Solicitação ainda não localizada")
+    # O comprovante aleatório dá acesso só ao número e ao estado de impressão.
+    return {"id": pedido.id, "impressao": pedido.impressao}

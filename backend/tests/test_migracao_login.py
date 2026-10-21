@@ -14,10 +14,38 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.login_usuarios import PADRAO_USUARIO, migrar_login_usuarios
 from app.core.migracao_seguranca import migrar_seguranca
+from app.core.migracao_operacao import migrar_operacao
 
 
 @unittest.skipUnless(os.environ.get("CNUTRI_TEST_POSTGRES_URL"), "Requer CNUTRI_TEST_POSTGRES_URL para testar a migração PostgreSQL")
 class MigracaoLoginTest(unittest.IsolatedAsyncioTestCase):
+    async def test_migracao_operacional_preserva_pedidos_e_protege_chave_por_unidade(self):
+        engine = create_async_engine(os.environ["CNUTRI_TEST_POSTGRES_URL"])
+        schema = "teste_operacao_" + uuid4().hex
+        try:
+            async with engine.connect() as conn:
+                transaction = await conn.begin()
+                try:
+                    await conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+                    await conn.exec_driver_sql(f'SET LOCAL search_path TO "{schema}"')
+                    await conn.exec_driver_sql("CREATE TABLE pedidos (id INTEGER PRIMARY KEY, filial_id INTEGER NOT NULL, descricao TEXT)")
+                    await conn.exec_driver_sql("INSERT INTO pedidos VALUES (1, 1, 'Pedido histórico com maçã'), (2, 1, 'Outro pedido')")
+                    await conn.run_sync(migrar_operacao)
+                    await conn.run_sync(migrar_operacao)
+                    antigos = (await conn.exec_driver_sql("SELECT id, filial_id, descricao, chave_envio, hash_envio FROM pedidos ORDER BY id")).all()
+                    self.assertEqual([tuple(r) for r in antigos], [(1, 1, 'Pedido histórico com maçã', None, None), (2, 1, 'Outro pedido', None, None)])
+                    chave = str(uuid4())
+                    await conn.execute(text("INSERT INTO pedidos (id, filial_id, chave_envio) VALUES (3, 1, :chave), (4, 2, :chave)"), {"chave": chave})
+                    with self.assertRaises(IntegrityError):
+                        async with conn.begin_nested():
+                            await conn.execute(text("INSERT INTO pedidos (id, filial_id, chave_envio) VALUES (5, 1, :chave)"), {"chave": chave})
+                    await conn.run_sync(migrar_operacao)
+                    self.assertEqual((await conn.exec_driver_sql("SELECT count(*) FROM pedidos")).scalar_one(), 4)
+                finally:
+                    await transaction.rollback()
+        finally:
+            await engine.dispose()
+
     async def test_migracao_preserva_contas_vinculos_e_senhas_e_e_idempotente(self):
         engine = create_async_engine(os.environ["CNUTRI_TEST_POSTGRES_URL"])
         schema = "teste_login_" + uuid4().hex

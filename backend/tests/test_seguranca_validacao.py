@@ -1,5 +1,6 @@
 """Regressões dos itens 1–3: credenciais, autorização e formulário vigente, em banco isolado."""
 from copy import deepcopy
+import asyncio
 from datetime import timedelta
 import json
 from pathlib import Path
@@ -20,8 +21,9 @@ from app.core.config import Settings, settings
 from app.core.database import Base, get_db
 from app.core.presenca import agora_utc
 from app.core.security import hash_senha, verificar_senha
-from app.main import app
-from app.models.models import Dieta, EntregaPedido, Filial, FormularioConfig, HistoricoPedido, LimiteLogin, Pedido, Perfil, Usuario
+from app.main import app, ws_cozinha
+from app.core.ws import gerenciador_ws
+from app.models.models import Dieta, EntregaPedido, Filial, FormularioConfig, HistoricoPedido, LimiteLogin, Pedido, Perfil, SessaoUsuario, Usuario
 
 SENHA = "TesteSeguro@123"
 NOVA = "MinhaNovaSenha@2026"
@@ -93,7 +95,7 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_anonimo_le_dashboard_mas_nao_muda_cancela_reimprime_ou_entrega(self):
         self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.a}/pedidos")).status_code, 200)
-        with patch("app.api.operacao.imprimir_filipeta") as impressora:
+        with patch("app.services.fila_impressao.enviar_filipeta") as impressora:
             for status in ("EM_PREPARO", "PRONTO", "CANCELADO"):
                 self.assertEqual((await self.client.patch(self.base + "/status", json={"status": status})).status_code, 401)
             self.assertEqual((await self.client.post(self.base + "/reimprimir")).status_code, 401)
@@ -165,6 +167,64 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
         novo = await self.entrar("gestor", "OutraTemporaria@2026")
         self.assertEqual((await self.client.get(f"/api/pedidos?filial_id={self.a}", headers=novo)).status_code, 403)
 
+    async def test_logout_troca_e_reset_fecham_canais_privados_sem_fechar_o_dashboard(self):
+        publico, outro = AsyncMock(), AsyncMock()
+        await gerenciador_ws.conectar_publico(self.a, publico)
+        await gerenciador_ws.conectar(self.a, outro, self.ids["ana"])
+        canais = [publico, outro]
+        try:
+            admin = await self.entrar()
+            for acao, nome in (("logout", "gestor"), ("troca", "cozinha"), ("reset", "gestor")):
+                with self.subTest(acao=acao):
+                    token = await self.entrar(nome)
+                    canal = AsyncMock()
+                    canais.append(canal)
+                    await gerenciador_ws.conectar(self.a, canal, self.ids[nome])
+                    if acao == "logout":
+                        r = await self.client.post("/api/auth/logout", headers=token)
+                    elif acao == "troca":
+                        r = await self.client.post("/api/auth/senha", headers=token, json={"senha_atual": SENHA, "nova_senha": NOVA})
+                    else:
+                        r = await self.client.patch(f"/api/admin/usuarios/{self.ids[nome]}", headers=admin, json={"nome": "Gestor", "nome_usuario": nome,
+                            "perfil": "NUTRICIONISTA", "filial_ids": [self.a], "senha": "OutraTemporaria@2026"})
+                    self.assertEqual(r.status_code, 200, r.text)
+                    canal.close.assert_awaited_once_with(code=1008)
+                    self.assertNotIn(canal, gerenciador_ws.usuarios)
+                    self.assertEqual((await self.client.get("/api/auth/me", headers=token)).status_code, 401)
+                    publico.close.assert_not_awaited()
+                    outro.close.assert_not_awaited()
+        finally:
+            for canal in canais:
+                gerenciador_ws.desconectar(self.a, canal)
+
+    async def test_websocket_ja_aberto_detecta_sessao_expirada_sem_nova_mensagem(self):
+        token = (await self.entrar("gestor"))["Authorization"].removeprefix("Bearer ")
+        aceito = asyncio.Event()
+        canal = AsyncMock()
+        canal.scope = {"subprotocols": ["cnutri", token]}
+        async def aceitar(**_kwargs):
+            aceito.set()
+        async def aguardar():
+            await asyncio.Event().wait()
+        canal.accept.side_effect = aceitar
+        canal.receive_text.side_effect = aguardar
+        tarefa = None
+        try:
+            with patch("app.main.SessionLocal", self.sessoes), patch("app.main.INTERVALO_VALIDACAO_WS", 0.02):
+                tarefa = asyncio.create_task(ws_cozinha(canal, self.a))
+                await asyncio.wait_for(aceito.wait(), 2)
+                async with self.sessoes() as db:
+                    await db.execute(update(SessaoUsuario).where(SessaoUsuario.usuario_id == self.ids["gestor"]).values(expira_em=agora_utc() - timedelta(seconds=1)))
+                    await db.commit()
+                await asyncio.wait_for(tarefa, 2)
+            canal.close.assert_awaited_once_with(code=1008)
+            self.assertNotIn(canal, gerenciador_ws.usuarios)
+        finally:
+            if tarefa and not tarefa.done():
+                tarefa.cancel()
+                await asyncio.gather(tarefa, return_exceptions=True)
+            gerenciador_ws.desconectar(self.a, canal)
+
     async def test_cinco_falhas_limitam_login_persistido_sem_expor_senha_nos_logs(self):
         with self.assertLogs("cnutri.seguranca", level="WARNING") as logs:
             for _ in range(5):
@@ -226,7 +286,7 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
             lambda p: p["dados_dinamicos"].update(cardapio="Cardápio de outro grupo"), lambda p: p["dados_dinamicos"].update(campo_desconhecido="valor"),
             lambda p: p["dados_dinamicos"].update(nome_paciente="duplicado"), lambda p: p.update(refeicao="fora do JSON"),
             lambda p: p.update(observacoes_alergias="x" * 5001)]
-        with patch("app.api.public_kiosk.imprimir_filipeta") as imprimir:
+        with patch("app.services.fila_impressao.enviar_filipeta") as imprimir:
             for alterar in alteracoes:
                 p = self.paciente()
                 alterar(p)

@@ -29,10 +29,12 @@ COLUNAS = [
     ("entregue_em", "Entrega (Brasília)", 24), ("copeira_nome", "Copeira", 30), ("recebedor_nome", "Recebedor", 30),
     ("assinatura_registrada", "Assinatura registrada", 23), ("outros_campos", "Outros campos informados", 52),
     ("registrado_por_nome", "Entrega registrada por", 32),
+    ("unidade_codigo", "Código da unidade", 26), ("unidade_id", "ID da unidade", 16), ("dieta_id", "ID da dieta", 14),
 ]
 RESUMO = [("unidade", "Unidade", 38), ("dieta", "Dieta / categoria", 32), ("total", "Solicitações", 15),
     ("pendentes", "Pendentes", 14), ("em_preparo", "Em preparo", 14), ("prontos", "Prontos", 13),
-    ("entregues", "Entregues", 13), ("cancelados", "Cancelados", 14)]
+    ("entregues", "Entregues", 13), ("cancelados", "Cancelados", 14),
+    ("unidade_codigo", "Código da unidade", 26), ("unidade_id", "ID da unidade", 16), ("dieta_id", "ID da dieta", 14)]
 CONTROLES = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 MIMES = {"xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "ods": "application/vnd.oasis.opendocument.spreadsheet", "csv": "text/csv"}
