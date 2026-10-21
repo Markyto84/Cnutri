@@ -7,6 +7,7 @@ from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..models.models import Dieta, Filial, FormularioConfig, Usuario
 from ..schemas.schemas import DietaCreate, DietaOut, FormularioConfigOut, FormularioConfigUpdate
+from ..services.validacao_pedidos import validar_esquema
 
 router = APIRouter(prefix="/api/gestao", tags=["Gestão de Nutrição"])
 PERFIS_GESTAO = ("NUTRICIONISTA", "ADMIN_TI")
@@ -102,6 +103,7 @@ async def obter_formulario(filial_id: int, tipo: str, db: AsyncSession = Depends
 
 @router.put("/formularios/{filial_id}/{tipo}", response_model=FormularioConfigOut)
 async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUpdate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
+    validar_esquema(dados.esquema_json)
     if tipo not in ("MEDICO", "ENFERMAGEM"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo deve ser MEDICO ou ENFERMAGEM")
     await _filial(filial_id, db)

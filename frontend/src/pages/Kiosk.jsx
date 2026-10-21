@@ -3,8 +3,6 @@ import { useParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import FormDinamico from '../components/FormDinamico.jsx'
 
-const REFEICOES = ['Almoço', 'Jantar', 'Ceia', 'Lanche']
-
 export default function Kiosk({ slugPadrao }) {
   const { slug } = useParams()
   const slugFinal = slug || slugPadrao
@@ -40,15 +38,15 @@ export default function Kiosk({ slugPadrao }) {
     const detalhe = e.response?.data?.detail
     if (typeof detalhe === 'string') return detalhe
     if (Array.isArray(detalhe)) {
-      const rotulos = {
-        tipo_solicitacao: 'Tipo de solicitação',
-        solicitante_identificacao: 'Registro profissional',
-        nome_paciente: 'Nome do paciente',
-      }
-      return (
-        'Campos com problema: ' +
-        detalhe.map((d) => rotulos[d.loc?.[1]] || d.loc?.[1] || '?').join(', ')
-      )
+      return detalhe.map((d) => {
+        if (d.type === 'value_error') return d.msg.replace(/^Value error, /, '')
+        const chave = d.loc?.at(-1)
+        const rotulo = config.formularios?.[fluxo]?.campos?.find((c) => c.id === chave)?.rotulo
+          || ({ solicitante_nome: 'Solicitante', solicitante_identificacao: 'Registro profissional' })[chave] || 'Formulário'
+        const mensagem = ({ string_too_short: 'preenchimento obrigatório', missing: 'preenchimento obrigatório',
+          string_too_long: 'texto maior que o limite permitido' })[d.type] || 'informe um valor válido'
+        return `${rotulo}: ${mensagem}`
+      }).join('. ')
     }
     return 'Verifique os campos obrigatórios'
   }
@@ -70,7 +68,7 @@ export default function Kiosk({ slugPadrao }) {
     setErroEnvio(null)
     try {
       await api.post(`/public/${slugFinal}/pedidos`, {
-        ...dados,
+        ...Object.fromEntries(Object.entries(dados).filter(([k]) => fixos.includes(k))),
         dados_dinamicos: dinamicos,
         solicitante_nome: solicitanteNome.trim(),
         solicitante_identificacao: registro.trim(),
@@ -120,6 +118,7 @@ export default function Kiosk({ slugPadrao }) {
             </label>
             <input
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
+              maxLength={50}
               value={registro}
               onChange={(e) => setRegistro(e.target.value)}
               placeholder="Ex.: COREN-12345"
@@ -131,6 +130,7 @@ export default function Kiosk({ slugPadrao }) {
             </label>
             <input
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
+              maxLength={100}
               value={solicitanteNome}
               onChange={(e) => setSolicitanteNome(e.target.value)}
               placeholder="Ex.: Enf. João Souza"

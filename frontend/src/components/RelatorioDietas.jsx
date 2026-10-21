@@ -109,6 +109,7 @@ export default function RelatorioDietas({ filialId, filiais }) {
           <p className="font-bold">{item.destinatario || 'Destinatário não informado'}</p>
           <p><strong>Dieta:</strong> {item.dieta}</p>{item.refeicao && <p><strong>Refeição:</strong> {item.refeicao}</p>}
           <p className="text-slate-700">Solicitação: {horario(item.criado_em)}</p><p className="text-slate-700">Entrega: {horario(item.entregue_em)}{item.copeira_nome && ` · ${item.copeira_nome}`}</p>
+          {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
           {item.recebedor_nome && <p className="text-slate-700">Recebedor: {item.recebedor_nome} · Assinatura registrada</p>}
         </article>)}</div>
         <nav aria-label="Páginas do relatório de dietas" className="flex flex-wrap items-center justify-between gap-2">

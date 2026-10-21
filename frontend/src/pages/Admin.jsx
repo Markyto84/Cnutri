@@ -54,6 +54,7 @@ export default function Admin() {
       <div><h1 className="text-2xl font-bold text-brand">⚙️ Painel de administração</h1>
         <p className="mt-1 text-sm text-slate-950">Unidades, credenciais e impressoras · {usuario.nome}</p></div>
       <div className="flex flex-wrap gap-2"><Link to="/gestao" className={SECUNDARIO}>Gestão de nutrição</Link>
+        <Link to="/senha" className={SECUNDARIO}>Alterar minha senha</Link>
         <button onClick={sair} className={SECUNDARIO}>Sair</button></div>
     </header>
     <div className="grid gap-4 sm:grid-cols-3">
@@ -169,7 +170,7 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
       if (usuario) await api.patch(`/admin/usuarios/${usuario.id}`, dados)
       else await api.post('/admin/usuarios', dados)
       if (!usuario) setForm(vazio())
-      onConcluido(usuario ? 'Credencial atualizada.' : 'Credencial criada.')
+      onConcluido(form.senha ? 'Credencial salva com senha temporária. O usuário deverá alterá-la no próximo acesso.' : 'Credencial atualizada.')
     } catch (e) { setErro(mensagemErro(e)) } finally { setSalvando(false) }
   }
 
@@ -181,8 +182,9 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
       minLength={3} maxLength={50} pattern={'[a-zA-Z0-9][a-zA-Z0-9._\\-]{2,49}'} placeholder="Ex.: maria.silva" aria-describedby="ajuda-nome-usuario"
       className={CAMPO} value={form.nome_usuario} onChange={(e) => alterar('nome_usuario', e.target.value.toLowerCase())} /></Campo>
     <p id="ajuda-nome-usuario" className="text-xs text-slate-700">De 3 a 50 caracteres, começando por letra ou número. Use letras sem acento, números, ponto, hífen ou sublinhado. Cada nome deve ser único.</p>
-    <Campo titulo={usuario ? 'Nova senha (opcional)' : 'Senha'}><input required={!usuario} type="password" autoComplete="new-password" minLength={6} maxLength={72}
-      placeholder={usuario ? 'Preencha para substituir a senha' : 'Mínimo de 6 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>
+    {propria ? <Link to="/senha" className="block text-sm font-semibold text-brand underline">Alterar minha senha com a senha atual</Link> : <Campo titulo={usuario ? 'Nova senha temporária (opcional)' : 'Senha temporária'}><input required={!usuario} type="password" autoComplete="new-password" minLength={12} maxLength={72}
+      placeholder={usuario ? 'Preencha para substituir a senha' : 'Mínimo de 12 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>}
+    {!propria && <p className="text-xs text-slate-700">Senhas criadas ou redefinidas pela TI devem ser trocadas pelo usuário no primeiro acesso.</p>}
     <Campo titulo="Perfil de acesso"><select disabled={propria} className={CAMPO} value={form.perfil} onChange={(e) => alterar('perfil', e.target.value)}>
       {Object.entries(PERFIS).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></Campo>
     {form.perfil === 'ADMIN_TI' ? <p className="rounded-lg bg-slate-100 p-3 text-sm text-slate-700">Acesso a todas as unidades e configurações do sistema.</p>

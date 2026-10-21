@@ -42,16 +42,14 @@ Por exemplo, com `scp` (a partir da máquina Windows):
 scp -r projeto-dietas-hospitalares usuario@IP-DO-SERVIDOR:/opt/
 ```
 
-### 3. Criar o arquivo de variáveis (opcional, recomendado)
+### 3. Criar o arquivo privado de variáveis (obrigatório)
 
 Na pasta do projeto no servidor, crie um `.env`:
 
 ```bash
 cd /opt/projeto-dietas-hospitalares
-cat > .env <<'EOF'
-POSTGRES_PASSWORD=escolha-uma-senha-forte
-JWT_SECRET=escolha-um-segredo-longo-e-aleatorio
-EOF
+umask 077
+printf 'POSTGRES_PASSWORD=%s\nJWT_SECRET=%s\nADMIN_INICIAL_SENHA=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 48)" "$(openssl rand -hex 24)" > .env
 chmod 600 .env
 ```
 
@@ -75,13 +73,20 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 | Administração | `http://IP-DO-SERVIDOR/admin` |
 | Login | `http://IP-DO-SERVIDOR/login` |
 
-**Utilizadores iniciais (trocar as senhas imediatamente!):**
+Em banco vazio, é criada somente a conta **admin**, com a senha temporária definida em
+`ADMIN_INICIAL_SENHA`. Consulte essa variável no arquivo privado local; seu valor não é exibido nos logs.
+O primeiro acesso leva à página **Defina sua nova senha**, antes de liberar a administração.
+A TI cadastra os demais perfis e unidades pelo painel. Toda senha criada/redefinida pela TI exige troca.
 
-| Perfil | Usuário | Senha |
-|---|---|---|
-| Admin TI | admin | `Trocar@123` |
-| Nutricionista | nutricao | `Trocar@123` |
-| Cozinha | cozinha | `Trocar@123` |
+Para atualizar uma instalação antiga, faça backup e execute a migração de credenciais antes de iniciar:
+
+```bash
+docker compose -f docker-compose.prod.yml build backend
+docker compose -f docker-compose.prod.yml run --rm -v "$PWD/work:/handover" backend python atualizar_seguranca.py --arquivo /handover/acessos-temporarios.txt
+```
+
+O comando substitui somente a senha pública das versões antigas. Senhas já personalizadas são preservadas.
+Entregue os acessos do arquivo privado aos responsáveis pela TI. O arquivo não deve entrar no Git.
 
 ### 6. Comandos úteis
 
@@ -129,14 +134,26 @@ O envio automático e o botão de reimpressão da Cozinha usam o mesmo gerador. 
 os rótulos atuais da unidade e conserva todos os dados salvos no pedido. O alerta de restrição severa
 e o corte de papel são mantidos. O informativo de horários do formulário não é repetido na filipeta.
 
-## Segurança (checklist antes de ir a produção)
+## Segurança de acesso
 
-- [ ] Trocar as senhas dos 3 utilizadores do seed
-- [ ] Definir `JWT_SECRET` forte no `.env`
-- [ ] Definir `POSTGRES_PASSWORD` forte no `.env`
-- [ ] Atualizar `CORS_ORIGINS` no `docker-compose.prod.yml` com o endereço real do sistema
-- [ ] HTTPS: colocar um proxy reverso com TLS (ex.: nginx/Caddy) na frente, ou publicar só na rede interna
-- [ ] Backup automático diário do volume `pgdata`
+A API exige segredo JWT exclusivo de pelo menos 32 caracteres, sem valor padrão.
+A produção recusa a senha padrão do banco, credencial de banco com menos de 12 caracteres e contas
+ativas ainda usando a senha inicial antiga. O Compose de produção exige as variáveis do banco e JWT.
+O backend de produção fica na rede interna do Docker; somente o nginx publica portas e substitui
+os cabeçalhos de origem para a limitação de autenticação por IP.
+
+O dashboard da cozinha e a lista de entregas continuam públicos para consulta. Mudar etapas,
+cancelar e reimprimir exige perfil Cozinha, Nutricionista ou Admin TI com acesso à unidade.
+Registrar entrega exige Copeira (somente a própria entrega), Nutricionista ou Admin TI.
+A gestão seleciona uma copeira online; o relatório identifica a copeira e quem registrou a ação.
+
+Após cinco falhas para um usuário no mesmo IP em 15 minutos, o login fica limitado até terminar
+a janela; há também limite geral de 100 falhas por IP. Os registros ficam no banco e os logs não
+contêm senhas nem tokens. Logout encerra a sessão; troca/reset de senha revoga sessões anteriores.
+Senhas novas têm no mínimo 12 caracteres e até 72 bytes. A página `/senha` permite a troca pelo próprio usuário.
+
+Veja [Segurança — itens 1 a 3](SEGURANCA-ITENS-1-3.md) para permissões, regras do formulário e validação.
+A preparação de HTTPS, recuperação automática e backups permanece no plano de produção do review.
 
 ## Desenvolvimento (Windows)
 
@@ -149,13 +166,16 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 O script inicia o PostgreSQL na porta **5433**, a API na **8000** e o frontend na **5173**.
 Na primeira execução, cria o ambiente Python e instala as dependências que estiverem ausentes.
+O script também prepara `backend/.env` com segredos aleatórios e acesso restrito ao usuário do Windows e ao SYSTEM.
+Em instalações antigas, execute `backend\.venv\Scripts\python.exe backend\atualizar_seguranca.py` após o backup e antes de reiniciar a API.
+O caminho do arquivo privado com as senhas temporárias é informado sem revelar os valores.
 Execuções seguintes reutilizam os processos desta pasta. Os logs ficam em `work/logs/`.
 Quando precisa iniciar a API ou o frontend, usa uma sessão independente do terminal, via WMI.
 Fechar ou interromper o terminal de desenvolvimento não encerra esses serviços. Isso não configura
 inicialização automática após reiniciar o Windows; use `start.ps1` novamente nessa situação.
 
 - Formulário: `http://localhost:5173/unidade-havai`
-- Cozinha: `http://localhost:5173/cozinha/1` (sem login)
+- Cozinha: `http://localhost:5173/cozinha/1` (consulta sem login; ações autenticadas)
 - Entregas: `http://localhost:5173/entregas/1`
 - Login: `http://localhost:5173/login`
 - Pela rede: `http://IP-DESTA-MAQUINA:5173/unidade-havai`
@@ -253,7 +273,7 @@ pare os serviços e execute `start.ps1 -InstalarDependencias` para instalar essa
 O dashboard `/cozinha/{id}` e a página `/entregas/{id}` abrem sem login para unidades ativas.
 Na cozinha, os pedidos passam por **Pendentes → Em preparo → Prontos**. No celular, botões de etapa
 mostram uma coluna por vez; no computador, as três colunas aparecem juntas. A página de entregas
-mostra somente as refeições prontas, em cartões com botão **Entregar**. Ambas usam botões de toque
+mostra somente as refeições prontas, em cartões com botão **Entregar** para Copeira/Gestão/TI autorizados. Ambas usam botões de toque
 de pelo menos 44 pixels e a caixa de seleção se ajusta à largura da tela.
 
 Para cadastrar uma copeira, abra **Administração → Credenciais**, escolha o perfil **Copeira** e
@@ -263,7 +283,7 @@ fica disponível na unidade selecionada. A presença é renovada a cada 30 segun
 encerra a sessão imediatamente; fechar o navegador ou perder a conexão remove o nome após até
 três minutos sem renovação. Sessões simultâneas da mesma pessoa não duplicam seu nome.
 
-Ao tocar em **Entregar**, selecione uma copeira online e avance para a assinatura. Informe o
+Ao tocar em **Entregar**, a copeira registra em seu próprio nome; Gestão/TI seleciona uma copeira online. Avance para a assinatura. Informe o
 **Nome do recebedor** e peça que ele assine no quadro branco com o dedo, a caneta ou o mouse.
 **Limpar assinatura** permite refazer o desenho; mudar a orientação da tela preserva os traços.
 O botão **Finalizar entrega** exige nome e assinatura preenchidos. O servidor verifica novamente
@@ -306,11 +326,13 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 46 testes: onze da administração/login, catorze de operação/plantão/entrega, treze das filipetas,
-sete do relatório de dietas e exportações e um de migração PostgreSQL.
+São 59 testes: onze da administração/login, catorze de operação/plantão/entrega, treze das filipetas,
+sete do relatório de dietas/exportações, onze de segurança/validação, dois de concorrência de senhas e um de migração PostgreSQL.
 O teste de migração só roda quando `CNUTRI_TEST_POSTGRES_URL` aponta explicitamente para um banco
 de testes PostgreSQL com permissão para criar schemas. Ele usa um schema exclusivo e reverte toda
-a transação ao terminar; sem essa variável, esse teste é omitido e os outros 45 usam SQLite isolado.
+a transação ao terminar. Os dois testes de concorrência também exigem essa variável: usam schemas
+exclusivos, removidos ao terminar, e duas conexões para conferir o bloqueio de login/troca durante
+redefinição de senha. Sem a variável, esses três testes são omitidos e os outros 56 usam SQLite isolado.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
@@ -325,6 +347,7 @@ resultado vazio e rejeição de truncamento no Excel.
 Os testes de login verificam o acesso por usuário, rejeição do e-mail antigo, maiúsculas/minúsculas,
 renomeação mantendo senha e sessão, nomes inválidos/duplicados e cadastro restrito à TI. A migração
 é verificada com contas legadas, colisões, preservação de senha/vínculo e repetição sem perda de dados.
+No frontend, `npm test` executa quatro testes de autorização e retorno seguro após o login.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
 ## Configuração dos formulários no GitHub

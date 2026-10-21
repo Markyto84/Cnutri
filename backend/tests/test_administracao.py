@@ -13,7 +13,7 @@ from app.core.security import hash_senha
 from app.main import app, ws_cozinha
 from app.models.models import Dieta, Filial, FormularioConfig, Perfil, Usuario
 
-SENHA = "Teste@123"
+SENHA = "TesteSeguro@123"
 HASH = hash_senha(SENHA)
 
 
@@ -81,7 +81,7 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         resposta = await self.client.get("/api/admin/usuarios", headers=self.admin)
         self.assertEqual(resposta.status_code, 200, resposta.text)
         self.assertEqual({u["perfil"] for u in resposta.json()}, {"ADMIN_TI", "NUTRICIONISTA", "COZINHA"})
-        self.assertNotIn("senha", resposta.text)
+        self.assertTrue(all("senha_hash" not in u and "senha" not in u for u in resposta.json()))
         me = (await self.client.get("/api/auth/me", headers=self.admin)).json()
         self.assertEqual({f["id"] for f in me["filiais"]}, {self.a, self.b})
         self.assertEqual((await self.client.get(f"/api/gestao/dietas?filial_id={self.b}", headers=self.admin)).status_code, 200)
@@ -116,13 +116,13 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(usuario["nome_usuario"], "pessoa")
         self.assertEqual([f["id"] for f in usuario["filiais"]], [self.b])
         await self.entrar("pessoa")
-        dados.update(nome="Pessoa Editada", senha="Outra@123", perfil="COZINHA", ativo=True)
+        dados.update(nome="Pessoa Editada", senha="OutraSegura@123", perfil="COZINHA", ativo=True)
         editado = await self.client.patch(f"/api/admin/usuarios/{usuario['id']}", headers=self.admin, json=dados)
         self.assertEqual(editado.status_code, 200, editado.text)
         self.assertEqual(editado.json()["perfil"], "COZINHA")
         antigo = await self.client.post("/api/auth/login", data={"username": "pessoa", "password": SENHA})
         self.assertEqual(antigo.status_code, 401)
-        token = await self.entrar("pessoa", "Outra@123")
+        token = await self.entrar("pessoa", "OutraSegura@123")
         dados.update(ativo=False, senha=None)
         desativado = await self.client.patch(f"/api/admin/usuarios/{usuario['id']}", headers=self.admin, json=dados)
         self.assertEqual(desativado.status_code, 200, desativado.text)

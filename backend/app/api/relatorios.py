@@ -32,20 +32,21 @@ async def relatorio_entregas(
         filtros.append(EntregaPedido.entregue_em < datetime.combine(data_fim, time.min) + timedelta(days=1, hours=3))
     total = await db.scalar(select(func.count()).select_from(EntregaPedido).join(Pedido).where(*filtros))
     linhas = (await db.execute(
-        select(EntregaPedido, Pedido, RecebimentoEntrega.recebedor_nome)
+        select(EntregaPedido, Pedido, RecebimentoEntrega.recebedor_nome, Usuario.nome)
         .join(Pedido, Pedido.id == EntregaPedido.pedido_id)
         .outerjoin(RecebimentoEntrega, RecebimentoEntrega.pedido_id == EntregaPedido.pedido_id)
+        .outerjoin(Usuario, Usuario.id == EntregaPedido.registrado_por_usuario_id)
         .where(*filtros).order_by(EntregaPedido.entregue_em.desc(), EntregaPedido.pedido_id.desc())
         .offset((pagina - 1) * 50).limit(50)
     )).all()
     itens = []
-    for entrega, pedido, recebedor in linhas:
+    for entrega, pedido, recebedor, operador in linhas:
         dados = pedido.dados_dinamicos or {}
         itens.append({"pedido_id": pedido.id, "tipo_solicitacao": pedido.tipo_solicitacao,
             "destinatario": pedido.nome_paciente or pedido.solicitante_nome,
             "leito": pedido.leito, "refeicao": dados.get("refeicao"),
             "local_entrega": dados.get("local_entrega") or dados.get("andar"),
-            "copeira_nome": entrega.copeira_nome, "recebedor_nome": recebedor,
+            "copeira_nome": entrega.copeira_nome, "recebedor_nome": recebedor, "registrado_por_nome": operador,
             "entregue_em": data_utc(entrega.entregue_em), "assinatura_disponivel": recebedor is not None})
     return {"itens": itens, "total": total, "pagina": pagina, "total_paginas": max(1, ((total or 0) + 49) // 50)}
 

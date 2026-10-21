@@ -6,13 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from .core.security import hash_senha
+from .core.config import settings
+from .schemas.schemas import validar_senha
 from .models.models import (
     Dieta,
     Filial,
     FormularioConfig,
     Perfil,
     Usuario,
-    UsuarioFilial,
 )
 from .api.gestao import ESQUEMA_PADRAO_ENFERMAGEM, ESQUEMA_PADRAO_MEDICO
 
@@ -27,13 +28,6 @@ DIETAS_DEMO = [
     ("Enteral", "Nutrição enteral — ATENÇÃO à via", True),
 ]
 
-USUARIOS_DEMO = [
-    ("Administrador TI", "admin", "Trocar@123", "ADMIN_TI"),
-    ("Nutricionista Demo", "nutricao", "Trocar@123", "NUTRICIONISTA"),
-    ("Cozinha Demo", "cozinha", "Trocar@123", "COZINHA"),
-]
-
-
 async def executar_seed(db: AsyncSession) -> None:
     # Novos perfis também devem ser criados nas bases já existentes.
     if (await db.execute(select(Perfil).where(Perfil.nome == "COPEIRA"))).scalar_one_or_none() is None:
@@ -45,6 +39,10 @@ async def executar_seed(db: AsyncSession) -> None:
     total = (await db.execute(select(func.count(Filial.id)))).scalar_one()
     if total > 0:
         return  # base já inicializada
+
+    if not settings.ADMIN_INICIAL_SENHA:
+        raise RuntimeError("Base vazia: configure ADMIN_INICIAL_SENHA para criar o administrador inicial")
+    validar_senha(settings.ADMIN_INICIAL_SENHA)
 
     logger.info("Base vazia — executando seed inicial...")
 
@@ -61,13 +59,9 @@ async def executar_seed(db: AsyncSession) -> None:
     db.add(filial)
     await db.flush()
 
-    for nome, nome_usuario, senha, perfil_nome in USUARIOS_DEMO:
-        usuario = Usuario(
-            nome=nome, nome_usuario=nome_usuario, senha_hash=hash_senha(senha), perfil_id=perfis[perfil_nome].id
-        )
-        db.add(usuario)
-        await db.flush()
-        db.add(UsuarioFilial(usuario_id=usuario.id, filial_id=filial.id))
+    usuario = Usuario(nome="Administrador TI", nome_usuario="admin", senha_hash=hash_senha(settings.ADMIN_INICIAL_SENHA),
+        perfil_id=perfis["ADMIN_TI"].id, troca_senha_obrigatoria=True)
+    db.add(usuario)
 
     dietas = [Dieta(filial_id=filial.id, nome=n, descricao=d, severa=s) for n, d, s in DIETAS_DEMO]
     db.add_all(dietas)
@@ -80,4 +74,4 @@ async def executar_seed(db: AsyncSession) -> None:
     )
 
     await db.commit()
-    logger.info("Seed concluído: 1 filial, 3 utilizadores, %s dietas.", len(dietas))
+    logger.info("Seed concluído: 1 filial, 1 administrador com senha temporária, %s dietas.", len(dietas))

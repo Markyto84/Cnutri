@@ -12,6 +12,7 @@ from ..core.ws import gerenciador_ws
 from ..models.models import Dieta, Filial, FormularioConfig, Pedido
 from ..schemas.schemas import PedidoCreate, PedidoOut
 from ..services.impressora import imprimir_filipeta, montar_filipeta_configurada
+from ..services.validacao_pedidos import validar_pedido
 
 router = APIRouter(prefix="/api/public", tags=["Kiosk Público"])
 
@@ -51,13 +52,7 @@ async def obter_config_kiosk(slug: str, db: AsyncSession = Depends(get_db)):
 async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, db: AsyncSession = Depends(get_db)):
     filial = await obter_filial(slug, db)
 
-    dieta = None
-    if dados.dieta_id is not None:
-        dieta = await db.get(Dieta, dados.dieta_id)
-        if dieta is None or dieta.filial_id != filial.id:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Dieta inválida para esta unidade")
-    if dados.tipo_solicitacao == "PACIENTE" and not dados.nome_paciente:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Nome do paciente é obrigatório")
+    dieta = await validar_pedido(db, filial.id, dados)
 
     pedido = Pedido(
         filial_id=filial.id,

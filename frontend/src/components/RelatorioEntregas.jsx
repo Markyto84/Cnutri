@@ -71,6 +71,7 @@ function Comprovante({ item, filialId }) {
     <p className="text-sm font-semibold text-brand-ink">{item.refeicao || 'Refeição não informada'}</p>
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
       <div><dt className="text-slate-700">Copeira</dt><dd className="font-semibold">{item.copeira_nome}</dd></div>
+      <div><dt className="text-slate-700">Registrado por</dt><dd className="font-semibold">{item.registrado_por_nome || 'Não registrado na entrega antiga'}</dd></div>
       <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome || 'Não registrado na entrega antiga'}</dd></div>
       <div><dt className="text-slate-700">Data e hora da entrega</dt><dd className="font-semibold">{horario(item.entregue_em)}</dd></div>
       <div><dt className="text-slate-700">Local / leito</dt><dd>{[item.local_entrega, item.leito && `Leito ${item.leito}`].filter(Boolean).join(' · ') || 'Não informado'}</dd></div>

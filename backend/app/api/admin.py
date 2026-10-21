@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from ..core.database import get_db
 from ..core.security import exigir_perfis, hash_senha
+from ..core.sessoes import revogar_sessoes
 from ..core.ws import gerenciador_ws
 from ..models.models import Dieta, Filial, FormularioConfig, Perfil, Usuario
 from ..schemas.schemas import FilialCreate, FilialOut, FilialUpdate, ImpressoraUpdate, UsuarioCreate, UsuarioOut, UsuarioUpdate
@@ -140,7 +141,7 @@ async def criar_usuario(dados: UsuarioCreate, db: AsyncSession = Depends(get_db)
     if existe:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nome de usuário já cadastrado")
     perfil, filiais = await validar_credencial(dados, db)
-    usuario = Usuario(nome=dados.nome, nome_usuario=dados.nome_usuario, senha_hash=hash_senha(dados.senha), perfil=perfil, filiais=filiais)
+    usuario = Usuario(nome=dados.nome, nome_usuario=dados.nome_usuario, senha_hash=hash_senha(dados.senha), perfil=perfil, filiais=filiais, troca_senha_obrigatoria=True)
     db.add(usuario)
     await confirmar(db, "Nome de usuário já cadastrado")
     await db.refresh(usuario)
@@ -149,11 +150,13 @@ async def criar_usuario(dados: UsuarioCreate, db: AsyncSession = Depends(get_db)
 
 @router.patch("/usuarios/{usuario_id}", response_model=UsuarioOut)
 async def atualizar_usuario(usuario_id: int, dados: UsuarioUpdate, db: AsyncSession = Depends(get_db), administrador: Usuario = Depends(ADMIN)):
-    usuario = (await db.execute(consulta_usuarios().where(Usuario.id == usuario_id))).scalar_one_or_none()
+    usuario = (await db.execute(consulta_usuarios().where(Usuario.id == usuario_id).with_for_update(of=Usuario))).scalar_one_or_none()
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuário não encontrado")
     if usuario.id == administrador.id and (not dados.ativo or dados.perfil != "ADMIN_TI"):
         raise HTTPException(status.HTTP_409_CONFLICT, "Você não pode desativar ou retirar o perfil administrativo da sua própria conta")
+    if usuario.id == administrador.id and dados.senha is not None:
+        raise HTTPException(422, "Use a opção Alterar minha senha para mudar a senha da própria conta")
     if usuario.ativo and usuario.perfil.nome == "ADMIN_TI" and (not dados.ativo or dados.perfil != "ADMIN_TI"):
         administradores = (await db.execute(
             select(Usuario).join(Usuario.perfil).where(Usuario.ativo.is_(True), Perfil.nome == "ADMIN_TI")
@@ -166,6 +169,8 @@ async def atualizar_usuario(usuario_id: int, dados: UsuarioUpdate, db: AsyncSess
     usuario.perfil, usuario.filiais, usuario.ativo = perfil, filiais, dados.ativo
     if dados.senha is not None:
         usuario.senha_hash = hash_senha(dados.senha)
+        usuario.troca_senha_obrigatoria = True
+        await revogar_sessoes(db, usuario.id)
     await confirmar(db, "Nome de usuário já cadastrado")
     await db.refresh(usuario)
     await gerenciador_ws.encerrar_usuario(usuario.id)

@@ -10,7 +10,7 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 
 - **Kiosk público** (`/unidade-havai`): postos de enfermagem/médico, sem login, rastreabilidade
   por registro profissional (CRM/COREN/Matrícula) + nome do solicitante
-- **Painel da Cozinha** (`/cozinha/1`): dashboard sem login, Kanban em tempo real (WebSocket),
+- **Painel da Cozinha** (`/cozinha/1`): consulta pública com ações autenticadas, Kanban em tempo real (WebSocket),
   alerta sonoro, destaque para dietas severas, reimpressão de filipetas; responsivo para celular
 - **Entregas das copeiras** (`/entregas/1`): refeições prontas, seleção de copeira online por login
   e recebimento com nome/assinatura, responsável e horário; responsivo para celular
@@ -39,6 +39,21 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 ```
 
 ## 4. Estado atual (o que já funciona)
+
+- ✅ Itens 1–3 do review de 20/10/2026: segredo JWT privado sem padrão; senhas iniciais rotacionadas
+  por ferramenta com arquivo de entrega privado; primeiro acesso exige nova senha; produção bloqueia configuração insegura.
+- ✅ Tentativas de autenticação limitadas e registradas; sessões persistidas para todos os perfis,
+  revogadas no logout e na troca/reset de senha. Canais internos são fechados no processo atual da API.
+- ✅ Dashboards públicos para consulta; preparo/cancelamento/reimpressão exigem Cozinha/Gestão/TI e vínculo;
+  entrega exige Copeira própria ou Gestão/TI com copeira online. Histórico registra o operador real.
+- ✅ Relatórios e exportações distinguem copeira responsável e usuário que registrou a entrega;
+  entregas antigas preservadas, sem atribuição presumida de operador.
+- ✅ Validação de pedidos no servidor pelo formulário vigente: obrigatórios, opções, cardápio por dieta,
+  datas, comprimentos e dieta ativa da unidade. Solicitante e registro profissional não podem ficar em branco.
+- ✅ Tela `/senha`, limites nos campos e obrigatoriedade dos textos longos no frontend.
+  Validação: 59 testes do backend (três com PostgreSQL), quatro do frontend, build e conferência desktop/mobile com dados fictícios.
+  Detalhes em [SEGURANCA-ITENS-1-3.md](SEGURANCA-ITENS-1-3.md).
+
 
 - ✅ Título da aba do navegador definido como **Cnutri** em todas as páginas (20/10/2026)
 - ✅ Ícone da aba baseado na imagem enviada pelo usuário, com nitidez melhorada e sem os pontos
@@ -194,8 +209,7 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 ## 5. Pendências / decisões em aberto
 
 1. **Dietas severas:** nenhuma marcada com destaque vermelho ainda
-2. **Senhas do seed** precisam ser trocadas antes de produção
-   (usuários admin / nutricao / cozinha — senha `Trocar@123`)
+2. **Credenciais:** senhas iniciais substituídas por temporárias fortes, fora do Git. Os responsáveis devem definir suas senhas no próximo acesso.
 3. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
    ou dependente de grupo de dieta
 4. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
@@ -237,7 +251,7 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   divergência → 409. Ao salvar no editor, recarrega a versão nova
 - **Login:** autenticar por `usuarios.nome_usuario` normalizado, nunca por e-mail. O índice único
   `uq_usuarios_nome_usuario` usa lower(nome_usuario); somente ADMIN_TI cria/edita nomes de acesso.
-  Preservar IDs e hashes de senha na migração, nomes já escolhidos pela TI e vínculo do JWT por ID
+  Preservar IDs, senhas personalizadas, nomes já escolhidos pela TI e vínculo do JWT por ID
 - **SQLAlchemy async:** relacionamentos usados em contexto async precisam de `selectinload`
   (evita MissingGreenlet)
 - **Timestamps:** usar `func.now()` do banco em colunas `TIMESTAMP` (asyncpg rejeita datetime

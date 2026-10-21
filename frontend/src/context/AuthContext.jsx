@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    if (usuario?.perfil !== 'COPEIRA' || !filialPresenca) return
+    if (usuario?.perfil !== 'COPEIRA' || usuario.troca_senha_obrigatoria || !filialPresenca) return
     const controller = new AbortController()
     const token = localStorage.getItem('token')
     async function confirmar() {
@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
     const aoVoltar = () => { if (!document.hidden) confirmar() }
     document.addEventListener('visibilitychange', aoVoltar)
     return () => { controller.abort(); clearInterval(intervalo); document.removeEventListener('visibilitychange', aoVoltar) }
-  }, [usuario?.id, usuario?.perfil, filialPresenca])
+  }, [usuario?.id, usuario?.perfil, usuario?.troca_senha_obrigatoria, filialPresenca])
 
   useEffect(() => {
     function sincronizar(evento) {
@@ -66,8 +66,9 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', dados.access_token)
     localStorage.setItem('perfil', dados.perfil)
     localStorage.setItem('nome', dados.nome)
-    const sessao = { id: dados.usuario_id, nome: dados.nome, perfil: dados.perfil, filiais: dados.filiais }
+    const sessao = { id: dados.usuario_id, nome: dados.nome, perfil: dados.perfil, filiais: dados.filiais, troca_senha_obrigatoria: Boolean(dados.troca_senha_obrigatoria) }
     setUsuario(sessao)
+    setPlantaoOnline(false)
     setCarregando(false)
     return sessao
   }
@@ -94,10 +95,11 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={{ usuario, carregando, entrar, sair, atualizarUsuario, plantaoOnline }}>{children}</AuthContext.Provider>
 }
 
-export function RotaProtegida({ perfis, children }) {
+export function RotaProtegida({ perfis, permitirTrocaSenha = false, children }) {
   const { usuario, carregando } = useAuth()
   if (carregando) return <div className="flex min-h-screen items-center justify-center bg-app-background text-slate-950">Carregando acesso…</div>
   if (!usuario) return <Navigate to="/login" replace />
+  if (usuario.troca_senha_obrigatoria && !permitirTrocaSenha) return <Navigate to="/senha" replace />
   if (perfis && !perfis.includes(usuario.perfil)) return <Navigate to={inicioDoUsuario(usuario)} replace />
   return children
 }

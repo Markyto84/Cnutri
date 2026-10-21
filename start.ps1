@@ -81,6 +81,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendRoot 'node_modules\vite\bin
     } finally { Pop-Location }
 }
 
+& $pythonPath (Join-Path $backendRoot 'configurar_ambiente.py') --inicializar-admin
+Assert-CommandSucceeded 'preparar a configuracao privada'
+
 # O WMI inicia o supervisor fora da arvore do terminal. Interromper um comando de
 # desenvolvimento nao deve encerrar junto a API e o frontend que atendem a rede.
 # Dependencias foram preparadas acima; a sessao independente apenas as reutiliza.

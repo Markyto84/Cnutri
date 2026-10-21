@@ -75,7 +75,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
               </div>
             </fieldset>
           ) : (
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor={campo.id} className="mb-1 block text-sm font-medium text-slate-700">
               {campo.rotulo}
               {campo.obrigatorio && <span className="text-red-700"> *</span>}
             </label>
@@ -83,8 +83,10 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
 
           {campo.tipo === 'texto' && (
             <input
+              maxLength={({ leito: 30, prontuario: 50, nome_paciente: 100, solicitante_nome: 100 })[campo.id] || 1000}
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               required={campo.obrigatorio}
+              id={campo.id}
               value={valores[campo.id] || ''}
               onChange={(e) => setValor(campo.id, e.target.value)}
             />
@@ -92,6 +94,9 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
 
           {campo.tipo === 'texto_longo' && (
             <textarea
+              required={campo.obrigatorio}
+              id={campo.id}
+              maxLength={5000}
               rows={3}
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               value={valores[campo.id] || ''}
@@ -104,6 +109,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
               type="date"
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               required={campo.obrigatorio}
+              id={campo.id}
               value={valores[campo.id] || ''}
               onChange={(e) => setValor(campo.id, e.target.value)}
             />
@@ -113,6 +119,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
             <select
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               required={campo.obrigatorio}
+              id={campo.id}
               value={valores[campo.id] || ''}
               onChange={(e) => setValor(campo.id, e.target.value)}
             >
@@ -127,14 +134,14 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
             const opcoes = opcoesCardapio(campo)
             if (!dietaNome) {
               return (
-                <select disabled className="w-full rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600">
+                <select id={campo.id} disabled className="w-full rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600">
                   <option>Selecione o Tipo de Dieta para ver o cardápio…</option>
                 </select>
               )
             }
             if (opcoes.length === 0) {
               return (
-                <select disabled className="w-full rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600">
+                <select id={campo.id} disabled className="w-full rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600">
                   <option>Sem cardápio configurado para esta dieta</option>
                 </select>
               )
@@ -143,6 +150,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
               <select
                 className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
                 required={campo.obrigatorio}
+                id={campo.id}
                 value={valores[campo.id] || ''}
                 onChange={(e) => setValor(campo.id, e.target.value)}
               >
@@ -158,6 +166,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
             <select
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               required={campo.obrigatorio}
+              id={campo.id}
               value={valores[campo.id] || ''}
               onChange={(e) => setValor(campo.id, e.target.value)}
             >

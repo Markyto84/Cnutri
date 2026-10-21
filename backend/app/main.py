@@ -9,6 +9,8 @@ from .api import admin, auth, gestao, operacao, pedidos, public_kiosk, relatorio
 from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.login_usuarios import migrar_login_usuarios
+from .core.migracao_seguranca import migrar_seguranca
+from .core.credenciais_iniciais import conferir_credenciais_producao
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
 from .models.models import Base
@@ -23,8 +25,11 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(migrar_login_usuarios)
+        await conn.run_sync(migrar_seguranca)
     async with SessionLocal() as db:
         await executar_seed(db)
+        if settings.APP_ENV == "production":
+            await conferir_credenciais_producao(db)
     yield
 
 
@@ -81,6 +86,8 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
     try:
         async with SessionLocal() as db:
             usuario = await get_current_user(protocolos[1], db)
+            if usuario.troca_senha_obrigatoria:
+                raise HTTPException(403, "Atualize sua senha antes de continuar")
             if usuario.perfil.nome not in pedidos.PERFIS_OPERACAO:
                 raise HTTPException(403, "Perfil sem acesso ao canal interno da cozinha")
             await verificar_acesso_filial(filial_id, usuario, db)

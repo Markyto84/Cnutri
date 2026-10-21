@@ -16,7 +16,7 @@ from app.core.ws import gerenciador_ws
 from app.main import app, ws_cozinha, ws_operacao
 from app.models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, Perfil, RecebimentoEntrega, SessaoCopeira, Usuario
 
-SENHA = "Teste@123"
+SENHA = "TesteSeguro@123"
 HASH = hash_senha(SENHA)
 
 
@@ -76,6 +76,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides[get_db] = banco_teste
         self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://teste")
         self.base = f"/api/operacao/unidades/{self.a}"
+        self.operador = await self.entrar("admin")
 
     async def asyncTearDown(self):
         await self.client.aclose()
@@ -141,13 +142,13 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         await self.entrar()
         pedido_id = self.pedidos["PRONTO"]
         rota = self.base + f"/pedidos/{pedido_id}/entregar"
-        resposta = await self.client.post(rota, json=self.comprovante())
+        resposta = await self.client.post(rota, headers=self.operador, json=self.comprovante())
         self.assertEqual(resposta.status_code, 201, resposta.text)
         self.assertEqual(resposta.json()["copeira_nome"], "Ana Teste")
         self.assertTrue(resposta.json()["entregue_em"].endswith("+00:00"))
         self.assertNotIn(pedido_id, [p["id"] for p in (await self.client.get(self.base + "/pedidos")).json()])
-        self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
-        self.assertEqual((await self.client.patch(self.base + f"/pedidos/{pedido_id}/status", json={"status": "PRONTO"})).status_code, 409)
+        self.assertEqual((await self.client.post(rota, headers=self.operador, json=self.comprovante())).status_code, 409)
+        self.assertEqual((await self.client.patch(self.base + f"/pedidos/{pedido_id}/status", headers=self.operador, json={"status": "PRONTO"})).status_code, 409)
         admin = await self.entrar("admin")
         self.assertEqual((await self.client.patch(f"/api/pedidos/{pedido_id}/status", headers=admin, json={"status": "PRONTO"})).status_code, 409)
         async with self.sessoes() as db:
@@ -183,21 +184,21 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         rota = f"/api/relatorios/consumo-medico?filial_id={self.a}"
         antes = (await self.client.get(rota, headers=admin)).json()
         await self.entrar()
-        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", json=self.comprovante())
+        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", headers=self.operador, json=self.comprovante())
         self.assertEqual(resposta.status_code, 201, resposta.text)
         self.assertEqual((await self.client.get(rota, headers=admin)).json(), antes)
         self.assertEqual(sum(item["total"] for item in antes), 1)
 
     async def test_nao_entrega_sem_copeira_online_ou_sem_refeicao_pronta(self):
         rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
-        self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
+        self.assertEqual((await self.client.post(rota, headers=self.operador, json=self.comprovante())).status_code, 409)
         token = await self.entrar()
         for etapa in ("PENDENTE", "EM_PREPARO", "CANCELADO"):
-            resultado = await self.client.post(self.base + f"/pedidos/{self.pedidos[etapa]}/entregar", json=self.comprovante())
+            resultado = await self.client.post(self.base + f"/pedidos/{self.pedidos[etapa]}/entregar", headers=self.operador, json=self.comprovante())
             self.assertEqual(resultado.status_code, 409)
-        self.assertEqual((await self.client.post(rota, json={})).status_code, 422)
+        self.assertEqual((await self.client.post(rota, headers=self.operador, json={})).status_code, 422)
         await self.client.post("/api/auth/logout", headers=token)
-        self.assertEqual((await self.client.post(rota, json=self.comprovante())).status_code, 409)
+        self.assertEqual((await self.client.post(rota, headers=self.operador, json=self.comprovante())).status_code, 409)
 
     async def test_sem_assinatura_valida_nao_conclui_nem_grava_entrega(self):
         await self.entrar()
@@ -211,7 +212,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             {**self.comprovante(), "assinatura": {"tracos": [[{"x": 0.2, "y": 0.3}] * 1501]}},
         ]
         for dados in invalidos:
-            resposta = await self.client.post(rota, json=dados)
+            resposta = await self.client.post(rota, headers=self.operador, json=dados)
             self.assertEqual(resposta.status_code, 422, resposta.text)
         async with self.sessoes() as db:
             self.assertEqual((await db.get(Pedido, self.pedidos['PRONTO'])).status, "PRONTO")
@@ -222,7 +223,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         copeira = await self.entrar()
         pedido_id = self.pedidos["PRONTO"]
         antes = datetime.now(timezone.utc) - timedelta(seconds=1)
-        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar",
+        resposta = await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", headers=self.operador,
             json={**self.comprovante(), "entregue_em": "2000-01-01T00:00:00Z"})
         self.assertEqual(resposta.status_code, 201, resposta.text)
         entregue = datetime.fromisoformat(resposta.json()["entregue_em"])
@@ -261,7 +262,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         pedido_id = self.pedidos["PRONTO"]
         with patch("app.api.operacao.gerar_assinatura_png", side_effect=RuntimeError("Falha simulada")):
             with self.assertRaisesRegex(RuntimeError, "Falha simulada"):
-                await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", json=self.comprovante())
+                await self.client.post(self.base + f"/pedidos/{pedido_id}/entregar", headers=self.operador, json=self.comprovante())
         async with self.sessoes() as db:
             self.assertEqual((await db.get(Pedido, pedido_id)).status, "PRONTO")
             for modelo in (EntregaPedido, RecebimentoEntrega, HistoricoPedido):
@@ -283,15 +284,15 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(resposta.json()["itens"][0]["assinatura_disponivel"])
         self.assertEqual((await self.client.get(rota + "&data_inicio=2026-10-21&data_fim=2026-10-20", headers=admin)).status_code, 422)
 
-    async def test_etapas_e_unidades_sao_respeitadas_sem_login(self):
+    async def test_etapas_e_unidades_sao_respeitadas_com_operador_autorizado(self):
         pedido_id = self.pedidos["PENDENTE"]
         rota = self.base + f"/pedidos/{pedido_id}/status"
-        self.assertEqual((await self.client.patch(rota, json={"status": "PRONTO"})).status_code, 409)
-        self.assertEqual((await self.client.patch(rota, json={"status": "EM_PREPARO"})).status_code, 200)
-        self.assertEqual((await self.client.patch(rota, json={"status": "PRONTO"})).status_code, 200)
-        self.assertEqual((await self.client.patch(rota, json={"status": "ENTREGUE"})).status_code, 422)
+        self.assertEqual((await self.client.patch(rota, headers=self.operador, json={"status": "PRONTO"})).status_code, 409)
+        self.assertEqual((await self.client.patch(rota, headers=self.operador, json={"status": "EM_PREPARO"})).status_code, 200)
+        self.assertEqual((await self.client.patch(rota, headers=self.operador, json={"status": "PRONTO"})).status_code, 200)
+        self.assertEqual((await self.client.patch(rota, headers=self.operador, json={"status": "ENTREGUE"})).status_code, 422)
         outro = f"/api/operacao/unidades/{self.b}/pedidos/{pedido_id}/status"
-        self.assertEqual((await self.client.patch(outro, json={"status": "CANCELADO"})).status_code, 404)
+        self.assertEqual((await self.client.patch(outro, headers=self.operador, json={"status": "CANCELADO"})).status_code, 404)
         async with self.sessoes() as db:
             filial = await db.get(Filial, self.a)
             filial.ativa = False

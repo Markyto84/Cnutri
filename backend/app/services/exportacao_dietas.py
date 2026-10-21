@@ -28,6 +28,7 @@ COLUNAS = [
     ("solicitante_nome", "Solicitante", 32), ("concluido_em", "Preparo concluído (Brasília)", 26),
     ("entregue_em", "Entrega (Brasília)", 24), ("copeira_nome", "Copeira", 30), ("recebedor_nome", "Recebedor", 30),
     ("assinatura_registrada", "Assinatura registrada", 23), ("outros_campos", "Outros campos informados", 52),
+    ("registrado_por_nome", "Entrega registrada por", 32),
 ]
 RESUMO = [("unidade", "Unidade", 38), ("dieta", "Dieta / categoria", 32), ("total", "Solicitações", 15),
     ("pendentes", "Pendentes", 14), ("em_preparo", "Em preparo", 14), ("prontos", "Prontos", 13),

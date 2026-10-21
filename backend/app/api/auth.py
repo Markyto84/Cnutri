@@ -1,49 +1,73 @@
 """Autenticação: nome de usuário definido pela TI e senha (JWT)."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from uuid import uuid4
 
 from ..core.database import get_db
-from ..core.security import criar_token, filiais_permitidas, get_current_user, oauth2_scheme, verificar_acesso_filial, verificar_senha
+from ..core.security import exigir_perfis, filiais_permitidas, get_current_user, hash_senha, oauth2_scheme, verificar_acesso_filial, verificar_senha
 from ..core.config import settings
 from ..core.presenca import TEMPO_PRESENCA, agora_utc
 from ..core.login_usuarios import normalizar_usuario
-from ..models.models import SessaoCopeira, Usuario
-from ..schemas.schemas import FilialOut, PresencaUpdate, TokenResponse, UsuarioOut
+from ..core.controle_login import conferir_limites, logger
+from ..core.sessoes import emitir_sessao, revogar_sessoes
+from ..models.models import SessaoCopeira, SessaoUsuario, Usuario
+from ..schemas.schemas import FilialOut, PresencaUpdate, TokenResponse, TrocaSenhaCreate, UsuarioOut
+
+HASH_COMPARACAO = hash_senha("ComparacaoDeCredencial@2026")
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticação"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+async def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    nome_usuario = normalizar_usuario(form.username)[:120]
+    ip = request.client.host if request.client else "desconhecido"
+    limites = await conferir_limites(db, ip, nome_usuario)
     resultado = await db.execute(
         select(Usuario).options(selectinload(Usuario.perfil)).where(
-            func.lower(Usuario.nome_usuario) == normalizar_usuario(form.username)
-        )
+            func.lower(Usuario.nome_usuario) == nome_usuario
+        ).with_for_update(of=Usuario)
     )
     usuario = resultado.scalar_one_or_none()
-    if usuario is None or not verificar_senha(form.password, usuario.senha_hash):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário ou senha inválidos")
-    if not usuario.ativo:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Utilizador desativado")
-    filiais = await filiais_permitidas(usuario, db)
-    sessao_id = None
-    if usuario.perfil.nome == "COPEIRA":
-        sessao_id = str(uuid4())
-        db.add(SessaoCopeira(id=sessao_id, usuario_id=usuario.id,
-            filial_id=filiais[0].id if filiais else None, presenca_ate=agora_utc() + TEMPO_PRESENCA))
+    correta = verificar_senha(form.password, usuario.senha_hash if usuario else HASH_COMPARACAO)
+    if usuario is None or not correta or not usuario.ativo:
+        for limite in limites:
+            limite.falhas += 1
         await db.commit()
-    return TokenResponse(
-        access_token=criar_token(usuario, sessao_id),
-        perfil=usuario.perfil.nome,
-        nome=usuario.nome,
-        usuario_id=usuario.id,
-        filiais=[FilialOut.model_validate(f) for f in filiais],
-    )
+        logger.warning("login_falhou ip=%s usuario_id=%s", ip, usuario.id if usuario else "nao_identificado")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário ou senha inválidos")
+    limites[1].falhas = 0  # limite por usuário/IP; o limite geral do IP mantém as falhas.
+    resposta = await emitir_sessao(db, usuario)
+    logger.info("login_sucesso ip=%s usuario_id=%s", ip, usuario.id)
+    return resposta
+
+
+@router.post("/senha", response_model=TokenResponse)
+async def trocar_senha(dados: TrocaSenhaCreate, request: Request, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
+    ip = request.client.host if request.client else "desconhecido"
+    limites = await conferir_limites(db, ip, f"senha:{usuario.id}")
+    # Uma redefinição concorrente deve prevalecer sobre a senha carregada no início da requisição.
+    await db.refresh(usuario, attribute_names=["senha_hash", "troca_senha_obrigatoria"], with_for_update={"of": Usuario})
+    if not verificar_senha(dados.senha_atual, usuario.senha_hash):
+        for limite in limites:
+            limite.falhas += 1
+        await db.commit()
+        logger.warning("troca_senha_falhou ip=%s usuario_id=%s", ip, usuario.id)
+        raise HTTPException(400, "A senha atual está incorreta")
+    if verificar_senha(dados.nova_senha, usuario.senha_hash):
+        raise HTTPException(422, "Escolha uma senha diferente da atual")
+    usuario.senha_hash = hash_senha(dados.nova_senha)
+    limites[1].falhas = 0
+    usuario.troca_senha_obrigatoria = False
+    await revogar_sessoes(db, usuario.id)
+    resposta = await emitir_sessao(db, usuario)
+    from ..core.ws import gerenciador_ws
+    await gerenciador_ws.encerrar_usuario(usuario.id)
+    logger.info("senha_alterada usuario_id=%s", usuario.id)
+    return resposta
 
 
 @router.get("/me", response_model=UsuarioOut)
@@ -54,7 +78,7 @@ async def perfil_atual(db: AsyncSession = Depends(get_db), usuario: Usuario = De
 
 @router.post("/presenca")
 async def atualizar_presenca(dados: PresencaUpdate, token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
+    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(exigir_perfis("COPEIRA"))):
     if usuario.perfil.nome != "COPEIRA":
         raise HTTPException(403, "Presença disponível para o perfil Copeira")
     await verificar_acesso_filial(dados.filial_id, usuario, db)
@@ -70,8 +94,12 @@ async def atualizar_presenca(dados: PresencaUpdate, token: str = Depends(oauth2_
 async def logout(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db),
     usuario: Usuario = Depends(get_current_user)):
     payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
-    if usuario.perfil.nome == "COPEIRA" and payload.get("jti"):
-        sessao = await db.get(SessaoCopeira, payload["jti"])
-        sessao.encerrada_em = agora_utc()
-        await db.commit()
+    sessao = await db.get(SessaoUsuario, payload["jti"])
+    sessao.encerrada_em = agora_utc()
+    presenca = await db.get(SessaoCopeira, payload["jti"])
+    if presenca:
+        presenca.encerrada_em = agora_utc()
+    await db.commit()
+    from ..core.ws import gerenciador_ws
+    await gerenciador_ws.encerrar_usuario(usuario.id)
     return {"saiu": True}

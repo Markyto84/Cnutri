@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..core.database import get_db
+from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.presenca import sessoes_online
 from ..core.ws import gerenciador_ws
 from ..models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
@@ -15,6 +16,8 @@ from ..services.assinatura import gerar_assinatura_png
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
+OPERADORES = exigir_perfis("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
+ENTREGADORES = exigir_perfis("COPEIRA", "NUTRICIONISTA", "ADMIN_TI")
 
 
 async def unidade_ativa(filial_id: int, db: AsyncSession) -> Filial:
@@ -68,7 +71,8 @@ async def listar_copeiras_online(filial_id: int, db: AsyncSession = Depends(get_
 
 
 @router.patch("/unidades/{filial_id}/pedidos/{pedido_id}/status")
-async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db: AsyncSession = Depends(get_db)):
+async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
+    await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     anterior = pedido.status
     if anterior not in STATUS_ATIVOS:
@@ -85,7 +89,7 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
         .values(**valores).returning(Pedido.id).execution_options(synchronize_session=False))
     if alterado is None:
         raise HTTPException(409, "Outro painel já atualizou este pedido")
-    db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status))
+    db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id))
     await db.commit()
     await db.refresh(pedido)
     await notificar(pedido)
@@ -93,7 +97,8 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/reimprimir")
-async def reimprimir(filial_id: int, pedido_id: int, db: AsyncSession = Depends(get_db)):
+async def reimprimir(filial_id: int, pedido_id: int, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
+    await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     filial = await unidade_ativa(filial_id, db)
     if not filial.ip_impressora:
@@ -101,14 +106,17 @@ async def reimprimir(filial_id: int, pedido_id: int, db: AsyncSession = Depends(
     buffer = await montar_filipeta_configurada(db, pedido, filial, pedido.dieta)
     ok = imprimir_filipeta(filial.ip_impressora, buffer)
     if ok:
-        db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=pedido.status, status_novo=pedido.status, impresso=True))
+        db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=pedido.status, status_novo=pedido.status, impresso=True, alterado_por_usuario_id=usuario.id))
         await db.commit()
     return {"impresso": ok}
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/entregar", status_code=201)
 async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request: Request,
-    db: AsyncSession = Depends(get_db)):
+    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(ENTREGADORES)):
+    await verificar_acesso_filial(filial_id, usuario, db)
+    if usuario.perfil.nome == "COPEIRA" and dados.copeira_id != usuario.id:
+        raise HTTPException(403, "A copeira deve registrar a própria entrega")
     pedido = await obter_pedido(filial_id, pedido_id, db)
     if pedido.status != "PRONTO":
         raise HTTPException(409, "Somente refeições prontas podem ser entregues")
@@ -123,13 +131,13 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
     if alterado is None:
         raise HTTPException(409, "Outro painel já entregou ou atualizou esta refeição")
     entrega = EntregaPedido(pedido_id=pedido.id, copeira_id=copeira.id, copeira_nome=copeira.nome,
-        ip_origem=request.client.host if request.client else None)
+        registrado_por_usuario_id=usuario.id, ip_origem=request.client.host if request.client else None)
     db.add(entrega)
     await db.flush()
     db.add(RecebimentoEntrega(pedido_id=pedido.id, recebedor_nome=dados.recebedor_nome,
         assinatura_png=gerar_assinatura_png(dados.assinatura)))
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior="PRONTO", status_novo="ENTREGUE",
-        alterado_por_usuario_id=copeira.id))
+        alterado_por_usuario_id=usuario.id))
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(entrega)

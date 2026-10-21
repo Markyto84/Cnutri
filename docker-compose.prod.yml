@@ -6,7 +6,7 @@ services:
     container_name: dietas-db-prod
     environment:
       POSTGRES_USER: dietas
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dietas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure uma senha exclusiva para o banco}
       POSTGRES_DB: dietas
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -21,8 +21,12 @@ services:
     build: ./backend
     container_name: dietas-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://dietas:${POSTGRES_PASSWORD:-dietas}@db:5432/dietas
-      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao}
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://dietas:${POSTGRES_PASSWORD:?Configure uma senha exclusiva para o banco}@db:5432/dietas
+      JWT_SECRET: ${JWT_SECRET:?Configure um segredo JWT exclusivo de pelo menos 32 caracteres}
+      ADMIN_INICIAL_SENHA: ${ADMIN_INICIAL_SENHA:-}
+      # Somente o nginx publica portas; ele substitui os cabeçalhos recebidos.
+      FORWARDED_ALLOW_IPS: "*"
       CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
     depends_on:
       db:

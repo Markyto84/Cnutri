@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { operacao, useOperacao } from '../hooks/useOperacao.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
+import { api } from '../services/api.js'
+import { podeOperar, useAuth } from '../context/auth.js'
 import AssinaturaRecebedor from '../components/AssinaturaRecebedor.jsx'
 
 export default function Entregas() {
@@ -11,6 +13,8 @@ export default function Entregas() {
 
 function PaginaEntregas({ filialId }) {
   const painel = useOperacao(filialId)
+  const { usuario } = useAuth()
+  const autorizado = podeOperar(usuario, filialId, ['COPEIRA', 'NUTRICIONISTA', 'ADMIN_TI'])
   const [copeiras, setCopeiras] = useState([])
   const [erroPlantao, setErroPlantao] = useState('')
   const [selecionado, setSelecionado] = useState(null)
@@ -39,6 +43,7 @@ function PaginaEntregas({ filialId }) {
   }, [carregarCopeiras])
 
   async function escolher(pedido) {
+    if (!autorizado) return
     setSelecionado(pedido)
     await carregarCopeiras()
   }
@@ -52,6 +57,7 @@ function PaginaEntregas({ filialId }) {
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
     <CabecalhoOperacao modo="entregas" painel={painel} filialId={filialId} />
+    {!autorizado && <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Entre com uma conta de copeira ou gestão autorizada nesta unidade para registrar entregas e assinaturas.</p>}
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-4 text-emerald-950">{aviso}</p>}
     <div className="mb-4 grid grid-cols-2 gap-3">
@@ -60,24 +66,24 @@ function PaginaEntregas({ filialId }) {
     </div>
     {erroPlantao && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-amber-950">{erroPlantao}</p>}
     {!painel.carregando && !painel.indisponivel && <section aria-label="Refeições prontas para entrega">
-      <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">Selecione a refeição e indique a copeira que fará a entrega.</p></div>
+      <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">{usuario?.perfil === 'COPEIRA' ? 'Registre suas entregas e colete a assinatura do recebedor.' : 'Selecione a refeição e indique a copeira que fará a entrega.'}</p></div>
       {!prontos.length && <div className="rounded-2xl bg-panel p-8 text-center"><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="mt-2 text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{prontos.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4 shadow-sm">
         <ResumoPedido pedido={pedido} />
         {pedido.concluido_em && <p className="mt-3 text-xs text-slate-700">Pronto às {new Date(pedido.concluido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
-        <div className="mt-auto pt-4"><button onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-brand-vibrant text-base text-brand-ink hover:bg-brand-vibrant-hover`}>Entregar</button></div>
+        {autorizado && <div className="mt-auto pt-4"><button onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-brand-vibrant text-base text-brand-ink hover:bg-brand-vibrant-hover`}>Entregar</button></div>}
       </article>)}</div>
     </section>}
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
-    {selecionado && <ModalEntrega pedido={selecionado} filialId={filialId} copeiras={copeiras} erroPlantao={erroPlantao}
+    {selecionado && autorizado && <ModalEntrega pedido={selecionado} filialId={filialId} copeiras={usuario.perfil === 'COPEIRA' ? copeiras.filter((c) => c.id === usuario.id) : copeiras} copeiraPropria={usuario.perfil === 'COPEIRA' ? usuario.id : null} erroPlantao={erroPlantao}
       pronto={prontos.some((p) => p.id === selecionado.id)} onFechar={() => setSelecionado(null)} onConcluir={concluida}
       onRecarregar={() => { carregarCopeiras(); painel.recarregar() }} />}
   </main>
 }
 
-function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFechar, onConcluir, onRecarregar }) {
+function ModalEntrega({ pedido, filialId, copeiras, copeiraPropria, erroPlantao, pronto, onFechar, onConcluir, onRecarregar }) {
   const dialogo = useRef(null)
-  const [copeiraId, setCopeiraId] = useState('')
+  const [copeiraId, setCopeiraId] = useState(copeiraPropria ? String(copeiraPropria) : '')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const [etapa, setEtapa] = useState(1)
@@ -99,7 +105,7 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
     setEnviando(true)
     setErro('')
     try {
-      const { data } = await operacao.post(`/unidades/${filialId}/pedidos/${pedido.id}/entregar`, {
+      const { data } = await api.post(`/operacao/unidades/${filialId}/pedidos/${pedido.id}/entregar`, {
         copeira_id: Number(copeiraId), recebedor_nome: recebedor.trim(), assinatura: { tracos },
       })
       onConcluir(data)
@@ -124,7 +130,7 @@ function ModalEntrega({ pedido, filialId, copeiras, erroPlantao, pronto, onFecha
           {copeiras.map((copeira) => <option key={copeira.id} value={copeira.id}>{copeira.nome}</option>)}
         </select>
       </label>
-      <p className="text-sm text-slate-700">A lista mostra as copeiras com login ativo nesta unidade. O nome e o horário ficam registrados na entrega.</p>
+      <p className="text-sm text-slate-700">{copeiraPropria ? 'A entrega ficará registrada no seu nome.' : 'Selecione uma copeira online nesta unidade. Seu usuário também ficará registrado como responsável pela ação.'}</p>
       {!copeiras.length && <Link to={`/login?unidade=${filialId}`} className="block font-semibold text-brand underline">Entrar no plantão com uma conta de copeira</Link>}
       </> : <>
         <p className="text-sm text-slate-700"><strong>Copeira:</strong> {copeiras.find((c) => c.id === Number(copeiraId))?.nome || 'Indisponível no plantão'}</p>

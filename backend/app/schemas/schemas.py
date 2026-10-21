@@ -65,18 +65,18 @@ class UsuarioBase(BaseModel):
 
 
 def validar_senha(senha: str | None) -> str | None:
-    if senha is not None and (not senha.strip() or len(senha.encode("utf-8")) > 72):
-        raise ValueError("A senha deve conter de 6 a 72 bytes e não pode ser composta apenas por espaços")
+    if senha is not None and (len(senha) < 12 or not senha.strip() or len(senha.encode("utf-8")) > 72):
+        raise ValueError("A senha deve ter pelo menos 12 caracteres e no máximo 72 bytes")
     return senha
 
 
 class UsuarioCreate(UsuarioBase):
-    senha: str = Field(min_length=6, max_length=72)
+    senha: str = Field(min_length=12, max_length=72)
     _validar_senha = field_validator("senha")(validar_senha)
 
 
 class UsuarioUpdate(UsuarioBase):
-    senha: str | None = Field(default=None, min_length=6, max_length=72)
+    senha: str | None = Field(default=None, min_length=12, max_length=72)
     ativo: bool = True
     _validar_senha = field_validator("senha")(validar_senha)
 
@@ -87,6 +87,7 @@ class UsuarioOut(BaseModel):
     nome: str
     nome_usuario: str
     ativo: bool
+    troca_senha_obrigatoria: bool
     perfil: str
     filiais: list[FilialOut]
 
@@ -102,7 +103,14 @@ class TokenResponse(BaseModel):
     perfil: str
     nome: str
     usuario_id: int
+    troca_senha_obrigatoria: bool = False
     filiais: list[FilialOut]
+
+
+class TrocaSenhaCreate(BaseModel):
+    senha_atual: str = Field(min_length=1, max_length=72)
+    nova_senha: str = Field(min_length=12, max_length=72)
+    _validar_senha = field_validator("nova_senha")(validar_senha)
 
 
 class ImpressoraUpdate(BaseModel):
@@ -174,15 +182,21 @@ class FormularioConfigUpdate(BaseModel):
 
 # ─── Pedidos ─────────────────────────────────────────────────────────────────
 class PedidoCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     tipo_solicitacao: TipoSolicitacao
-    solicitante_identificacao: str = Field(max_length=50, description="CRM, COREN ou Matrícula")
-    solicitante_nome: str | None = Field(default=None, max_length=100)
+    solicitante_identificacao: str = Field(min_length=1, max_length=50, description="CRM, COREN ou Matrícula")
+    solicitante_nome: str = Field(min_length=1, max_length=100)
     leito: str | None = Field(default=None, max_length=30)
     prontuario: str | None = Field(default=None, max_length=50)
     nome_paciente: str | None = Field(default=None, max_length=100)
-    dieta_id: int | None = None
-    observacoes_alergias: str | None = None
-    dados_dinamicos: dict[str, Any] = {}
+    dieta_id: int | None = Field(default=None, gt=0, strict=True)
+    observacoes_alergias: str | None = Field(default=None, max_length=5000)
+    dados_dinamicos: dict[str, Any] = Field(default_factory=dict, max_length=100)
+
+    @field_validator("solicitante_identificacao", "solicitante_nome", "leito", "prontuario", "nome_paciente", "observacoes_alergias", mode="before")
+    @classmethod
+    def limpar_textos(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
 
 
 class PedidoOut(BaseModel):

@@ -1,6 +1,7 @@
 """Relatórios/exportações com dados fictícios e banco isolado, sem acessar pacientes reais."""
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from io import BytesIO, StringIO
 import unittest
 
@@ -14,10 +15,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.database import Base, get_db
 from app.core.security import criar_token, hash_senha
 from app.main import app
-from app.models.models import Dieta, EntregaPedido, Filial, Pedido, Perfil, RecebimentoEntrega, Usuario
+from app.models.models import Dieta, EntregaPedido, Filial, Pedido, Perfil, RecebimentoEntrega, SessaoUsuario, Usuario
 from app.services.exportacao_dietas import COLUNAS
 
-HASH = hash_senha("Teste@123")
+HASH = hash_senha("TesteSeguro@123")
 
 
 class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
@@ -44,7 +45,11 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
             }
             db.add_all([geral, pastosa, *usuarios.values()])
             await db.flush()
-            self.tokens = {nome: {"Authorization": "Bearer " + criar_token(usuario)} for nome, usuario in usuarios.items()}
+            self.tokens = {}
+            for nome, usuario in usuarios.items():
+                jti = str(uuid4())
+                db.add(SessaoUsuario(id=jti, usuario_id=usuario.id, expira_em=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)))
+                self.tokens[nome] = {"Authorization": "Bearer " + criar_token(usuario, jti)}
 
             async def pedido(chave, unidade, horario, status="PENDENTE", dieta=None, medico=False, nome="João · Paciente fictício"):
                 item = Pedido(filial_id=unidade.id, criado_em=horario, status=status, dieta_id=dieta.id if dieta else None,

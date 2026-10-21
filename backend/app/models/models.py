@@ -44,6 +44,7 @@ class Usuario(Base):
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     perfil_id: Mapped[int] = mapped_column(ForeignKey("perfis.id", ondelete="RESTRICT"), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    troca_senha_obrigatoria: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     perfil: Mapped[Perfil] = relationship(back_populates="usuarios")
@@ -58,6 +59,23 @@ class UsuarioFilial(Base):
 
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True)
     filial_id: Mapped[int] = mapped_column(ForeignKey("filiais.id", ondelete="CASCADE"), primary_key=True)
+
+
+class SessaoUsuario(Base):
+    __tablename__ = "sessoes_usuarios"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    expira_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    encerrada_em: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class LimiteLogin(Base):
+    __tablename__ = "limites_login"
+
+    chave: Mapped[str] = mapped_column(String(64), primary_key=True)
+    falhas: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    janela_inicio: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class Dieta(Base):
@@ -139,6 +157,7 @@ class EntregaPedido(Base):
     pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), primary_key=True)
     copeira_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
     copeira_nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    registrado_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=True)
     entregue_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     ip_origem: Mapped[str | None] = mapped_column(String(45))
 

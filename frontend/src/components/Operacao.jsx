@@ -24,7 +24,8 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
       <button onClick={() => painel.recarregar()} className={`${BOTAO} bg-slate-50 text-slate-900`}>Atualizar</button>
       {usuario?.perfil === 'ADMIN_TI' && <Link to="/admin" className={`${BOTAO} bg-slate-50 text-center`}>Administração</Link>}
       {usuario?.perfil === 'NUTRICIONISTA' && <Link to={`/gestao?unidade=${filialId}`} className={`${BOTAO} bg-slate-50 text-center`}>Gestão</Link>}
-      {!usuario && <Link to={`/login?unidade=${filialId}`} className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>Entrar no plantão</Link>}
+      {!usuario && <Link to={`/login?retorno=${encodeURIComponent(`/${modo}/${filialId}`)}`} className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>{entrega ? 'Entrar no plantão' : 'Entrar para operar'}</Link>}
+      {usuario && <Link to={`/senha?retorno=${encodeURIComponent(`/${modo}/${filialId}`)}`} className={`${BOTAO} bg-slate-50 text-center`}>{usuario.troca_senha_obrigatoria ? 'Definir nova senha' : 'Alterar minha senha'}</Link>}
       {usuario && <button onClick={sair} className={`${BOTAO} col-span-2 bg-slate-50 text-slate-900`}>Sair{usuario.perfil === 'COPEIRA' ? ' do plantão' : ''}</button>}
     </div>
     {usuario?.perfil === 'COPEIRA' && <p role="status" className={`rounded-lg p-3 text-sm ${nestePlantao && plantaoOnline ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>

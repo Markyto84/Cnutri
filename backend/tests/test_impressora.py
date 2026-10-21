@@ -1,5 +1,7 @@
 """Filipetas completas e integração das duas rotas, sem impressora ou banco reais."""
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 import json
 from pathlib import Path
 from struct import unpack
@@ -13,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.database import Base, get_db
 from app.core.security import criar_token
 from app.main import app
-from app.models.models import Dieta, Filial, FormularioConfig, Pedido, Perfil, Usuario
+from app.models.models import Dieta, Filial, FormularioConfig, Pedido, Perfil, SessaoUsuario, Usuario
 from app.services.impressora import LARGURA_LINHA, compor_linhas_filipeta, montar_filipeta
 from app.services.impressao_raster import (
     ALTURA_BLOCO, LARGURA_PONTOS, LinhaImpressao, codificar_imagem,
@@ -241,7 +243,10 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             db.add(dieta)
             await db.commit()
             self.dieta_id = dieta.id
-            self.headers = {"Authorization": "Bearer " + criar_token(usuario)}
+            jti = str(uuid4())
+            db.add(SessaoUsuario(id=jti, usuario_id=usuario.id, expira_em=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)))
+            await db.commit()
+            self.headers = {"Authorization": "Bearer " + criar_token(usuario, jti)}
 
         async def banco_teste():
             async with self.sessoes() as db:
@@ -317,6 +322,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
         with patch("app.api.public_kiosk.imprimir_filipeta") as imprimir:
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json={
                 "tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM 123", "solicitante_nome": "Exemplo",
+                "dados_dinamicos": pedido_medico().dados_dinamicos, "observacoes_alergias": "Sem restrições",
             })
             self.assertEqual(resposta.status_code, 201, resposta.text)
             imprimir.assert_not_called()

@@ -5,7 +5,7 @@ import json
 
 from sqlalchemy import case, func, select
 
-from ..models.models import Dieta, EntregaPedido, Filial, Pedido, RecebimentoEntrega
+from ..models.models import Dieta, EntregaPedido, Filial, Pedido, RecebimentoEntrega, Usuario
 from .operacao import data_utc
 
 BRASILIA = timezone(timedelta(hours=-3))
@@ -22,11 +22,12 @@ class ConsultaDietas:
 
 def consulta_base(consulta: ConsultaDietas):
     return (select(Pedido, Filial.nome, Dieta.nome, EntregaPedido.entregue_em,
-        EntregaPedido.copeira_nome, RecebimentoEntrega.recebedor_nome)
+        EntregaPedido.copeira_nome, RecebimentoEntrega.recebedor_nome, Usuario.nome)
         .join(Filial, Filial.id == Pedido.filial_id)
         .outerjoin(Dieta, Dieta.id == Pedido.dieta_id)
         .outerjoin(EntregaPedido, EntregaPedido.pedido_id == Pedido.id)
         .outerjoin(RecebimentoEntrega, RecebimentoEntrega.pedido_id == Pedido.id)
+        .outerjoin(Usuario, Usuario.id == EntregaPedido.registrado_por_usuario_id)
         .where(*consulta.filtros))
 
 
@@ -63,7 +64,7 @@ def texto(valor):
 
 
 def detalhar(linha):
-    pedido, unidade, dieta, entregue_em, copeira, recebedor = linha
+    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador = linha
     dados = pedido.dados_dinamicos or {}
     campos = ("refeicao", "cardapio", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "internado_mais_6h")
     extras = {k: v for k, v in dados.items() if k not in {*campos, "andar", "local_entrega", "sexo", "data_nascimento", "matricula", "prontuario"}}
@@ -75,7 +76,7 @@ def detalhar(linha):
         **{campo: texto(dados.get(campo)) for campo in campos},
         "observacoes_alergias": pedido.observacoes_alergias or "", "solicitante_nome": pedido.solicitante_nome or "",
         "concluido_em": data_utc(pedido.concluido_em), "entregue_em": data_utc(entregue_em),
-        "copeira_nome": copeira or "", "recebedor_nome": recebedor or "", "assinatura_registrada": recebedor is not None,
+        "copeira_nome": copeira or "", "recebedor_nome": recebedor or "", "registrado_por_nome": operador or "", "assinatura_registrada": recebedor is not None,
         "outros_campos": texto(extras) if extras else ""}
 
 

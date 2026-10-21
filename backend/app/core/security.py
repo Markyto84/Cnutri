@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from .config import settings
 from .database import get_db
-from ..models.models import Filial, SessaoCopeira, Usuario
+from ..models.models import Filial, SessaoCopeira, SessaoUsuario, Usuario
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -33,7 +33,7 @@ def verificar_senha(senha: str, hash_: str) -> bool:
     return pwd_context.verify(senha, hash_)
 
 
-def criar_token(usuario: Usuario, sessao_id: str | None = None) -> str:
+def criar_token(usuario: Usuario, sessao_id: str) -> str:
     expira = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRA_MINUTOS)
     payload = {
         "sub": str(usuario.id),
@@ -50,7 +50,7 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
 ) -> Usuario:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG], options={"require_exp": True, "require_sub": True, "require_jti": True})
         usuario_id = int(payload.get("sub"))
     except (JWTError, TypeError, ValueError):
         raise CREDENCIAIS_INVALIDAS
@@ -61,7 +61,11 @@ async def get_current_user(
     ).scalar_one_or_none()
     if usuario is None or not usuario.ativo:
         raise CREDENCIAIS_INVALIDAS
-    if usuario.perfil.nome == "COPEIRA":
+    sessao = await db.get(SessaoUsuario, payload["jti"])
+    agora = datetime.now(timezone.utc).replace(tzinfo=None)
+    if not sessao or sessao.usuario_id != usuario.id or sessao.encerrada_em or sessao.expira_em <= agora:
+        raise CREDENCIAIS_INVALIDAS
+    if usuario.perfil.nome == "COPEIRA" and not usuario.troca_senha_obrigatoria:
         sessao_id = payload.get("jti")
         sessao = await db.get(SessaoCopeira, sessao_id) if isinstance(sessao_id, str) else None
         if not sessao or sessao.usuario_id != usuario.id or sessao.encerrada_em is not None:
@@ -90,6 +94,8 @@ def exigir_perfis(*perfis: str):
     """Fábrica de dependência: restringe a rota a determinados perfis."""
 
     async def _dep(usuario: Usuario = Depends(get_current_user)) -> Usuario:
+        if usuario.troca_senha_obrigatoria:
+            raise HTTPException(403, "Atualize sua senha antes de continuar")
         if usuario.perfil.nome not in perfis:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Acesso restrito a este perfil")
         return usuario

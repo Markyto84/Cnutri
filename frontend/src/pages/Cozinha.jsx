@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { operacao, useOperacao } from '../hooks/useOperacao.js'
+import { useOperacao } from '../hooks/useOperacao.js'
+import { api } from '../services/api.js'
+import { podeOperar, useAuth } from '../context/auth.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
 
 const COLUNAS = [
@@ -16,21 +18,23 @@ export default function Cozinha() {
 
 function Dashboard({ filialId }) {
   const painel = useOperacao(filialId, true)
+  const { usuario } = useAuth()
+  const autorizado = podeOperar(usuario, filialId, ['COZINHA', 'NUTRICIONISTA', 'ADMIN_TI'])
   const [filtro, setFiltro] = useState('PENDENTE')
   const [ocupados, setOcupados] = useState([])
   const [aviso, setAviso] = useState('')
 
   async function agir(pedido, status) {
-    if (ocupados.includes(pedido.id)) return
+    if (!autorizado || ocupados.includes(pedido.id)) return
     setOcupados((atuais) => [...atuais, pedido.id])
     setAviso('')
     try {
-      const base = `/unidades/${filialId}/pedidos/${pedido.id}`
+      const base = `/operacao/unidades/${filialId}/pedidos/${pedido.id}`
       if (status) {
-        const { data } = await operacao.patch(base + '/status', { status })
+        const { data } = await api.patch(base + '/status', { status })
         painel.aplicarPedido(data)
       } else {
-        const { data } = await operacao.post(base + '/reimprimir')
+        const { data } = await api.post(base + '/reimprimir')
         setAviso(data.impresso ? `Filipeta do pedido #${pedido.id} enviada à impressora.` : 'A impressora não respondeu.')
       }
     } catch (e) {
@@ -40,6 +44,7 @@ function Dashboard({ filialId }) {
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
     <CabecalhoOperacao modo="cozinha" painel={painel} filialId={filialId} />
+    {!autorizado && <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Painel em modo de consulta. Entre com um perfil de cozinha ou gestão autorizado nesta unidade para operar os pedidos.</p>}
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-brand-soft p-3 text-brand-ink">{aviso}</p>}
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
@@ -59,11 +64,11 @@ function Dashboard({ filialId }) {
             <div className="space-y-3">{pedidos.map((pedido) => <article key={pedido.id} className="rounded-xl bg-white p-4 shadow-sm">
               <ResumoPedido pedido={pedido} />
               <div className="mt-4 flex flex-wrap gap-2">
-                {col.status !== 'PRONTO' && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, col.status === 'PENDENTE' ? 'EM_PREPARO' : 'PRONTO')}
+                {autorizado && col.status !== 'PRONTO' && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, col.status === 'PENDENTE' ? 'EM_PREPARO' : 'PRONTO')}
                   className={`${BOTAO} flex-1 bg-brand text-white hover:bg-brand-hover`}>{col.status === 'PENDENTE' ? 'Iniciar preparo' : 'Marcar pronto'}</button>}
                 {col.status === 'PRONTO' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} flex-1 bg-brand-vibrant text-center text-brand-ink hover:bg-brand-vibrant-hover`}>Abrir entregas</Link>}
-                <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido)} className={`${BOTAO} bg-slate-100`} aria-label={`Reimprimir pedido ${pedido.id}`}>Reimprimir</button>
-                <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, 'CANCELADO')} className={`${BOTAO} bg-red-50 text-red-800`} aria-label={`Cancelar pedido ${pedido.id}`}>Cancelar</button>
+                {autorizado && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido)} className={`${BOTAO} bg-slate-100`} aria-label={`Reimprimir pedido ${pedido.id}`}>Reimprimir</button>}
+                {autorizado && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, 'CANCELADO')} className={`${BOTAO} bg-red-50 text-red-800`} aria-label={`Cancelar pedido ${pedido.id}`}>Cancelar</button>}
               </div>
             </article>)}</div>
           </section>

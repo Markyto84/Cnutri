@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
-import { inicioDoUsuario, useAuth } from '../context/auth.js'
+import { destinoAposLogin, useAuth } from '../context/auth.js'
 
 export default function Login() {
   const [nomeUsuario, setNomeUsuario] = useState('')
@@ -20,10 +20,7 @@ export default function Login() {
       const dados = new URLSearchParams({ username: nomeUsuario.trim(), password: senha })
       const r = await api.post('/auth/login', dados)
       const sessao = entrar(r.data)
-      const unidade = Number(parametros.get('unidade'))
-      const destino = sessao.perfil === 'COPEIRA' && sessao.filiais.some((f) => f.id === unidade && f.ativa)
-        ? `/entregas/${unidade}` : inicioDoUsuario(sessao)
-      navegar(destino, { replace: true })
+      navegar(destinoAposLogin(sessao, parametros), { replace: true })
     } catch (err) {
       setErro(err.response?.data?.detail || 'Falha no login')
     } finally {
@@ -35,7 +32,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-app-background p-4">
       <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl border-t-4 border-brand-vibrant bg-panel p-8 shadow-xl">
         <h1 className="text-center text-2xl font-bold text-brand">🏥 Dietas Hospitalares</h1>
-        <p className="text-center text-sm text-slate-700">Gestão e entrada das copeiras no plantão</p>
+        <p className="text-center text-sm text-slate-700">Acesso à gestão, cozinha e plantão das copeiras</p>
 
         {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
 
