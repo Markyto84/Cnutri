@@ -6,6 +6,8 @@ Em **Cozinha → Prontos**, use **Etiqueta** no cartão da refeição. Para paci
 nesta ordem: **Unidade, Matrícula, Nome, Data de nascimento, Dieta, Andar e Leito**.
 O rodapé traz **CONSUMO IMEDIATO** e o ícone da aba do navegador aparece como marca
 d'água. Confira a prévia e pressione **Imprimir etiqueta**. Reimpressões usam o mesmo botão.
+Na primeira linha de todos os modelos, aparece somente o nome da unidade em
+negrito, sem o prefixo “Unidade:”.
 
 Nos pedidos de paciente, o campo **Para** define o conjunto enviado por clique:
 

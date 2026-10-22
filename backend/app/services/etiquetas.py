@@ -108,7 +108,7 @@ def renderizar_etiqueta(campos, resolucao=203, acompanhante=False):
         linhas = []
         cabe_leito = True
         for chave, valor in campos:
-            texto = f"{chave}: {valor}"
+            texto = valor if chave == "Unidade" else f"{chave}: {valor}"
             marcar = acompanhante and chave == "Leito"
             if marcar:
                 largura_linha = fonte.getlength(texto) + fonte_etiqueta(fonte.size, True).getlength("Acompanhante") + round(2 * resolucao / 25.4)
