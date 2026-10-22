@@ -41,9 +41,10 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 ## 4. Estado atual (o que já funciona)
 
 - ✅ Cabeçalho de todas as etiquetas ajustado em 22/10/2026: somente o nome da
-  unidade em negrito, sem o prefixo “Unidade:”, nos modelos de paciente,
+  unidade em negrito e fonte fixa de 11 pontos, sem o prefixo “Unidade:”, nos modelos de paciente,
   acompanhante e profissional.
-  Os 22 testes existentes de etiquetas passaram; prévia fictícia conferida,
+  Os 23 testes de etiquetas passaram, incluindo cabeçalho fixo em 203/300 dpi e
+  quebra de nomes longos sem sobreposição; prévia fictícia conferida,
   atualização ativa na rede e integridade das 14 tabelas preservada.
 
 - ✅ Etiqueta do formulário médico habilitada em Prontos (22/10/2026), inclusive para

@@ -96,6 +96,7 @@ def renderizar_etiqueta(campos, resolucao=203, acompanhante=False):
         raise ValueError("Resolução da impressora inválida")
     largura, altura = round(LARGURA_MM * resolucao / 25.4), round(ALTURA_MM * resolucao / 25.4)
     margem = round(1.5 * resolucao / 25.4)
+    fonte_unidade = fonte_etiqueta(round(11 * resolucao / 72), True)
     fonte_rodape = fonte_etiqueta(round(9 * resolucao / 72), True)
     caixa_rodape = fonte_rodape.getbbox(RODAPE, anchor="lt")
     topo_rodape = altura - margem - caixa_rodape[3]
@@ -103,8 +104,6 @@ def renderizar_etiqueta(campos, resolucao=203, acompanhante=False):
     for pontos in (10, 9, 8, 7):
         fonte = fonte_etiqueta(round(pontos * resolucao / 72), False)
         espaco = max(2, round(resolucao / 100))
-        passo = sum(fonte.getmetrics()) + espaco
-        colunas = int((largura - 2 * margem) // fonte.getlength("M"))
         linhas = []
         cabe_leito = True
         for chave, valor in campos:
@@ -115,21 +114,26 @@ def renderizar_etiqueta(campos, resolucao=203, acompanhante=False):
                 if largura_linha > largura - 2 * margem:
                     cabe_leito = False
                     break
-            linhas.extend((linha, chave in ("Unidade", "Nome", "Profissional", "Refeição"), marcar)
-                for linha in ([texto] if marcar else textwrap.wrap(texto, colunas, break_on_hyphens=False)))
+            fonte_linha = fonte_unidade if chave == "Unidade" else fonte_etiqueta(fonte.size, chave in ("Nome", "Profissional", "Refeição"))
+            colunas_linha = int((largura - 2 * margem) // fonte_linha.getlength("M"))
+            passo_linha = sum(fonte_linha.getmetrics()) + espaco
+            linhas.extend((linha, fonte_linha, marcar, passo_linha)
+                for linha in ([texto] if marcar else textwrap.wrap(texto, colunas_linha, break_on_hyphens=False)))
         if not cabe_leito:
             continue
-        if len(linhas) * passo <= separador - margem - espaco:
+        if sum(linha[3] for linha in linhas) <= separador - margem - espaco:
             imagem = Image.new("L", (largura, altura), 255)
             marca = marca_dagua(resolucao)
             imagem.paste(marca, ((largura - marca.width) // 2, margem + (separador - margem - marca.height) // 2))
             desenho = ImageDraw.Draw(imagem)
-            for n, (linha, negrito, marcar) in enumerate(linhas):
-                desenho.text((margem, margem + n * passo), linha, font=fonte_etiqueta(fonte.size, negrito),
+            topo = margem
+            for linha, fonte_linha, marcar, passo_linha in linhas:
+                desenho.text((margem, topo), linha, font=fonte_linha,
                     fill=0, anchor="lt", stroke_width=1, stroke_fill=255)
                 if marcar:
-                    desenho.text((largura - margem, margem + n * passo), "Acompanhante",
+                    desenho.text((largura - margem, topo), "Acompanhante",
                         font=fonte_etiqueta(fonte.size, True), fill=0, anchor="rt", stroke_width=1, stroke_fill=255)
+                topo += passo_linha
             desenho.line((margem, separador, largura - margem - 1, separador), fill=0)
             desenho.text(((largura - fonte_rodape.getlength(RODAPE)) / 2, topo_rodape), RODAPE,
                 font=fonte_rodape, fill=0, anchor="lt")

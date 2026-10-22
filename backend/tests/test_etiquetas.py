@@ -33,6 +33,30 @@ def exemplo_medico():
 
 
 class LayoutEtiquetaTest(unittest.TestCase):
+    def test_unidade_fixa_em_onze_pontos_com_corpo_adaptativo_e_quebra_sem_sobrepor(self):
+        casos = [(exemplo(), "Hospital São João", False), (exemplo_medico(), "Hospital São João", False),
+            (exemplo(), "Hospital São João", True),
+            (exemplo(), "Hospital de Demonstração para Avaliação das Etiquetas", False)]
+        for pedido, nome, acompanhante in casos:
+            campos = campos_etiqueta(pedido, SimpleNamespace(nome=nome), "Acompanhante" if acompanhante else None)
+            for dpi in (203, 300):
+                original = ImageDraw.ImageDraw.text
+                with patch.object(ImageDraw.ImageDraw, "text", autospec=True, side_effect=original) as textos:
+                    imagem = renderizar_etiqueta(campos, dpi, acompanhante)
+                chamadas = textos.call_args_list
+                primeiro_corpo = next(i for i, c in enumerate(chamadas) if c.args[2].startswith(("Matrícula:", "Profissional:")))
+                cabecalho = chamadas[:primeiro_corpo]
+                self.assertEqual(" ".join(c.args[2] for c in cabecalho), nome)
+                if nome.startswith("Hospital de Demonstração"):
+                    self.assertGreater(len(cabecalho), 1)
+                for chamada in cabecalho:
+                    fonte = chamada.kwargs["font"]
+                    self.assertEqual(fonte.size, round(11 * dpi / 72))
+                    self.assertLessEqual(fonte.getlength(chamada.args[2]), imagem.width - 2 * round(1.5 * dpi / 25.4))
+                ultima = cabecalho[-1]
+                fim_cabecalho = ultima.args[1][1] + ultima.kwargs["font"].getbbox(ultima.args[2], anchor="lt")[3]
+                self.assertGreater(chamadas[primeiro_corpo].args[1][1], fim_cabecalho)
+
     def test_medico_usa_campos_profissionais_e_uma_etiqueta_sem_dados_de_paciente(self):
         pedido = exemplo_medico()
         pedido.nome_paciente = "Não usar identificação de paciente"

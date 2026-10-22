@@ -7,7 +7,7 @@ nesta ordem: **Unidade, Matrícula, Nome, Data de nascimento, Dieta, Andar e Lei
 O rodapé traz **CONSUMO IMEDIATO** e o ícone da aba do navegador aparece como marca
 d'água. Confira a prévia e pressione **Imprimir etiqueta**. Reimpressões usam o mesmo botão.
 Na primeira linha de todos os modelos, aparece somente o nome da unidade em
-negrito, sem o prefixo “Unidade:”.
+negrito com fonte fixa de **11 pontos**, sem o prefixo “Unidade:”.
 
 Nos pedidos de paciente, o campo **Para** define o conjunto enviado por clique:
 
@@ -79,7 +79,8 @@ A homologação física fica para quando os equipamentos forem cadastrados.
 
 O servidor desenha os campos do modelo correspondente usando as fontes distribuídas no projeto e
 envia uma imagem monocromática. Assim, acentos não dependem da tabela interna de
-caracteres da impressora. A fonte adapta-se de 10 a 7 pontos para caber; se o texto
+caracteres da impressora. O nome da unidade usa **11 pontos fixos**, com quebra de
+linha quando necessário. O corpo adapta-se de 10 a 7 pontos para caber; se o texto
 exceder o espaço mesmo na menor fonte, o trabalho falha com orientação para revisar
 o conteúdo. Nomes e dietas não são cortados silenciosamente. O rodapé possui espaço
 reservado e fonte de 9 pontos.
