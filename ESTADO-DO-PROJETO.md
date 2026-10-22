@@ -40,6 +40,15 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Editor de formulários da Gestão identificado em 22/10/2026: nome de cada campo
+  acima da caixa de opções, incluindo listas e botões de seleção, com atualização
+  automática ao renomear ou criar campos. Nome/tipo do campo, título, informativo e
+  grupos de cardápio também têm rótulos visíveis e associados aos controles.
+  Conferido no navegador com dados fictícios nos formulários de paciente e médico,
+  inclusive em tela de celular de 390 × 844; build aprovado e lint somente com os
+  dois avisos anteriores de dependências de useEffect. Alteração visual, sem mudança
+  nos esquemas, opções ou dados já publicados.
+
 - ✅ Cabeçalho de todas as etiquetas ajustado em 22/10/2026: somente o nome da
   unidade em negrito e fonte fixa de 11 pontos, sem o prefixo “Unidade:”, nos modelos de paciente,
   acompanhante e profissional.

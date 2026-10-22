@@ -252,7 +252,7 @@ function AbaFormularios({ filialId }) {
 
   return (
     <div>
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {['ENFERMAGEM', 'MEDICO'].map((t) => (
           <button key={t} onClick={() => setTipo(t)} className={`rounded px-4 py-2 text-sm ${tipo === t ? 'bg-brand text-white' : 'bg-white hover:bg-slate-50'}`}>
             {t === 'ENFERMAGEM' ? 'Enfermagem / Paciente' : 'Médico'}
@@ -262,14 +262,17 @@ function AbaFormularios({ filialId }) {
 
       {config && (
         <div className="max-w-3xl space-y-3">
-          <input
-            value={config.titulo || ''}
-            onChange={(e) => setConfig({ ...config, titulo: e.target.value })}
-            placeholder="Título do formulário"
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 font-bold"
-          />
-          <div>
-            <label className="mb-1 block text-sm text-slate-950">Texto informativo exibido no topo do quiosque</label>
+          <label className="block text-sm font-medium">
+            <span className="mb-1 block">Título do formulário</span>
+            <input
+              value={config.titulo || ''}
+              onChange={(e) => setConfig({ ...config, titulo: e.target.value })}
+              placeholder="Título do formulário"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 font-bold"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Texto informativo exibido no topo do quiosque</span>
             <textarea
               rows={6}
               value={config.cabecalho || ''}
@@ -277,27 +280,36 @@ function AbaFormularios({ filialId }) {
               placeholder="Horários, orientações e avisos que aparecem antes dos campos..."
               className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
             />
-          </div>
+          </label>
           {config.campos.map((campo, i) => (
-            <div key={i} className="grid grid-cols-[1fr_130px_90px_40px] items-center gap-2 rounded bg-panel p-3">
-              <input value={campo.rotulo} onChange={(e) => editarCampo(i, { ...campo, rotulo: e.target.value })}
-                className="rounded border border-slate-300 bg-slate-50 px-2 py-1" />
-              <select value={campo.tipo} onChange={(e) => editarCampo(i, prepararTipo(campo, e.target.value))}
-                className="rounded border border-slate-300 bg-slate-50 px-2 py-1 text-sm">
-                <option value="texto">Texto</option>
-                <option value="texto_longo">Texto longo</option>
-                <option value="data">Data</option>
-                <option value="selecao">Lista de opções</option>
-                <option value="radio">Botões de seleção única</option>
-                <option value="cardapio">Cardápio (depende da dieta)</option>
-                <option value="selecao_dietas">Seleção de dietas</option>
-              </select>
-              <label className="flex items-center gap-1 text-xs">
-                <input type="checkbox" checked={!!campo.obrigatorio} onChange={(e) => editarCampo(i, { ...campo, obrigatorio: e.target.checked })} />
-                Obrig.
-              </label>
-              <button onClick={() => removerCampo(i)} className="text-red-700 hover:text-red-800">✕</button>
-            </div>
+            <fieldset key={campo.id} className="min-w-0 rounded-lg border border-slate-300 bg-panel p-3">
+              <legend className="break-words px-1 text-sm font-semibold text-brand-ink">{campo.rotulo.trim() || 'Novo campo'}</legend>
+              <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto_auto]">
+                <label className="col-span-2 min-w-0 text-sm md:col-span-1">
+                  <span className="mb-1 block font-medium">Nome do campo</span>
+                  <input value={campo.rotulo} onChange={(e) => editarCampo(i, { ...campo, rotulo: e.target.value })}
+                    className="w-full rounded border border-slate-300 bg-slate-50 px-2 py-1" />
+                </label>
+                <label className="col-span-2 min-w-0 text-sm md:col-span-1">
+                  <span className="mb-1 block font-medium">Tipo do campo</span>
+                  <select value={campo.tipo} onChange={(e) => editarCampo(i, prepararTipo(campo, e.target.value))}
+                    className="w-full rounded border border-slate-300 bg-slate-50 px-2 py-1 text-sm">
+                    <option value="texto">Texto</option>
+                    <option value="texto_longo">Texto longo</option>
+                    <option value="data">Data</option>
+                    <option value="selecao">Lista de opções</option>
+                    <option value="radio">Botões de seleção única</option>
+                    <option value="cardapio">Cardápio (depende da dieta)</option>
+                    <option value="selecao_dietas">Seleção de dietas</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-1 py-1 text-xs">
+                  <input type="checkbox" checked={!!campo.obrigatorio} onChange={(e) => editarCampo(i, { ...campo, obrigatorio: e.target.checked })} />
+                  Obrigatório
+                </label>
+                <button onClick={() => removerCampo(i)} aria-label={`Remover campo ${campo.rotulo}`} className="justify-self-end py-1 text-red-700 hover:text-red-800">✕</button>
+              </div>
+            </fieldset>
           ))}
           {tipo === 'ENFERMAGEM' && config.campos.some((c) => c.id === 'para') && config.campos.some((c) => c.id === 'cardapio' && c.tipo === 'cardapio') && (
             <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">
@@ -308,41 +320,46 @@ function AbaFormularios({ filialId }) {
           )}
           {config.campos.some((c) => c.tipo === 'cardapio') && config.campos.map((c, i) =>
             c.tipo === 'cardapio' ? (
-              <div key={`card-${i}`} className="rounded bg-panel p-3 text-sm space-y-3">
-                <p className="font-medium text-slate-700">Grupos do campo “{c.rotulo}” — cada grupo lista as dietas que o ativam e as opções de cardápio correspondentes:</p>
+              <div key={`card-${c.id}`} className="space-y-3 rounded bg-panel p-3 text-sm">
+                <h3 className="font-semibold text-brand-ink">{c.rotulo.trim() || 'Novo campo'}</h3>
+                <p className="text-slate-700">Cada grupo lista as dietas que o ativam e as opções de cardápio correspondentes:</p>
                 {(c.grupos || []).map((g, gi) => (
                   <div key={gi} className="space-y-2 rounded border border-slate-300 p-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={g.nome || ''}
-                        onChange={(e) => editarCampo(i, { ...c, grupos: c.grupos.map((x, xi) => (xi === gi ? { ...x, nome: e.target.value } : x)) })}
-                        placeholder="Nome do grupo (ex.: Grupo 1)"
-                        className="flex-1 rounded border border-slate-300 bg-slate-50 px-2 py-1"
-                      />
+                    <div className="flex items-end gap-2">
+                      <label className="min-w-0 flex-1">
+                        <span className="mb-1 block font-medium">Nome do grupo</span>
+                        <input
+                          value={g.nome || ''}
+                          onChange={(e) => editarCampo(i, { ...c, grupos: c.grupos.map((x, xi) => (xi === gi ? { ...x, nome: e.target.value } : x)) })}
+                          placeholder="Nome do grupo (ex.: Grupo 1)"
+                          className="w-full rounded border border-slate-300 bg-slate-50 px-2 py-1"
+                        />
+                      </label>
                       <button
                         onClick={() => editarCampo(i, { ...c, grupos: c.grupos.filter((_, xi) => xi !== gi) })}
-                        className="text-red-700 hover:text-red-800"
+                        aria-label={`Remover grupo ${g.nome || gi + 1} de ${c.rotulo}`}
+                        className="py-1 text-red-700 hover:text-red-800"
                       >✕</button>
                     </div>
                     <div className="grid gap-2 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs text-slate-700">Tipos de dieta que ativam este grupo (uma por linha, nome exato):</label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-slate-700">Tipos de dieta que ativam este grupo (uma por linha, nome exato):</span>
                         <textarea
                           rows={4}
                           className="w-full rounded border border-slate-300 bg-slate-50 px-2 py-1"
                           value={paraTexto(g.dietas)}
                           onChange={(e) => editarCampo(i, { ...c, grupos: c.grupos.map((x, xi) => (xi === gi ? { ...x, dietas: e.target.value } : x)) })}
                         />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs text-slate-700">Opções de cardápio deste grupo (uma por linha):</label>
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-slate-700">Opções de cardápio deste grupo (uma por linha):</span>
                         <textarea
                           rows={4}
                           className="w-full rounded border border-slate-300 bg-slate-50 px-2 py-1"
                           value={paraTexto(g.opcoes)}
                           onChange={(e) => editarCampo(i, { ...c, grupos: c.grupos.map((x, xi) => (xi === gi ? { ...x, opcoes: e.target.value } : x)) })}
                         />
-                      </div>
+                      </label>
                     </div>
                   </div>
                 ))}
@@ -354,22 +371,24 @@ function AbaFormularios({ filialId }) {
             ) : null
           )}
           {config.campos.some(temOpcoes) && (
-            <div className="rounded bg-panel p-3 text-sm">
-              <p className="mb-1 text-slate-700">Opções das listas (uma por linha):</p>
+            <div className="space-y-4 rounded bg-panel p-3 text-sm">
+              <p className="text-slate-700">Opções das listas (uma por linha):</p>
               {config.campos.map((c, i) =>
                 temOpcoes(c) ? (
-                  <textarea
-                    key={i}
-                    rows={4}
-                    className="mt-1 w-full rounded border border-slate-300 bg-slate-50 px-2 py-1"
-                    value={paraTexto(c.opcoes)}
-                    onChange={(e) => editarCampo(i, { ...c, opcoes: e.target.value })}
-                  />
+                  <label key={c.id} className="block">
+                    <span className="mb-1 block break-words font-semibold text-brand-ink">{c.rotulo.trim() || 'Novo campo'}</span>
+                    <textarea
+                      rows={4}
+                      className="w-full rounded border border-slate-300 bg-slate-50 px-2 py-1"
+                      value={paraTexto(c.opcoes)}
+                      onChange={(e) => editarCampo(i, { ...c, opcoes: e.target.value })}
+                    />
+                  </label>
                 ) : null
               )}
             </div>
           )}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             <button onClick={adicionarCampo} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">+ Adicionar campo</button>
             <button onClick={resetar} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">↺ Restaurar padrão</button>
             <button onClick={salvar} className="rounded bg-brand px-6 py-2 font-bold hover:bg-brand-hover text-white">💾 Publicar</button>
