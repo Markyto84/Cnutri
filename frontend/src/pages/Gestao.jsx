@@ -299,6 +299,13 @@ function AbaFormularios({ filialId }) {
               <button onClick={() => removerCampo(i)} className="text-red-700 hover:text-red-800">✕</button>
             </div>
           ))}
+          {tipo === 'ENFERMAGEM' && config.campos.some((c) => c.id === 'para') && config.campos.some((c) => c.id === 'cardapio' && c.tipo === 'cardapio') && (
+            <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">
+              Para acompanhantes, a dieta é sempre GERAL. Em “Paciente e Acompanhante”, o campo
+              “Cardápio do acompanhante” aparece automaticamente e usa as opções do grupo que
+              contém GERAL abaixo. Ao alterar esse grupo, os dois campos recebem a atualização.
+            </p>
+          )}
           {config.campos.some((c) => c.tipo === 'cardapio') && config.campos.map((c, i) =>
             c.tipo === 'cardapio' ? (
               <div key={`card-${i}`} className="rounded bg-panel p-3 text-sm space-y-3">

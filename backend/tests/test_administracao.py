@@ -87,13 +87,16 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get(f"/api/gestao/dietas?filial_id={self.b}", headers=self.admin)).status_code, 200)
 
     async def test_nova_unidade_copia_configuracoes_sem_compartilhar_edicoes(self):
+        origem = (await self.client.get("/api/public/unidade-a/config")).json()
         resposta = await self.client.post("/api/admin/filiais", headers=self.admin, json={
             "nome": "Unidade C", "codigo_slug": "unidade-c", "origem_filial_id": self.a,
         })
         self.assertEqual(resposta.status_code, 201, resposta.text)
         nova = resposta.json()["id"]
         config = (await self.client.get("/api/public/unidade-c/config")).json()
-        self.assertEqual(config["formularios"], self.esquemas)
+        self.assertEqual(config["formularios"], origem["formularios"])
+        salvo_enfermagem = (await self.client.get(f"/api/gestao/formularios/{nova}/ENFERMAGEM", headers=self.admin)).json()
+        self.assertEqual(salvo_enfermagem["esquema_json"], self.esquemas["ENFERMAGEM"])
         self.assertEqual([d["nome"] for d in config["dietas"]], ["GERAL"])
         self.assertIsNone(resposta.json()["ip_impressora"])
         atual = (await self.client.get(f"/api/gestao/formularios/{nova}/MEDICO", headers=self.admin)).json()
@@ -104,7 +107,7 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         })
         self.assertEqual(salvo.status_code, 200, salvo.text)
         original = (await self.client.get("/api/public/unidade-a/config")).json()
-        self.assertEqual(original["formularios"], self.esquemas)
+        self.assertEqual(original["formularios"], origem["formularios"])
         repetido = await self.client.post("/api/admin/filiais", headers=self.admin, json={"nome": "Outra", "codigo_slug": "unidade-c"})
         self.assertEqual(repetido.status_code, 409)
 

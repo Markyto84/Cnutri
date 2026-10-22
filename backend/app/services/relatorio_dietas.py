@@ -66,7 +66,7 @@ def texto(valor):
 def detalhar(linha):
     pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo = linha
     dados = pedido.dados_dinamicos or {}
-    campos = ("refeicao", "cardapio", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "internado_mais_6h")
+    campos = ("refeicao", "cardapio", "cardapio_acompanhante", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "internado_mais_6h")
     extras = {k: v for k, v in dados.items() if k not in {*campos, "andar", "local_entrega", "sexo", "data_nascimento", "matricula", "prontuario"}}
     return {"pedido_id": pedido.id, "unidade_id": pedido.filial_id, "unidade_codigo": codigo, "dieta_id": pedido.dieta_id, "unidade": unidade, "criado_em": data_utc(pedido.criado_em),
         "tipo_solicitacao": pedido.tipo_solicitacao, "status": pedido.status,

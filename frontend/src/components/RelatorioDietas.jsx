@@ -108,6 +108,7 @@ export default function RelatorioDietas({ filialId, filiais }) {
           <p className="text-xs text-slate-700">{item.unidade} ({item.unidade_codigo}) · {item.tipo_solicitacao === 'MEDICO' ? 'Médico' : 'Enfermagem'}</p>
           <p className="font-bold">{item.destinatario || 'Destinatário não informado'}</p>
           <p><strong>Dieta:</strong> {item.dieta}</p>{item.refeicao && <p><strong>Refeição:</strong> {item.refeicao}</p>}
+          {item.cardapio_acompanhante && <p><strong>Cardápio do acompanhante (GERAL):</strong> {item.cardapio_acompanhante}</p>}
           <p className="text-slate-700">Solicitação: {horario(item.criado_em)}</p><p className="text-slate-700">Entrega: {horario(item.entregue_em)}{item.copeira_nome && ` · ${item.copeira_nome}`}</p>
           {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
           {item.recebedor_nome && <p className="text-slate-700">Recebedor: {item.recebedor_nome} · Assinatura registrada</p>}

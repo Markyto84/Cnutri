@@ -283,6 +283,30 @@ A consulta e os três formatos verificam perfil e unidades permitidas no servido
 usa `openpyxl` e `odfpy`, incluídos em `backend/requirements.txt`. Ao atualizar uma instalação existente,
 pare os serviços e execute `start.ps1 -InstalarDependencias` para instalar essas dependências.
 
+## Paciente e acompanhante
+
+No formulário **Enfermagem / Paciente**, o campo **Para** controla as escolhas:
+
+| Para | Dieta e cardápio |
+|---|---|
+| Paciente | Mantém as dietas e o cardápio correspondente à dieta selecionada. |
+| Acompanhante | Seleciona somente a dieta GERAL e as opções do grupo dessa dieta. |
+| Paciente e Acompanhante | Mantém a dieta/cardápio do paciente e exige um **Cardápio do acompanhante**, abaixo do cardápio principal, com opções do grupo GERAL. |
+
+Ao trocar o destinatário ou a dieta, escolhas incompatíveis são limpas e o campo
+oculto do acompanhante é retirado do envio. A API valida as mesmas regras antes
+de registrar o pedido ou enfileirar a impressão. Se GERAL estiver inativa ou sem
+cardápio, o envio com acompanhante fica bloqueado com orientação para a Nutrição.
+
+A Gestão edita as opções em **Formulários → Enfermagem / Paciente → Grupos do
+Cardápio**, no grupo que contém GERAL. O campo do acompanhante é derivado desse
+cadastro, sem uma segunda lista para manter. A regra vale para as unidades que
+possuem os campos Para, Tipo de Dieta e Cardápio, inclusive unidades novas.
+O cardápio adicional é salvo em `dados_dinamicos.cardapio_acompanhante` e aparece
+na cozinha, nas entregas, na filipeta e no relatório (tela, XLSX, ODS e CSV).
+Continua sendo uma solicitação com os dois cardápios; o resumo conta solicitações.
+Não há mudança de banco ou de pedidos anteriores.
+
 ## Etiquetas para refeições prontas
 
 Em **Administração → Impressoras → Impressora de etiquetas**, a TI configura marca/modelo,

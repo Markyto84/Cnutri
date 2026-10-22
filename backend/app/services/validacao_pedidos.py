@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from ..models.models import Dieta, FormularioConfig
+from .formulario_paciente import ACOMPANHANTE, AMBOS, CARDAPIO_ACOMPANHANTE, campo_visivel, formulario_paciente, normalizar_nome, opcoes_cardapio
 
 FIXOS = {"leito", "prontuario", "nome_paciente", "dieta_id", "observacoes_alergias", "solicitante_nome"}
 TIPOS = {"texto", "texto_longo", "data", "selecao", "radio", "cardapio", "selecao_dietas"}
@@ -46,7 +47,8 @@ async def validar_pedido(db, filial_id, dados):
     if config is None:
         raise HTTPException(409, "Formulário indisponível. Solicite a configuração ao gestor")
     validar_esquema(config.esquema_json)
-    campos = config.esquema_json["campos"]
+    esquema = formulario_paciente(config.esquema_json) if tipo == "ENFERMAGEM" else config.esquema_json
+    campos = esquema["campos"]
     catalogo = (await db.execute(select(Dieta).where(Dieta.filial_id == filial_id, Dieta.ativa.is_(True)))).scalars().all()
     dietas = {d.id: d for d in catalogo}
     dieta = dietas.get(dados.dieta_id)
@@ -71,14 +73,29 @@ async def validar_pedido(db, filial_id, dados):
     if dados.tipo_solicitacao == "PACIENTE" and not dados.nome_paciente:
         erro("nome_paciente", "Nome do paciente", "preenchimento obrigatório")
 
+    destino = normalizar_nome(dinamicos.get("para"))
+    if esquema.get("regras_acompanhante") and destino in (ACOMPANHANTE, AMBOS):
+        geral = next((d for d in catalogo if normalizar_nome(d.nome) == "GERAL"), None)
+        campo_cardapio = next(c for c in campos if c["id"] == CARDAPIO_ACOMPANHANTE)
+        if geral is None:
+            erro("dieta_id", "Dieta do acompanhante", "a dieta GERAL precisa estar ativa nesta unidade")
+        if not opcoes_cardapio(campo_cardapio, "GERAL"):
+            erro("cardapio" if destino == ACOMPANHANTE else CARDAPIO_ACOMPANHANTE, "Cardápio do acompanhante",
+                "o gestor precisa configurar o grupo da dieta GERAL")
+        if destino == ACOMPANHANTE and (dieta is None or normalizar_nome(dieta.nome) != "GERAL"):
+            erro("dieta_id", "Tipo de dieta", "para acompanhante, selecione somente a dieta GERAL")
+
     for campo in campos:
         chave, tipo = campo["id"], campo["tipo"]
         rotulo = campo["rotulo"]
         valor = getattr(dados, chave, None) if chave in FIXOS else dinamicos.get(chave)
+        if not campo_visivel(campo, dinamicos):
+            if valor is not None and valor != "":
+                erro(chave, rotulo, "disponível somente para Paciente e Acompanhante")
+            continue
         opcoes = campo.get("opcoes", [])
         if tipo == "cardapio":
-            grupo = next((g for g in campo.get("grupos", []) if dieta and dieta.nome in g.get("dietas", [])), {})
-            opcoes = grupo.get("opcoes", [])
+            opcoes = opcoes_cardapio(campo, dieta.nome if dieta else "")
         vazio = valor is None or valor == "" or (isinstance(valor, str) and not valor.strip())
         if vazio:
             # O seletor de cardápio fica desabilitado quando a dieta não tem grupo.

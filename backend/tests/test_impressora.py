@@ -80,6 +80,7 @@ def pedido_paciente():
             "matricula": "MAT-000789", "data_nascimento": "1958-04-23", "sexo": "FEMININO",
             "refeicao": "ALMOÇO", "para": "Paciente e Acompanhante",
             "cardapio": "FRANGO AO BECHAMEL BATIDO COM PURÊ DE ABOBRINHA", "liquido_espessado": "NÉCTAR",
+            "cardapio_acompanhante": "STROGONOFF DE FRANGO ARROZ E BATATA SAUTÉ",
         },
     )
 
@@ -241,7 +242,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
                     {"id": "equipe", "rotulo": "Rótulo de outra unidade", "tipo": "texto"},
                 ]}))
             dieta = Dieta(filial_id=filial.id, nome="PASTOSA", severa=True)
-            db.add(dieta)
+            db.add_all([dieta, Dieta(filial_id=filial.id, nome="GERAL")])
             await db.commit()
             self.dieta_id = dieta.id
             jti = str(uuid4())

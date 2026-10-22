@@ -41,6 +41,7 @@ ROTULOS_PADRAO = {
     "para": "Para",
     "dieta_id": "Tipo de Dieta",
     "cardapio": "Cardápio",
+    "cardapio_acompanhante": "Cardápio do acompanhante",
     "liquido_espessado": "Líquido espessado",
     "suco": "Suco",
     "sobremesa": "Sobremesa",

@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta, timezone
 
 CAMPOS_OPERACIONAIS = frozenset({
-    "andar", "internado_mais_6h", "refeicao", "para", "cardapio", "liquido_espessado",
+    "andar", "internado_mais_6h", "refeicao", "para", "cardapio", "cardapio_acompanhante", "liquido_espessado",
     "equipe", "horario_entrega", "suco", "sobremesa", "local_entrega",
 })
 

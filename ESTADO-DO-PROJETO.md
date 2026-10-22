@@ -40,6 +40,25 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Condições do campo Para no formulário de paciente (22/10/2026): Paciente mantém
+  o fluxo; Acompanhante permite somente dieta GERAL e seu grupo de cardápio;
+  Paciente e Acompanhante mantém a dieta/cardápio do paciente e exige o novo
+  **Cardápio do acompanhante**, logo abaixo, com opções do grupo GERAL.
+  Campo adicional derivado do cadastro vigente da Gestão, sem duplicar listas
+  ou alterar o esquema salvo. Regras também no servidor; trocas limpam opções
+  incompatíveis e retiram o campo oculto do envio. GERAL inativa ou sem cardápio
+  bloqueia solicitações com acompanhante e orienta procurar a Nutrição.
+  Valor em `dados_dinamicos.cardapio_acompanhante`, exibido na cozinha/entregas,
+  filipeta e relatórios/exportações. Sem migração de banco ou divisão de pedidos;
+  histórico e resumo por solicitações preservados. Conferência no navegador com
+  dados fictícios e regressões em SQLite/PostgreSQL isolados.
+  Validação mais recente: 101 testes de backend, 17 de frontend e build aprovados;
+  lint com os dois avisos anteriores de dependências de useEffect em Gestao.jsx.
+  Atualização ativa na rede, com HTTP 200 e o campo derivado conferido na API.
+  Integridade das 14 tabelas confirmada após reinício; backup local anterior em
+  `backups/backup-dietas-2026-10-22-antes-acompanhante.dump` (catálogo legível,
+  sem teste de restauração completo), fora do Git.
+
 - ✅ Etiquetas de 89 mm × 36 mm atualizadas em 22/10/2026: unidade, matrícula, nome,
   data de nascimento (dia/mês/ano), dieta cadastrada, andar e leito, nessa ordem.
   Rodapé **CONSUMO IMEDIATO** e ícone do navegador como marca d'água pontilhada,

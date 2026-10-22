@@ -57,7 +57,8 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
                     tipo_solicitacao="MEDICO" if medico else "PACIENTE", solicitante_nome="Solicitante Fictício",
                     solicitante_identificacao="PRIVADO", nome_paciente=None if medico else nome, leito="0012",
                     dados_dinamicos={"refeicao": "ALMOÇO, opção com açafrão", "cardapio": "+TEXTO DE TESTE",
-                        "suco": "COM SUCO", "andar": "TÉRREO", "matricula": "PRIVADO", "data_nascimento": "1970-01-01"},
+                        "suco": "COM SUCO", "andar": "TÉRREO", "matricula": "PRIVADO", "data_nascimento": "1970-01-01",
+                        **({"para": "Paciente e Acompanhante", "cardapio_acompanhante": "+CARDÁPIO GERAL"} if not medico else {})},
                     observacoes_alergias="ação, maçã e coração\nSEM SAL")
                 db.add(item)
                 await db.flush()
@@ -109,6 +110,7 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
         pagina2 = await self.obter(pagina=2)
         self.assertEqual(len(pagina2["itens"]), 7)
         todos = resultado["itens"] + pagina2["itens"]
+        self.assertTrue(any(p["cardapio_acompanhante"] == "+CARDÁPIO GERAL" for p in todos))
         ids = {p["pedido_id"] for p in todos}
         self.assertIn(self.ids["inicio"], ids)
         self.assertIn(self.ids["fim"], ids)
@@ -178,6 +180,7 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
         inicio = next(l for l in celulas if l[0].value == self.ids["inicio"])
         self.assertEqual(inicio[indices["criado_em"] - 1].value, datetime(2026, 10, 20, 12))
         self.assertEqual(inicio[indices["leito"] - 1].value, "0012")
+        self.assertEqual(inicio[indices["cardapio_acompanhante"] - 1].value, "+CARDÁPIO GERAL")
         self.assertIn("coração\nSEM SAL", inicio[indices["observacoes_alergias"] - 1].value)
         perigoso = next(l for l in celulas if l[0].value == self.ids["extra0"])
         self.assertEqual(perigoso[indices["destinatario"] - 1].data_type, "s")
@@ -203,6 +206,7 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(csv_linhas), 32)
         self.assertTrue(any(l["Destinatário"].startswith("'=HYPERLINK") for l in csv_linhas))
         self.assertTrue(all(l["Cardápio"].startswith("'+") for l in csv_linhas))
+        self.assertTrue(any(l["Cardápio do acompanhante (GERAL)"].startswith("'+CARDÁPIO GERAL") for l in csv_linhas))
         self.assertTrue(all("ação, maçã e coração\nSEM SAL" == l["Restrições / observações"] for l in csv_linhas))
         self.assertIn("no-store", csv_arquivo.headers["cache-control"])
         self.assertIn(".csv", csv_arquivo.headers["content-disposition"])

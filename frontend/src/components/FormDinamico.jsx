@@ -1,33 +1,20 @@
 /** Renderiza o formulário dinâmico definido pela Nutrição (motor de formulários). */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { ajustarValores, campoVisivel, dietasDisponiveis, erroAcompanhante, opcoesCardapio } from '../services/formularioPaciente.js'
 
 export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, campos, dietas, enviando, erro, onCancelar, onEnviar }) {
   const [valores, setValores] = useState({})
 
-  const setValor = (id, v) => setValores((a) => ({ ...a, [id]: v }))
+  const setValor = (id, v) => setValores((a) => ajustarValores(campos, dietas, { ...a, [id]: v }))
 
   // Nome da dieta selecionada (para campos dependentes, ex.: cardápio)
   const dietaNome = dietas.find((d) => d.id === Number(valores.dieta_id))?.nome || ''
 
-  // Ao trocar a dieta, limpa valores de campos cardápio que não pertencem ao novo grupo
-  useEffect(() => {
-    for (const campo of campos.filter((c) => c.tipo === 'cardapio')) {
-      const grupo = (campo.grupos || []).find((g) => (g.dietas || []).includes(dietaNome))
-      const opcoes = grupo?.opcoes || []
-      const atual = valores[campo.id]
-      if (atual && !opcoes.includes(atual)) setValor(campo.id, '')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dietaNome])
-
-  function opcoesCardapio(campo) {
-    const grupo = (campo.grupos || []).find((g) => (g.dietas || []).includes(dietaNome))
-    return grupo?.opcoes || []
-  }
+  const avisoAcompanhante = erroAcompanhante(campos, dietas, valores)
 
   function submeter(e) {
     e.preventDefault()
-    onEnviar(valores)
+    if (!avisoAcompanhante) onEnviar(ajustarValores(campos, dietas, valores))
   }
 
   return (
@@ -42,7 +29,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
 
       {erro && <div className="rounded-lg bg-red-50 p-3 text-red-800 text-sm">{erro}</div>}
 
-      {campos.map((campo) => (
+      {campos.filter((campo) => campoVisivel(campo, valores)).map((campo) => (
         <div key={campo.id}>
           {campo.tipo === 'radio' ? (
             <fieldset>
@@ -131,8 +118,8 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
           )}
 
           {campo.tipo === 'cardapio' && (() => {
-            const opcoes = opcoesCardapio(campo)
-            if (!dietaNome) {
+            const opcoes = opcoesCardapio(campo, dietaNome)
+            if (!dietaNome && !campo.dieta_fixa) {
               return (
                 <select id={campo.id} disabled className="w-full rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600">
                   <option>Selecione o Tipo de Dieta para ver o cardápio…</option>
@@ -171,13 +158,14 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
               onChange={(e) => setValor(campo.id, e.target.value)}
             >
               <option value="">— Selecionar —</option>
-              {dietas.map((d) => (
+              {dietasDisponiveis(campos, dietas, valores).map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.nome}{d.severa ? ' ⚠️' : ''}
                 </option>
               ))}
             </select>
           )}
+          {campo.id === 'dieta_id' && avisoAcompanhante && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{avisoAcompanhante}</p>}
         </div>
       ))}
 
@@ -191,7 +179,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
         </button>
         <button
           type="submit"
-          disabled={enviando}
+          disabled={enviando || !!avisoAcompanhante}
           className="flex-1 rounded-lg bg-brand px-6 py-3 text-lg font-bold text-white hover:bg-brand-hover disabled:opacity-50"
         >
           {enviando ? 'A enviar…' : 'Enviar Solicitação'}
