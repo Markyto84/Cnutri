@@ -2,12 +2,12 @@
 
 ## Uso na cozinha
 
-Em **Cozinha → Prontos**, use **Etiqueta** no cartão do paciente. A prévia contém,
+Em **Cozinha → Prontos**, use **Etiqueta** no cartão da refeição. Para pacientes, a prévia contém,
 nesta ordem: **Unidade, Matrícula, Nome, Data de nascimento, Dieta, Andar e Leito**.
 O rodapé traz **CONSUMO IMEDIATO** e o ícone da aba do navegador aparece como marca
 d'água. Confira a prévia e pressione **Imprimir etiqueta**. Reimpressões usam o mesmo botão.
 
-O campo **Para** define o conjunto enviado por clique:
+Nos pedidos de paciente, o campo **Para** define o conjunto enviado por clique:
 
 | Para | Etiquetas |
 |---|---|
@@ -20,11 +20,29 @@ Cada etiqueta mede **89 mm × 36 mm**, com marca d'água e rodapé próprios. O 
 mostra as prévias separadas e o botão **Imprimir 2 etiquetas** quando houver ambas.
 
 O botão aparece somente para Cozinha, Nutrição ou TI autorizados na unidade, em
-pedidos prontos com nome de paciente. Pedidos médicos sem paciente não exibem esse
-botão. Campos antigos não preenchidos aparecem como **Não informado**; a matrícula
+pedidos prontos com o nome do destinatário: nome do paciente no formulário de
+enfermagem ou nome do profissional no formulário médico.
+Campos antigos não preenchidos aparecem como **Não informado**; a matrícula
 é obtida do formulário, preservando zeros à esquerda. O nascimento é exibido em
 dia/mês/ano; a dieta do paciente corresponde ao nome cadastrado no pedido e a do
 acompanhante é GERAL. Andar e leito continuam vinculados ao paciente.
+
+### Formulário médico / profissional
+
+O formulário médico gera **uma etiqueta**, tanto para a equipe Médica quanto para
+Administração. A prévia é identificada como **Profissional** e traz:
+
+- Unidade.
+- Nome do profissional e registro profissional.
+- Equipe e horário de entrega, agrupados em uma linha.
+- Refeição escolhida no formulário médico, em destaque.
+- Suco e sobremesa, agrupados.
+- Local de entrega.
+
+Esses dados vêm do pedido registrado, inclusive refeições médicas personalizadas
+pela Gestão. O nome usado é o do solicitante; o pedido médico não precisa conter
+paciente. A imagem usa o mesmo tamanho, rodapé, marca d'água, impressora da unidade
+e fila persistida. Pedidos de paciente continuam exigindo o nome do paciente.
 
 A etiqueta é solicitada pelo operador; mudar o status para Pronto habilita o botão.
 A API recusa etiquetas de pedidos pendentes, em preparo, entregues ou cancelados.
@@ -57,7 +75,7 @@ A homologação física fica para quando os equipamentos forem cadastrados.
 
 ## Texto e protocolos
 
-O servidor desenha os sete campos usando as fontes distribuídas no projeto e
+O servidor desenha os campos do modelo correspondente usando as fontes distribuídas no projeto e
 envia uma imagem monocromática. Assim, acentos não dependem da tabela interna de
 caracteres da impressora. A fonte adapta-se de 10 a 7 pontos para caber; se o texto
 exceder o espaço mesmo na menor fonte, o trabalho falha com orientação para revisar
@@ -111,11 +129,11 @@ ativo; é necessário conferir o modelo e a emulação antes de imprimir em pape
   pedidos, entregas, comprovantes ou a configuração das impressoras térmicas.
 
 Backup local anterior à atualização do layout:
-`backups/backup-dietas-2026-10-22-antes-etiquetas-acompanhante.dump`, fora
+`backups/backup-dietas-2026-10-22-antes-etiqueta-medico.dump`, fora
 do Git. A leitura do catálogo é conferida com `pg_restore --list`; não substitui um
 teste de restauração completo.
 
-Validação do layout de 22/10/2026: 108 testes de backend, incluindo oito em schemas PostgreSQL exclusivos,
+Validação do layout de 22/10/2026: 112 testes de backend, incluindo oito em schemas PostgreSQL exclusivos,
 17 testes de frontend e build aprovados. Lint mantém dois avisos anteriores em
 `Gestao.jsx`. A fila e as transmissões são verificadas com impressoras simuladas;
 nenhuma impressão física de teste é feita nesta etapa.

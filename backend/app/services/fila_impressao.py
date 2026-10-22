@@ -14,7 +14,7 @@ from ..core.ws import gerenciador_ws
 from ..models.models import Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, TrabalhoImpressao
 from ..schemas.schemas import PedidoOut
 from .impressora import ErroEnvioImpressora, enviar_filipeta, montar_filipeta_configurada
-from .etiquetas import montar_etiqueta
+from .etiquetas import montar_etiqueta, nome_etiqueta
 
 logger = logging.getLogger("cnutri.impressao")
 ATIVOS = ("PENDENTE", "PROCESSANDO")
@@ -25,8 +25,8 @@ async def enfileirar(db, pedido, filial, usuario_id=None, confirmar=False, tipo=
     estado = await db.scalar(select(Pedido.status).where(Pedido.id == pedido.id).with_for_update())
     if tipo == "ETIQUETA" and estado != "PRONTO":
         raise HTTPException(409, "A etiqueta só pode ser impressa enquanto a refeição estiver pronta")
-    if tipo == "ETIQUETA" and not (pedido.nome_paciente or "").strip():
-        raise HTTPException(422, "Este pedido não possui nome de paciente para gerar a etiqueta")
+    if tipo == "ETIQUETA" and not nome_etiqueta(pedido).strip():
+        raise HTTPException(422, "Este pedido não possui nome do destinatário para gerar a etiqueta")
     ultimo = await db.scalar(select(TrabalhoImpressao).where(TrabalhoImpressao.pedido_id == pedido.id,
         TrabalhoImpressao.tipo_documento == tipo).order_by(TrabalhoImpressao.id.desc()).limit(1))
     if ultimo and ultimo.estado in ATIVOS:

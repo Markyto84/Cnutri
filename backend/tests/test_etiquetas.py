@@ -25,7 +25,45 @@ def exemplo():
             "refeicao": "ALMOÇO", "cardapio": "FRANGO AO MOLHO, ARROZ E FEIJÃO"})
 
 
+def exemplo_medico():
+    return SimpleNamespace(tipo_solicitacao="MEDICO", nome_paciente=None, solicitante_nome="Dra. Maria da Conceição",
+        solicitante_identificacao="CRM TESTE-12345", dados_dinamicos={"equipe": "Médica", "horario_entrega": "12:30",
+            "refeicao": "MAMINHA ASSADA COM CANELONE DE RICOTA E ESPINAFRE", "suco": "COM SUCO",
+            "sobremesa": "SOBREMESA DO DIA", "local_entrega": "4º ANDAR - REFEITÓRIO"})
+
+
 class LayoutEtiquetaTest(unittest.TestCase):
+    def test_medico_usa_campos_profissionais_e_uma_etiqueta_sem_dados_de_paciente(self):
+        pedido = exemplo_medico()
+        pedido.nome_paciente = "Não usar identificação de paciente"
+        pedido.dados_dinamicos["para"] = "Paciente e Acompanhante"
+        self.assertEqual(destinatarios_etiqueta(pedido), ("Profissional",))
+        campos = campos_etiqueta(pedido, SimpleNamespace(nome="Hospital"))
+        self.assertEqual(campos, [("Unidade", "Hospital"), ("Profissional", "Dra. Maria da Conceição"),
+            ("Registro", "CRM TESTE-12345"), ("Equipe / Horário", "Médica | 12:30"),
+            ("Refeição", "MAMINHA ASSADA COM CANELONE DE RICOTA E ESPINAFRE"),
+            ("Suco / Sobremesa", "COM SUCO | SOBREMESA DO DIA"), ("Local de entrega", "4º ANDAR - REFEITÓRIO")])
+        self.assertNotIn(pedido.nome_paciente, str(campos))
+        for protocolo in ("ZPL", "TSPL"):
+            pacote = montar_etiqueta(pedido, SimpleNamespace(nome="Hospital"),
+                {"protocolo": protocolo, "resolucao": 203, "intervalo_mm": 2})
+            self.assertEqual(pacote.count(b"^PQ1,0,1,N^XZ" if protocolo == "ZPL" else b"\r\nPRINT 1,1\r\n"), 1)
+
+    def test_medico_e_administracao_preservam_refeicoes_longas_acentos_e_rodape(self):
+        pedido = exemplo_medico()
+        for equipe, refeicao, local in (("Médica", pedido.dados_dinamicos["refeicao"], "4º ANDAR - REFEITÓRIO"),
+            ("Administração", "PARMEGIANA DE FRANGO COM ARROZ E BATATA SAUTÉE", "TÉRREO - CONFORTO MÉDICO")):
+            pedido.dados_dinamicos.update(equipe=equipe, refeicao=refeicao, local_entrega=local)
+            campos = campos_etiqueta(pedido, SimpleNamespace(nome="Hospital São João"))
+            for dpi in (203, 300):
+                original = ImageDraw.ImageDraw.text
+                with patch.object(ImageDraw.ImageDraw, "text", autospec=True, side_effect=original) as textos:
+                    imagem = renderizar_etiqueta(campos, dpi)
+                impresso = " ".join(c.args[2] for c in textos.call_args_list)
+                for valor in (refeicao, equipe, local, "Dra. Maria da Conceição", "CONSUMO IMEDIATO"):
+                    self.assertIn(valor, impresso)
+                self.assertEqual(imagem.size, (round(89 * dpi / 25.4), round(36 * dpi / 25.4)))
+
     def test_destinatarios_preservam_dieta_paciente_e_usam_geral_para_acompanhante(self):
         pedido = exemplo()
         for para, esperados in ((None, ("Paciente",)), ("Paciente", ("Paciente",)),
@@ -199,6 +237,59 @@ class EtiquetaApiTest(unittest.IsolatedAsyncioTestCase):
             pedido = await db.get(Pedido, self.pedidos["PRONTO"])
             pedido.dados_dinamicos = {**pedido.dados_dinamicos, "para": para}
             await db.commit()
+
+    async def test_medico_sem_paciente_tem_previa_e_impressao_apenas_pronto_com_autorizacao(self):
+        medico = exemplo_medico()
+        async with self.sessoes() as db:
+            for pedido_id in self.pedidos.values():
+                pedido = await db.get(Pedido, pedido_id)
+                pedido.tipo_solicitacao = "MEDICO"
+                pedido.nome_paciente = pedido.dieta_id = pedido.leito = None
+                pedido.solicitante_nome = medico.solicitante_nome
+                pedido.solicitante_identificacao = medico.solicitante_identificacao
+                pedido.dados_dinamicos = medico.dados_dinamicos
+            await db.commit()
+        for metodo in (self.client.get, self.client.post):
+            self.assertEqual((await metodo(self.base)).status_code, 401)
+            for perfil in ("outro", "copeira"):
+                self.assertEqual((await metodo(self.base, headers=self.tokens[perfil])).status_code, 403)
+            for status, pedido_id in self.pedidos.items():
+                if status != "PRONTO":
+                    rota = self.base.replace(f"/{self.pedidos['PRONTO']}/", f"/{pedido_id}/")
+                    self.assertEqual((await metodo(rota, headers=self.tokens["cozinha"])).status_code, 409)
+        previa = await self.client.get(self.base, headers=self.tokens["cozinha"])
+        self.assertEqual(previa.status_code, 200)
+        self.assertEqual(previa.headers["x-destinatario-etiqueta"], "Profissional")
+        self.assertEqual(previa.headers["x-quantidade-etiquetas"], "1")
+        self.assertIn("no-store", previa.headers["cache-control"])
+        esperado = renderizar_etiqueta(campos_etiqueta(medico, SimpleNamespace(nome="Hospital São João")))
+        self.assertIsNone(ImageChops.difference(Image.open(BytesIO(previa.content)), esperado).getbbox())
+        with patch("app.services.fila_impressao.enviar_filipeta") as transporte:
+            a = await self.client.post(self.base, headers=self.tokens["cozinha"])
+            b = await self.client.post(self.base, headers=self.tokens["cozinha"])
+            self.assertEqual(a.status_code, 202)
+            self.assertEqual(a.json()["impressao"]["id"], b.json()["impressao"]["id"])
+            transporte.assert_not_called()
+            await processar_um(self.sessoes)
+            transporte.assert_called_once()
+            self.assertEqual(transporte.call_args.args[1].count(b"\r\nPRINT 1,1\r\n"), 1)
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, self.pedidos["PRONTO"])).etiqueta["estado"], "ENVIADO")
+
+    async def test_nome_obrigatorio_corresponde_ao_tipo_do_pedido(self):
+        for tipo in ("PACIENTE", "MEDICO"):
+            for vazio in (None, "  "):
+                async with self.sessoes() as db:
+                    pedido = await db.get(Pedido, self.pedidos["PRONTO"])
+                    pedido.tipo_solicitacao = tipo
+                    pedido.nome_paciente = vazio if tipo == "PACIENTE" else "Não usar paciente"
+                    pedido.solicitante_nome = vazio if tipo == "MEDICO" else "Não usar profissional"
+                    await db.commit()
+                for metodo in (self.client.get, self.client.post):
+                    r = await metodo(self.base, headers=self.tokens["cozinha"])
+                    self.assertEqual(r.status_code, 422, r.text)
+        async with self.sessoes() as db:
+            self.assertEqual(await db.scalar(select(func.count()).select_from(TrabalhoImpressao)), 0)
 
     async def test_previas_individuais_com_quantidade_destinatario_e_acesso_protegido(self):
         for para, destinos in (("Paciente", ("Paciente",)), ("Acompanhante", ("Acompanhante",)),

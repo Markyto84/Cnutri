@@ -14,7 +14,7 @@ from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, Statu
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc, pedido_operacional
 from ..services.assinatura import gerar_assinatura_png
-from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, previa_png
+from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, nome_etiqueta, previa_png
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
@@ -119,8 +119,8 @@ async def previa_etiqueta(filial_id: int, pedido_id: int, indice: int = Query(0,
     pedido = await obter_pedido(filial_id, pedido_id, db)
     if pedido.status != "PRONTO":
         raise HTTPException(409, "A etiqueta só está disponível para refeições prontas")
-    if not (pedido.nome_paciente or "").strip():
-        raise HTTPException(422, "Este pedido não possui nome de paciente para gerar a etiqueta")
+    if not nome_etiqueta(pedido).strip():
+        raise HTTPException(422, "Este pedido não possui nome do destinatário para gerar a etiqueta")
     destinatarios = destinatarios_etiqueta(pedido)
     if indice >= len(destinatarios):
         raise HTTPException(404, "Esta etiqueta não faz parte do pedido")

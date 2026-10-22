@@ -313,10 +313,13 @@ Em **Administração → Impressoras → Impressora de etiquetas**, a TI configu
 IP, porta, protocolo ZPL ou TSPL, resolução e intervalo do papel por unidade. O tamanho é
 **89 mm × 36 mm**. O cadastro é independente da impressora térmica das filipetas.
 
-Na cozinha, o botão **Etiqueta** aparece nos pedidos de pacientes em **Prontos**, para
-operadores autorizados. A prévia inclui unidade, matrícula, nome, data de nascimento,
+Na cozinha, o botão **Etiqueta** aparece nos pedidos de pacientes e de profissionais
+em **Prontos**, para operadores autorizados. Para pacientes, a prévia inclui unidade, matrícula, nome, data de nascimento,
 dieta, andar e leito, com **CONSUMO IMEDIATO** no rodapé e o ícone da aplicação como
 marca d'água.
+No formulário médico, uma etiqueta identifica unidade, profissional, registro,
+equipe/horário, refeição, suco/sobremesa e local de entrega. Ela usa o nome do
+solicitante e dispensa dados de paciente; atende às equipes Médica e Administração.
 Para **Acompanhante**, a etiqueta traz dieta GERAL e a palavra **Acompanhante**
 à direita na linha do leito. Para **Paciente e Acompanhante**, o mesmo clique
 envia duas etiquetas distintas, uma de cada tipo; o diálogo mostra ambas antes

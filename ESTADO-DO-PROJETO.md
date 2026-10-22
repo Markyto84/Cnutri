@@ -40,6 +40,20 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Etiqueta do formulário médico habilitada em Prontos (22/10/2026), inclusive para
+  a equipe Administração. Uma etiqueta de 89 × 36 mm com unidade, profissional,
+  registro profissional, equipe/horário, refeição, suco/sobremesa e local de entrega,
+  além de marca d'água e rodapé CONSUMO IMEDIATO. Nome do solicitante identifica o
+  destinatário; não exige dados de paciente. Mesma impressora/fila da unidade.
+  APIs mantêm perfil, vínculo, nome obrigatório correspondente ao formulário e
+  status Pronto. Pedidos de paciente continuam exigindo o nome do paciente.
+  Prévia e enfileiramento médico conferidos no navegador com dados fictícios;
+  112 testes de backend, 17 de frontend e build aprovados. Lint mantém os dois
+  avisos anteriores de dependências de useEffect em Gestao.jsx.
+  Atualização ativa na rede, HTTP 200, integridade das 14 tabelas confirmada e
+  backup local `backups/backup-dietas-2026-10-22-antes-etiqueta-medico.dump`
+  com catálogo legível, fora do Git; conferência física da impressão pendente.
+
 - ✅ Condições do campo Para no formulário de paciente (22/10/2026): Paciente mantém
   o fluxo; Acompanhante permite somente dieta GERAL e seu grupo de cardápio;
   Paciente e Acompanhante mantém a dieta/cardápio do paciente e exige o novo

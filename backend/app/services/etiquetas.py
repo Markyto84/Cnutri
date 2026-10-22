@@ -17,7 +17,14 @@ RODAPE = "CONSUMO IMEDIATO"
 ICONE = Path(__file__).resolve().parents[1] / "assets" / "cnutri-icon-v2.png"
 
 
+def nome_etiqueta(pedido):
+    campo = "solicitante_nome" if getattr(pedido, "tipo_solicitacao", None) == "MEDICO" else "nome_paciente"
+    return getattr(pedido, campo, None) or ""
+
+
 def destinatarios_etiqueta(pedido):
+    if getattr(pedido, "tipo_solicitacao", None) == "MEDICO":
+        return ("Profissional",)
     destino = normalizar_nome((pedido.dados_dinamicos or {}).get("para"))
     if destino == AMBOS:
         return ("Paciente", "Acompanhante")
@@ -32,6 +39,14 @@ def campos_etiqueta(pedido, filial, destinatario=None):
             valor = "; ".join(str(v) for v in valor)
         valor = unicodedata.normalize("NFC", str(valor if valor is not None else ""))
         return " ".join("".join(c if unicodedata.category(c) != "Cc" else " " for c in valor).split()) or "Não informado"
+
+    if getattr(pedido, "tipo_solicitacao", None) == "MEDICO":
+        return [("Unidade", texto(filial.nome)), ("Profissional", texto(nome_etiqueta(pedido))),
+            ("Registro", texto(getattr(pedido, "solicitante_identificacao", None))),
+            ("Equipe / Horário", f"{texto(dinamicos.get('equipe'))} | {texto(dinamicos.get('horario_entrega'))}"),
+            ("Refeição", texto(dinamicos.get("refeicao"))),
+            ("Suco / Sobremesa", f"{texto(dinamicos.get('suco'))} | {texto(dinamicos.get('sobremesa'))}"),
+            ("Local de entrega", texto(dinamicos.get("local_entrega")))]
 
     nascimento = texto(dinamicos.get("data_nascimento"))
     try:
@@ -100,7 +115,7 @@ def renderizar_etiqueta(campos, resolucao=203, acompanhante=False):
                 if largura_linha > largura - 2 * margem:
                     cabe_leito = False
                     break
-            linhas.extend((linha, chave in ("Unidade", "Nome"), marcar)
+            linhas.extend((linha, chave in ("Unidade", "Nome", "Profissional", "Refeição"), marcar)
                 for linha in ([texto] if marcar else textwrap.wrap(texto, colunas, break_on_hyphens=False)))
         if not cabe_leito:
             continue
