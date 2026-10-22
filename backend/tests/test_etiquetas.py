@@ -6,35 +6,67 @@ import unittest
 from unittest.mock import patch
 
 import httpx
-from PIL import Image, ImageChops, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.database import Base, get_db
 from app.core.sessoes import emitir_sessao
 from app.main import app
-from app.models.models import Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, Perfil, TrabalhoImpressao, Usuario
-from app.services.etiquetas import campos_etiqueta, codificar_etiqueta, renderizar_etiqueta
+from app.models.models import Dieta, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, Perfil, TrabalhoImpressao, Usuario
+from app.services.etiquetas import campos_etiqueta, codificar_etiqueta, marca_dagua, renderizar_etiqueta
 from app.services.fila_impressao import enfileirar, processar_um
 from app.services.impressora import ErroEnvioImpressora
 
 
 def exemplo():
-    return SimpleNamespace(nome_paciente="João da Conceição", dados_dinamicos={
-        "matricula": "00000123", "refeicao": "ALMOÇO", "cardapio": "FRANGO AO MOLHO, ARROZ E FEIJÃO"})
+    return SimpleNamespace(nome_paciente="João da Conceição", leito="OBS-12", dieta=SimpleNamespace(nome="BRANDA"),
+        dados_dinamicos={"matricula": "00000123", "data_nascimento": "1985-04-09", "andar": "4º ANDAR",
+            "refeicao": "ALMOÇO", "cardapio": "FRANGO AO MOLHO, ARROZ E FEIJÃO"})
 
 
 class LayoutEtiquetaTest(unittest.TestCase):
-    def test_cinco_campos_acento_matricula_e_geometria(self):
+    def test_sete_campos_na_ordem_com_data_dieta_acento_matricula_e_geometria(self):
         campos = campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João"))
-        self.assertEqual(campos, [("Unidade", "Hospital São João"), ("Paciente", "João da Conceição"),
-            ("Matrícula", "00000123"), ("Refeição", "ALMOÇO"), ("Cardápio", "FRANGO AO MOLHO, ARROZ E FEIJÃO")])
+        self.assertEqual(campos, [("Unidade", "Hospital São João"), ("Matrícula", "00000123"),
+            ("Nome", "João da Conceição"), ("Data de nascimento", "09/04/1985"),
+            ("Dieta", "BRANDA"), ("Andar", "4º ANDAR"), ("Leito", "OBS-12")])
         for dpi in (203, 300):
             imagem = renderizar_etiqueta(campos, dpi)
             self.assertEqual(imagem.size, (round(89 * dpi / 25.4), round(36 * dpi / 25.4)))
             self.assertIsNotNone(ImageOps.invert(imagem).getbbox())
         sem_acento = [(chave, valor.replace("João", "Joao")) for chave, valor in campos]
         self.assertIsNotNone(ImageChops.difference(renderizar_etiqueta(campos), renderizar_etiqueta(sem_acento)).getbbox())
+
+    def test_dados_antigos_ausentes_e_nascimento_ja_formatado(self):
+        pedido = SimpleNamespace(nome_paciente=None, dados_dinamicos=None)
+        campos = campos_etiqueta(pedido, SimpleNamespace(nome="Unidade"))
+        self.assertEqual(len(campos), 7)
+        self.assertTrue(all(valor == "Não informado" for _, valor in campos[1:]))
+        pedido.dados_dinamicos = {"data_nascimento": "09/04/1985"}
+        self.assertEqual(dict(campos_etiqueta(pedido, SimpleNamespace(nome="Unidade")))["Data de nascimento"], "09/04/1985")
+        renderizar_etiqueta(campos)
+
+    def test_rodape_reservado_e_marca_dagua_suave_sobrevive_ao_monocromatico(self):
+        campos = campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João"))
+        for dpi in (203, 300):
+            with self.subTest(dpi=dpi):
+                marca = marca_dagua(dpi)
+                self.assertEqual(set(marca.tobytes()), {0, 255})
+                pretos = marca.histogram()[0]
+                self.assertGreater(pretos, 100)
+                self.assertLess(pretos / (marca.width * marca.height), 0.2)
+                with patch("app.services.etiquetas.marca_dagua", return_value=Image.new("L", marca.size, 255)):
+                    sem_marca = renderizar_etiqueta(campos, dpi)
+                desenho_texto = ImageDraw.ImageDraw.text
+                with patch.object(ImageDraw.ImageDraw, "text", autospec=True, side_effect=desenho_texto) as textos:
+                    imagem = renderizar_etiqueta(campos, dpi)
+                self.assertEqual(textos.call_args.args[2], "CONSUMO IMEDIATO")
+                self.assertIsNotNone(ImageChops.difference(imagem, sem_marca).getbbox())
+                altura_rodape = round(4.5 * dpi / 25.4)
+                caixa = (0, imagem.height - altura_rodape, imagem.width, imagem.height)
+                self.assertIsNone(ImageChops.difference(imagem.crop(caixa), sem_marca.crop(caixa)).getbbox())
+                self.assertIsNone(ImageChops.difference(imagem, imagem.convert("1", dither=Image.Dither.NONE).convert("L")).getbbox())
 
     def test_zpl_e_tspl_reconstituem_os_mesmos_pixels_com_polaridades_proprias(self):
         imagem = renderizar_etiqueta(campos_etiqueta(exemplo(), SimpleNamespace(nome="Unidade Teste")))
@@ -58,12 +90,12 @@ class LayoutEtiquetaTest(unittest.TestCase):
 
     def test_texto_longo_nao_e_cortado_e_entradas_nao_injetam_comandos(self):
         pedido = exemplo()
-        pedido.dados_dinamicos["cardapio"] = "^XZ\x1b\r\n" + "CARDÁPIO " * 300
+        pedido.dieta.nome = "^XZ\x1b\r\n" + "DIETA " * 300
         campos = campos_etiqueta(pedido, SimpleNamespace(nome="Hospital"))
         self.assertNotIn("\x1b", str(campos))
         with self.assertRaisesRegex(ValueError, "nenhum texto será cortado"):
             renderizar_etiqueta(campos)
-        pedido.dados_dinamicos["cardapio"] = "^XZ ~JA ação"
+        pedido.dieta.nome = "^XZ ~JA ação"
         pacote = codificar_etiqueta(renderizar_etiqueta(campos_etiqueta(pedido, SimpleNamespace(nome="Hospital"))))
         self.assertEqual(pacote.count(b"^XZ"), 1)
 
@@ -80,6 +112,9 @@ class EtiquetaApiTest(unittest.IsolatedAsyncioTestCase):
             db.add_all([filial, outra])
             await db.flush()
             self.a, self.b = filial.id, outra.id
+            dieta = Dieta(filial_id=self.a, nome="BRANDA")
+            db.add(dieta)
+            await db.flush()
             self.tokens = {}
             for nome, perfil, unidades in (("admin", "ADMIN_TI", []), ("cozinha", "COZINHA", [filial]),
                 ("outro", "NUTRICIONISTA", [outra]), ("copeira", "COPEIRA", [filial])):
@@ -91,7 +126,8 @@ class EtiquetaApiTest(unittest.IsolatedAsyncioTestCase):
             self.pedidos = {}
             for status in ("PENDENTE", "EM_PREPARO", "PRONTO", "ENTREGUE", "CANCELADO"):
                 p = Pedido(filial_id=self.a, tipo_solicitacao="PACIENTE", status=status, solicitante_identificacao="TESTE",
-                    nome_paciente=exemplo().nome_paciente, dados_dinamicos=exemplo().dados_dinamicos)
+                    nome_paciente=exemplo().nome_paciente, dados_dinamicos=exemplo().dados_dinamicos,
+                    dieta_id=dieta.id, leito=exemplo().leito)
                 db.add(p)
                 await db.flush()
                 self.pedidos[status] = p.id
@@ -122,7 +158,10 @@ class EtiquetaApiTest(unittest.IsolatedAsyncioTestCase):
         png = await self.client.get(self.base, headers=self.tokens["cozinha"])
         self.assertEqual(png.status_code, 200, png.text if png.status_code != 200 else "")
         self.assertIn("no-store", png.headers["cache-control"])
-        self.assertEqual(Image.open(BytesIO(png.content)).size, (711, 288))
+        imagem = Image.open(BytesIO(png.content))
+        self.assertEqual(imagem.size, (711, 288))
+        esperada = renderizar_etiqueta(campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João")))
+        self.assertIsNone(ImageChops.difference(imagem, esperada).getbbox())
 
     async def test_filas_independentes_sem_duplicar_cliques_e_sem_imprimir_na_requisicao(self):
         async with self.sessoes() as db:
@@ -157,6 +196,8 @@ class EtiquetaApiTest(unittest.IsolatedAsyncioTestCase):
         publico = await self.client.get(f"/api/operacao/unidades/{self.a}/pedidos")
         self.assertNotIn("00000123", publico.text)
         self.assertNotIn('"matricula"', publico.text)
+        self.assertNotIn("1985-04-09", publico.text)
+        self.assertNotIn('"data_nascimento"', publico.text)
 
     async def test_refeicao_entregue_antes_do_processamento_cancela_etiqueta_sem_tcp(self):
         await self.client.post(self.base, headers=self.tokens["cozinha"])

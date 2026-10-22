@@ -290,7 +290,9 @@ IP, porta, protocolo ZPL ou TSPL, resolução e intervalo do papel por unidade. 
 **89 mm × 36 mm**. O cadastro é independente da impressora térmica das filipetas.
 
 Na cozinha, o botão **Etiqueta** aparece nos pedidos de pacientes em **Prontos**, para
-operadores autorizados. A prévia inclui unidade, paciente, matrícula, refeição e cardápio.
+operadores autorizados. A prévia inclui unidade, matrícula, nome, data de nascimento,
+dieta, andar e leito, com **CONSUMO IMEDIATO** no rodapé e o ícone da aplicação como
+marca d'água.
 O servidor valida o status antes de enfileirar e antes do envio. Veja [ETIQUETAS.md](ETIQUETAS.md)
 para configuração, estados da fila, privacidade e homologação no equipamento.
 
