@@ -317,6 +317,11 @@ Na cozinha, o botão **Etiqueta** aparece nos pedidos de pacientes em **Prontos*
 operadores autorizados. A prévia inclui unidade, matrícula, nome, data de nascimento,
 dieta, andar e leito, com **CONSUMO IMEDIATO** no rodapé e o ícone da aplicação como
 marca d'água.
+Para **Acompanhante**, a etiqueta traz dieta GERAL e a palavra **Acompanhante**
+à direita na linha do leito. Para **Paciente e Acompanhante**, o mesmo clique
+envia duas etiquetas distintas, uma de cada tipo; o diálogo mostra ambas antes
+do envio. Reimprimir repete o conjunto completo, com conferência obrigatória
+quando o envio anterior tiver sido interrompido.
 O servidor valida o status antes de enfileirar e antes do envio. Veja [ETIQUETAS.md](ETIQUETAS.md)
 para configuração, estados da fila, privacidade e homologação no equipamento.
 

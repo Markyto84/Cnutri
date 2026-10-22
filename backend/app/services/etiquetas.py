@@ -9,6 +9,7 @@ import unicodedata
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 
 from .impressao_raster import PASTA_FONTES
+from .formulario_paciente import ACOMPANHANTE, AMBOS, normalizar_nome
 
 LARGURA_MM = 89
 ALTURA_MM = 36
@@ -16,7 +17,14 @@ RODAPE = "CONSUMO IMEDIATO"
 ICONE = Path(__file__).resolve().parents[1] / "assets" / "cnutri-icon-v2.png"
 
 
-def campos_etiqueta(pedido, filial):
+def destinatarios_etiqueta(pedido):
+    destino = normalizar_nome((pedido.dados_dinamicos or {}).get("para"))
+    if destino == AMBOS:
+        return ("Paciente", "Acompanhante")
+    return ("Acompanhante",) if destino == ACOMPANHANTE else ("Paciente",)
+
+
+def campos_etiqueta(pedido, filial, destinatario=None):
     dinamicos = pedido.dados_dinamicos or {}
 
     def texto(valor):
@@ -31,9 +39,11 @@ def campos_etiqueta(pedido, filial):
     except ValueError:
         pass  # Pedidos antigos podem ter a data já formatada ou não preenchida.
     dieta = getattr(pedido, "dieta", None)
+    destinatario = destinatario or destinatarios_etiqueta(pedido)[0]
+    dieta_nome = "GERAL" if destinatario == "Acompanhante" else dieta.nome if dieta else None
     return [("Unidade", texto(filial.nome)), ("Matrícula", texto(dinamicos.get("matricula"))),
         ("Nome", texto(pedido.nome_paciente)), ("Data de nascimento", nascimento),
-        ("Dieta", texto(dieta.nome if dieta else None)), ("Andar", texto(dinamicos.get("andar"))),
+        ("Dieta", texto(dieta_nome)), ("Andar", texto(dinamicos.get("andar"))),
         ("Leito", texto(getattr(pedido, "leito", None)))]
 
 
@@ -66,7 +76,7 @@ def marca_dagua(resolucao):
     return reticula
 
 
-def renderizar_etiqueta(campos, resolucao=203):
+def renderizar_etiqueta(campos, resolucao=203, acompanhante=False):
     if resolucao not in (203, 300):
         raise ValueError("Resolução da impressora inválida")
     largura, altura = round(LARGURA_MM * resolucao / 25.4), round(ALTURA_MM * resolucao / 25.4)
@@ -80,16 +90,31 @@ def renderizar_etiqueta(campos, resolucao=203):
         espaco = max(2, round(resolucao / 100))
         passo = sum(fonte.getmetrics()) + espaco
         colunas = int((largura - 2 * margem) // fonte.getlength("M"))
-        linhas = [(linha, chave in ("Unidade", "Nome")) for chave, valor in campos
-            for linha in textwrap.wrap(f"{chave}: {valor}", colunas, break_on_hyphens=False)]
+        linhas = []
+        cabe_leito = True
+        for chave, valor in campos:
+            texto = f"{chave}: {valor}"
+            marcar = acompanhante and chave == "Leito"
+            if marcar:
+                largura_linha = fonte.getlength(texto) + fonte_etiqueta(fonte.size, True).getlength("Acompanhante") + round(2 * resolucao / 25.4)
+                if largura_linha > largura - 2 * margem:
+                    cabe_leito = False
+                    break
+            linhas.extend((linha, chave in ("Unidade", "Nome"), marcar)
+                for linha in ([texto] if marcar else textwrap.wrap(texto, colunas, break_on_hyphens=False)))
+        if not cabe_leito:
+            continue
         if len(linhas) * passo <= separador - margem - espaco:
             imagem = Image.new("L", (largura, altura), 255)
             marca = marca_dagua(resolucao)
             imagem.paste(marca, ((largura - marca.width) // 2, margem + (separador - margem - marca.height) // 2))
             desenho = ImageDraw.Draw(imagem)
-            for n, (linha, negrito) in enumerate(linhas):
+            for n, (linha, negrito, marcar) in enumerate(linhas):
                 desenho.text((margem, margem + n * passo), linha, font=fonte_etiqueta(fonte.size, negrito),
                     fill=0, anchor="lt", stroke_width=1, stroke_fill=255)
+                if marcar:
+                    desenho.text((largura - margem, margem + n * passo), "Acompanhante",
+                        font=fonte_etiqueta(fonte.size, True), fill=0, anchor="rt", stroke_width=1, stroke_fill=255)
             desenho.line((margem, separador, largura - margem - 1, separador), fill=0)
             desenho.text(((largura - fonte_rodape.getlength(RODAPE)) / 2, topo_rodape), RODAPE,
                 font=fonte_rodape, fill=0, anchor="lt")
@@ -97,9 +122,9 @@ def renderizar_etiqueta(campos, resolucao=203):
     raise ValueError("O texto excede a etiqueta de 89 × 36 mm. Revise o comprimento dos campos; nenhum texto será cortado")
 
 
-def previa_png(campos, resolucao=203):
+def previa_png(campos, resolucao=203, acompanhante=False):
     arquivo = BytesIO()
-    renderizar_etiqueta(campos, resolucao).save(arquivo, format="PNG")
+    renderizar_etiqueta(campos, resolucao, acompanhante).save(arquivo, format="PNG")
     return arquivo.getvalue()
 
 
@@ -121,5 +146,10 @@ def codificar_etiqueta(imagem, protocolo="ZPL", intervalo_mm=2):
 
 
 def montar_etiqueta(pedido, filial, configuracao):
-    imagem = renderizar_etiqueta(campos_etiqueta(pedido, filial), configuracao["resolucao"])
-    return codificar_etiqueta(imagem, configuracao["protocolo"], configuracao["intervalo_mm"])
+    documentos = []
+    for destinatario in destinatarios_etiqueta(pedido):
+        imagem = renderizar_etiqueta(campos_etiqueta(pedido, filial, destinatario),
+            configuracao["resolucao"], destinatario == "Acompanhante")
+        documentos.append(codificar_etiqueta(imagem, configuracao["protocolo"], configuracao["intervalo_mm"]))
+    # Prepara todas antes de enviar; cada comando imprime um único exemplar.
+    return b"".join(documentos)

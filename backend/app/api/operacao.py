@@ -1,5 +1,5 @@
 """Cozinha e entregas por unidade, sem exigir login para abrir os painéis."""
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,7 @@ from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, Statu
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc, pedido_operacional
 from ..services.assinatura import gerar_assinatura_png
-from ..services.etiquetas import campos_etiqueta, previa_png
+from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, previa_png
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
@@ -113,19 +113,26 @@ async def reimprimir(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | 
 
 
 @router.get("/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta")
-async def previa_etiqueta(filial_id: int, pedido_id: int, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
+async def previa_etiqueta(filial_id: int, pedido_id: int, indice: int = Query(0, ge=0, le=1),
+    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
     filial = await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     if pedido.status != "PRONTO":
         raise HTTPException(409, "A etiqueta só está disponível para refeições prontas")
     if not (pedido.nome_paciente or "").strip():
         raise HTTPException(422, "Este pedido não possui nome de paciente para gerar a etiqueta")
+    destinatarios = destinatarios_etiqueta(pedido)
+    if indice >= len(destinatarios):
+        raise HTTPException(404, "Esta etiqueta não faz parte do pedido")
+    destinatario = destinatarios[indice]
     impressora = await db.get(ImpressoraEtiqueta, filial_id)
     try:
-        imagem = await run_in_threadpool(previa_png, campos_etiqueta(pedido, filial), impressora.resolucao if impressora else 203)
+        imagem = await run_in_threadpool(previa_png, campos_etiqueta(pedido, filial, destinatario),
+            impressora.resolucao if impressora else 203, destinatario == "Acompanhante")
     except ValueError as erro:
         raise HTTPException(422, str(erro)) from None
-    return Response(imagem, media_type="image/png", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    return Response(imagem, media_type="image/png", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+        "X-Quantidade-Etiquetas": str(len(destinatarios)), "X-Destinatario-Etiqueta": destinatario})
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta", status_code=202)

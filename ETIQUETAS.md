@@ -7,12 +7,24 @@ nesta ordem: **Unidade, Matrícula, Nome, Data de nascimento, Dieta, Andar e Lei
 O rodapé traz **CONSUMO IMEDIATO** e o ícone da aba do navegador aparece como marca
 d'água. Confira a prévia e pressione **Imprimir etiqueta**. Reimpressões usam o mesmo botão.
 
+O campo **Para** define o conjunto enviado por clique:
+
+| Para | Etiquetas |
+|---|---|
+| Paciente (ou pedidos antigos sem Para) | Uma etiqueta, com a dieta do paciente. |
+| Acompanhante | Uma etiqueta com dieta GERAL e **Acompanhante** à direita, na mesma linha do leito. |
+| Paciente e Acompanhante | Duas etiquetas distintas: uma do paciente com sua dieta e outra do acompanhante com dieta GERAL e a identificação ao lado do leito. |
+
+As duas preservam os identificadores do paciente ao qual a refeição está vinculada.
+Cada etiqueta mede **89 mm × 36 mm**, com marca d'água e rodapé próprios. O diálogo
+mostra as prévias separadas e o botão **Imprimir 2 etiquetas** quando houver ambas.
+
 O botão aparece somente para Cozinha, Nutrição ou TI autorizados na unidade, em
 pedidos prontos com nome de paciente. Pedidos médicos sem paciente não exibem esse
 botão. Campos antigos não preenchidos aparecem como **Não informado**; a matrícula
 é obtida do formulário, preservando zeros à esquerda. O nascimento é exibido em
-dia/mês/ano; a dieta corresponde ao nome da dieta cadastrada no pedido, o andar ao
-formulário e o leito ao registro do paciente.
+dia/mês/ano; a dieta do paciente corresponde ao nome cadastrado no pedido e a do
+acompanhante é GERAL. Andar e leito continuam vinculados ao paciente.
 
 A etiqueta é solicitada pelo operador; mudar o status para Pronto habilita o botão.
 A API recusa etiquetas de pedidos pendentes, em preparo, entregues ou cancelados.
@@ -51,13 +63,15 @@ caracteres da impressora. A fonte adapta-se de 10 a 7 pontos para caber; se o te
 exceder o espaço mesmo na menor fonte, o trabalho falha com orientação para revisar
 o conteúdo. Nomes e dietas não são cortados silenciosamente. O rodapé possui espaço
 reservado e fonte de 9 pontos.
+Na etiqueta do acompanhante, o cálculo também reserva espaço para a identificação
+à direita, mantendo o leito em uma linha sem sobreposição.
 
 A marca d'água usa uma cópia do mesmo arquivo do favicon, distribuída nos assets do
 backend. Sua retícula suave de pontos pretos permanece visível nos protocolos
 monocromáticos; o texto é desenhado por cima, com contorno branco para manter a leitura.
 A prévia usa os mesmos pixels que a impressão, em 203 ou 300 dpi.
 
-ZPL usa `^GFA`, com dados hexadecimais e um exemplar por envio, conforme o
+ZPL usa `^GFA`, com dados hexadecimais e um exemplar por documento, conforme o
 [manual oficial da Zebra](https://cpws.zebra.com/cpws/docs/zpl/zpl-zbi2-pm-en.pdf).
 TSPL usa `SIZE`, `GAP`, `BITMAP` e `PRINT`, conforme o
 [manual oficial da TSC](https://fs.tscprinters.com/en/dl/1/2541).
@@ -69,15 +83,25 @@ ativo; é necessário conferir o modelo e a emulação antes de imprimir em pape
 
 - Etiquetas e filipetas usam trabalhos independentes na fila persistida. Cada pedido
   pode ter um trabalho ativo de cada tipo; cliques repetidos retornam o trabalho ativo.
+- O par paciente/acompanhante é um único trabalho, com dois documentos rasterizados
+  distintos e um exemplar de cada. Todos são preparados antes de abrir a conexão;
+  uma falha ao preparar o segundo impede o envio do primeiro. Os bytes do conjunto
+  são persistidos para manter os mesmos documentos em tentativas posteriores.
 - A configuração da impressora é copiada para o trabalho da etiqueta. Alterar IP,
   protocolo ou resolução depois afeta novos trabalhos; uma tentativa pendente conserva
   o documento e a impressora originais.
 - Há até três tentativas para falhas antes de conectar. Transmissões interrompidas
   exigem conferir o papel e confirmar outra cópia. **Enviado** confirma transmissão TCP,
   sem garantir saída física ou impressão correta do equipamento.
+- **Reimprimir 2 etiquetas** repete o conjunto completo. Um envio parcial pode ter
+  impresso uma delas; o operador precisa conferir o papel e confirmar o reenvio.
 - Matrícula e nascimento não são acrescentados ao dashboard ou ao WebSocket público. A imagem da
   etiqueta exige autenticação/perfil/unidade e usa `Cache-Control: private, no-store`.
   A prévia do navegador é descartada ao fechar a caixa.
+- As prévias PNG aceitam `indice=0` ou `indice=1` e informam quantidade/destinatário
+  em `X-Quantidade-Etiquetas` e `X-Destinatario-Etiqueta`. Índice inexistente retorna
+  404 quando permitido mas ausente no pedido, e valores fora de 0–1 retornam 422.
+  Autenticação, perfil, unidade e status Pronto são conferidos em cada imagem.
 - A inicialização cria `impressoras_etiquetas` e acrescenta `tipo_documento` e
   `configuracao` em `trabalhos_impressao`. Trabalhos anteriores permanecem FILIPETA,
   com seus dados/estados preservados; não são criadas etiquetas de pedidos históricos.
@@ -87,12 +111,12 @@ ativo; é necessário conferir o modelo e a emulação antes de imprimir em pape
   pedidos, entregas, comprovantes ou a configuração das impressoras térmicas.
 
 Backup local anterior à atualização do layout:
-`backups/backup-dietas-2026-10-22-antes-layout-etiquetas.dump`, fora
+`backups/backup-dietas-2026-10-22-antes-etiquetas-acompanhante.dump`, fora
 do Git. A leitura do catálogo é conferida com `pg_restore --list`; não substitui um
 teste de restauração completo.
 
-Validação do layout de 22/10/2026: 93 testes de backend, incluindo oito em schemas PostgreSQL exclusivos,
-onze testes de frontend e build aprovados. Lint mantém dois avisos anteriores em
+Validação do layout de 22/10/2026: 108 testes de backend, incluindo oito em schemas PostgreSQL exclusivos,
+17 testes de frontend e build aprovados. Lint mantém dois avisos anteriores em
 `Gestao.jsx`. A fila e as transmissões são verificadas com impressoras simuladas;
 nenhuma impressão física de teste é feita nesta etapa.
 

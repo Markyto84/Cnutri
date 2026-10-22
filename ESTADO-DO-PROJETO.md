@@ -61,13 +61,22 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 - ✅ Etiquetas de 89 mm × 36 mm atualizadas em 22/10/2026: unidade, matrícula, nome,
   data de nascimento (dia/mês/ano), dieta cadastrada, andar e leito, nessa ordem.
+  Acompanhante: dieta GERAL e identificação **Acompanhante** à direita na linha do
+  leito. Paciente e Acompanhante: um clique prepara/envia duas etiquetas distintas,
+  uma de cada tipo; prévias individuais, inclusive no celular, e quantidade
+  explícita no botão. Um trabalho contém os dois documentos, sem duplicar cliques;
+  falha de preparação impede envio parcial e transmissão incerta exige conferir
+  o papel antes de repetir o conjunto completo. Nenhuma mudança de banco.
   Rodapé **CONSUMO IMEDIATO** e ícone do navegador como marca d'água pontilhada,
   compatível com a impressão monocromática em 203 e 300 dpi, com prévia dos mesmos pixels.
   Cadastro por unidade em Administração → Impressoras, com modelo/IP/porta/ZPL ou TSPL/dpi.
   Botão e prévia na cozinha somente em Prontos, com autorização e conferência do status também
   no servidor/consumidor. Fila independente da filipeta, acentos rasterizados e reenvio controlado.
   Nenhum IP de etiquetas ativado automaticamente; usuário ainda não possui os modelos/IPs.
-  Validação mais recente: 93 testes de backend, onze de frontend e build aprovados.
+  Validação mais recente: 108 testes de backend, 17 de frontend e build aprovados.
+  Etiquetas individuais e par conferidos no navegador com dados fictícios, incluindo
+  tela mobile de 390 × 844. Atualização na rede com HTTP 200, 14 tabelas preservadas
+  e backup local `backups/backup-dietas-2026-10-22-antes-etiquetas-acompanhante.dump`.
   Detalhes e homologação física pendente em [ETIQUETAS.md](ETIQUETAS.md).
 
 - ✅ Política de senhas novas ajustada a pedido do usuário: de 8 a 12 caracteres, com uma

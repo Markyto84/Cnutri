@@ -14,7 +14,7 @@ from app.core.database import Base, get_db
 from app.core.sessoes import emitir_sessao
 from app.main import app
 from app.models.models import Dieta, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, Perfil, TrabalhoImpressao, Usuario
-from app.services.etiquetas import campos_etiqueta, codificar_etiqueta, marca_dagua, renderizar_etiqueta
+from app.services.etiquetas import campos_etiqueta, codificar_etiqueta, destinatarios_etiqueta, marca_dagua, montar_etiqueta, renderizar_etiqueta
 from app.services.fila_impressao import enfileirar, processar_um
 from app.services.impressora import ErroEnvioImpressora
 
@@ -26,6 +26,55 @@ def exemplo():
 
 
 class LayoutEtiquetaTest(unittest.TestCase):
+    def test_destinatarios_preservam_dieta_paciente_e_usam_geral_para_acompanhante(self):
+        pedido = exemplo()
+        for para, esperados in ((None, ("Paciente",)), ("Paciente", ("Paciente",)),
+            ("Acompanhante", ("Acompanhante",)), ("Paciente e Acompanhante", ("Paciente", "Acompanhante"))):
+            pedido.dados_dinamicos["para"] = para
+            self.assertEqual(destinatarios_etiqueta(pedido), esperados)
+            for destinatario in esperados:
+                campos = dict(campos_etiqueta(pedido, SimpleNamespace(nome="Hospital"), destinatario))
+                self.assertEqual(campos["Dieta"], "GERAL" if destinatario == "Acompanhante" else "BRANDA")
+                self.assertEqual(campos["Nome"], pedido.nome_paciente)
+                self.assertEqual(campos["Leito"], pedido.leito)
+            self.assertEqual(dict(campos_etiqueta(pedido, SimpleNamespace(nome="Hospital")))["Dieta"],
+                "GERAL" if esperados[0] == "Acompanhante" else "BRANDA")
+
+    def test_acompanhante_na_mesma_linha_do_leito_a_direita_sem_sobrepor(self):
+        pedido = exemplo()
+        pedido.leito = "L" * 30
+        campos = campos_etiqueta(pedido, SimpleNamespace(nome="Hospital"), "Acompanhante")
+        for dpi in (203, 300):
+            desenho_texto = ImageDraw.ImageDraw.text
+            with patch.object(ImageDraw.ImageDraw, "text", autospec=True, side_effect=desenho_texto) as textos:
+                imagem = renderizar_etiqueta(campos, dpi, True)
+            leito = next(c for c in textos.call_args_list if c.args[2].startswith("Leito:"))
+            marca = next(c for c in textos.call_args_list if c.args[2] == "Acompanhante")
+            self.assertEqual(leito.args[1][1], marca.args[1][1])
+            self.assertEqual(marca.kwargs["anchor"], "rt")
+            self.assertEqual(marca.args[1][0], imagem.width - round(1.5 * dpi / 25.4))
+            fim_leito = leito.args[1][0] + leito.kwargs["font"].getlength(leito.args[2])
+            inicio_marca = marca.args[1][0] - marca.kwargs["font"].getlength("Acompanhante")
+            self.assertGreater(inicio_marca - fim_leito, 0)
+
+    def test_zpl_e_tspl_enviam_uma_etiqueta_distinta_por_destinatario(self):
+        pedido = exemplo()
+        filial = SimpleNamespace(nome="Hospital")
+        for para in ("Paciente", "Acompanhante", "Paciente e Acompanhante"):
+            pedido.dados_dinamicos["para"] = para
+            quantidade = 2 if para == "Paciente e Acompanhante" else 1
+            for protocolo in ("ZPL", "TSPL"):
+                for dpi in (203, 300):
+                    config = {"protocolo": protocolo, "resolucao": dpi, "intervalo_mm": 2}
+                    pacote = montar_etiqueta(pedido, filial, config)
+                    esperado = b"".join(codificar_etiqueta(renderizar_etiqueta(campos_etiqueta(pedido, filial, d), dpi, d == "Acompanhante"), protocolo)
+                        for d in destinatarios_etiqueta(pedido))
+                    self.assertEqual(pacote, esperado)
+                    self.assertEqual(pacote.count(b"^PQ1,0,1,N^XZ" if protocolo == "ZPL" else b"\r\nPRINT 1,1\r\n"), quantidade)
+                    if quantidade == 2:
+                        imagens = [renderizar_etiqueta(campos_etiqueta(pedido, filial, d), dpi, d == "Acompanhante") for d in destinatarios_etiqueta(pedido)]
+                        self.assertIsNotNone(ImageChops.difference(*imagens).getbbox())
+
     def test_sete_campos_na_ordem_com_data_dieta_acento_matricula_e_geometria(self):
         campos = campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João"))
         self.assertEqual(campos, [("Unidade", "Hospital São João"), ("Matrícula", "00000123"),
@@ -144,6 +193,72 @@ class EtiquetaApiTest(unittest.IsolatedAsyncioTestCase):
         await self.client.aclose()
         app.dependency_overrides.clear()
         await self.engine.dispose()
+
+    async def definir_para(self, para):
+        async with self.sessoes() as db:
+            pedido = await db.get(Pedido, self.pedidos["PRONTO"])
+            pedido.dados_dinamicos = {**pedido.dados_dinamicos, "para": para}
+            await db.commit()
+
+    async def test_previas_individuais_com_quantidade_destinatario_e_acesso_protegido(self):
+        for para, destinos in (("Paciente", ("Paciente",)), ("Acompanhante", ("Acompanhante",)),
+            ("Paciente e Acompanhante", ("Paciente", "Acompanhante"))):
+            await self.definir_para(para)
+            for indice, destino in enumerate(destinos):
+                r = await self.client.get(self.base, params={"indice": indice}, headers=self.tokens["cozinha"])
+                self.assertEqual(r.status_code, 200)
+                self.assertEqual(r.headers["x-quantidade-etiquetas"], str(len(destinos)))
+                self.assertEqual(r.headers["x-destinatario-etiqueta"], destino)
+                self.assertIn("no-store", r.headers["cache-control"])
+                esperado = renderizar_etiqueta(campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João"), destino), 203, destino == "Acompanhante")
+                self.assertIsNone(ImageChops.difference(Image.open(BytesIO(r.content)), esperado).getbbox())
+            if len(destinos) == 1:
+                self.assertEqual((await self.client.get(self.base, params={"indice": 1}, headers=self.tokens["cozinha"])).status_code, 404)
+        self.assertEqual((await self.client.get(self.base, params={"indice": 1})).status_code, 401)
+        self.assertEqual((await self.client.get(self.base, params={"indice": 1}, headers=self.tokens["outro"])).status_code, 403)
+        for indice in (-1, 2):
+            self.assertEqual((await self.client.get(self.base, params={"indice": indice}, headers=self.tokens["cozinha"])).status_code, 422)
+
+    async def test_par_usa_um_trabalho_sem_duplicar_cliques_e_envia_as_duas_uma_vez(self):
+        await self.definir_para("Paciente e Acompanhante")
+        a = await self.client.post(self.base, headers=self.tokens["cozinha"])
+        b = await self.client.post(self.base, headers=self.tokens["cozinha"])
+        self.assertEqual(a.json()["impressao"]["id"], b.json()["impressao"]["id"])
+        with patch("app.services.fila_impressao.enviar_filipeta") as transporte:
+            await processar_um(self.sessoes)
+            transporte.assert_called_once()
+            dados = transporte.call_args.args[1]
+            self.assertEqual(dados.count(b"\r\nPRINT 1,1\r\n"), 2)
+        async with self.sessoes() as db:
+            self.assertEqual(await db.scalar(select(func.count()).select_from(TrabalhoImpressao)), 1)
+            armazenados = await db.scalar(select(TrabalhoImpressao.dados))
+            self.assertEqual(armazenados, dados)
+            self.assertEqual((await db.get(Pedido, self.pedidos["PRONTO"])).status, "PRONTO")
+
+    async def test_par_interrompido_nao_reenvia_automaticamente_e_exige_confirmacao(self):
+        await self.definir_para("Paciente e Acompanhante")
+        await self.client.post(self.base, headers=self.tokens["cozinha"])
+        with patch("app.services.fila_impressao.enviar_filipeta", side_effect=ErroEnvioImpressora(incerto=True)) as transporte:
+            await processar_um(self.sessoes)
+            self.assertFalse(await processar_um(self.sessoes))
+            transporte.assert_called_once()
+        self.assertEqual((await self.client.post(self.base, headers=self.tokens["cozinha"])).status_code, 409)
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, self.pedidos["PRONTO"])).etiqueta["estado"], "INCERTO")
+        r = await self.client.post(self.base, headers=self.tokens["cozinha"], json={"confirmar_risco_duplicidade": True})
+        self.assertEqual(r.status_code, 202)
+
+    async def test_falha_na_segunda_etiqueta_nao_envia_primeira_sozinha(self):
+        await self.definir_para("Paciente e Acompanhante")
+        await self.client.post(self.base, headers=self.tokens["cozinha"])
+        with (patch("app.services.etiquetas.renderizar_etiqueta", side_effect=[
+            Image.new("L", (711, 288), 255), ValueError("O texto excede a etiqueta de 89 × 36 mm")]),
+            patch("app.services.fila_impressao.enviar_filipeta") as transporte):
+            await processar_um(self.sessoes)
+            transporte.assert_not_called()
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, self.pedidos["PRONTO"])).etiqueta["estado"], "FALHA")
+            self.assertIsNone(await db.scalar(select(TrabalhoImpressao.dados)))
 
     async def test_somente_pronto_e_operadores_da_unidade_podem_visualizar_e_enfileirar(self):
         for metodo in (self.client.get, self.client.post):
