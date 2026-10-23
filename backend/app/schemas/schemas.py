@@ -4,7 +4,7 @@ from ipaddress import ip_address
 from math import hypot
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..core.login_usuarios import PADRAO_USUARIO, normalizar_usuario
 from ..core.politica_senha import MIN_SENHA, MAX_SENHA, validar_senha
@@ -80,6 +80,24 @@ class UsuarioBase(BaseModel):
     nome_usuario: str = Field(min_length=3, max_length=50, pattern=PADRAO_USUARIO)
     perfil: Literal["ADMIN_TI", "NUTRICIONISTA", "COZINHA", "COPEIRA"]
     filial_ids: list[int] = Field(default_factory=list)
+    origem_autenticacao: Literal["LOCAL", "AD"] = "LOCAL"
+    usuario_ad: str | None = Field(default=None, max_length=254, pattern=r"^[^\s@\\\x00-\x1f\x7f]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
+
+    @field_validator("usuario_ad", mode="before")
+    @classmethod
+    def normalizar_ad(cls, valor):
+        return valor.strip().lower() if isinstance(valor, str) else valor
+
+    @model_validator(mode="after")
+    def conferir_origem(self):
+        if self.origem_autenticacao == "AD":
+            if not self.usuario_ad:
+                raise ValueError("Informe o usuário do AD no formato usuario@dominio")
+            if getattr(self, "senha", None) is not None:
+                raise ValueError("A senha do AD não deve ser cadastrada no Cnutri")
+        elif self.usuario_ad is not None:
+            raise ValueError("Vínculo AD disponível somente para contas do Active Directory")
+        return self
 
     @field_validator("nome", "nome_usuario", mode="before")
     @classmethod
@@ -90,8 +108,14 @@ class UsuarioBase(BaseModel):
 
 
 class UsuarioCreate(UsuarioBase):
-    senha: str = Field(min_length=MIN_SENHA, max_length=MAX_SENHA)
+    senha: str | None = Field(default=None, min_length=MIN_SENHA, max_length=MAX_SENHA)
     _validar_senha = field_validator("senha")(validar_senha)
+
+    @model_validator(mode="after")
+    def exigir_senha_local(self):
+        if self.origem_autenticacao == "LOCAL" and self.senha is None:
+            raise ValueError("Informe uma senha temporária para a conta local")
+        return self
 
 
 class UsuarioUpdate(UsuarioBase):
@@ -107,6 +131,8 @@ class UsuarioOut(BaseModel):
     nome_usuario: str
     ativo: bool
     troca_senha_obrigatoria: bool
+    origem_autenticacao: Literal["LOCAL", "AD"]
+    usuario_ad: str | None
     perfil: str
     filiais: list[FilialOut]
 
@@ -123,6 +149,7 @@ class TokenResponse(BaseModel):
     nome: str
     usuario_id: int
     troca_senha_obrigatoria: bool = False
+    origem_autenticacao: Literal["LOCAL", "AD"] = "LOCAL"
     filiais: list[FilialOut]
 
 

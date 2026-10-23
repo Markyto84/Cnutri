@@ -34,7 +34,8 @@ def verificar_senha(senha: str, hash_: str) -> bool:
 
 
 def criar_token(usuario: Usuario, sessao_id: str) -> str:
-    expira = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRA_MINUTOS)
+    minutos = min(settings.JWT_EXPIRA_MINUTOS, settings.AD_SESSAO_MINUTOS) if usuario.origem_autenticacao == "AD" else settings.JWT_EXPIRA_MINUTOS
+    expira = datetime.now(timezone.utc) + timedelta(minutes=minutos)
     payload = {
         "sub": str(usuario.id),
         "perfil": usuario.perfil.nome,
@@ -60,6 +61,8 @@ async def get_current_user(
         )
     ).scalar_one_or_none()
     if usuario is None or not usuario.ativo:
+        raise CREDENCIAIS_INVALIDAS
+    if usuario.origem_autenticacao == "AD" and not settings.AD_HABILITADO:
         raise CREDENCIAIS_INVALIDAS
     sessao = await db.get(SessaoUsuario, payload["jti"])
     agora = datetime.now(timezone.utc).replace(tzinfo=None)

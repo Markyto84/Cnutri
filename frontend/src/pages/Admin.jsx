@@ -139,40 +139,65 @@ function FormularioUnidade({ filial, filiais, onCancelar, onConcluido }) {
 
 function Credenciais({ filiais, usuarios, usuarioAtual, onConcluido }) {
   const [editando, setEditando] = useState(null)
-  return <div className="grid items-start gap-6 lg:grid-cols-[1fr_390px]">
+  const [ad, setAd] = useState(null)
+  const [erroAD, setErroAD] = useState(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    api.get('/admin/autenticacao-ad', { signal: controller.signal })
+      .then(({ data }) => { if (!controller.signal.aborted) setAd(data) })
+      .catch(() => { if (!controller.signal.aborted) setErroAD('Não foi possível consultar a situação do Active Directory.') })
+    return () => controller.abort()
+  }, [])
+  return <div className="space-y-4">
+    <section className="space-y-2 rounded-xl bg-panel p-5">
+      <h2 className="font-bold">Active Directory</h2>
+      <p className="text-sm text-slate-700">O AD valida a senha da rede. Cadastre aqui quem pode entrar e defina o perfil e as unidades de acesso.</p>
+      {erroAD && <p role="alert" className="text-sm text-red-800">{erroAD}</p>}
+      {ad ? <p className="text-sm text-slate-700"><strong>{ad.habilitado ? 'Integração habilitada' : 'Integração desativada'}</strong>
+        {ad.dominio && ` · Domínio: ${ad.dominio}`}
+        {ad.servidor && ` · Servidor: ${ad.servidor}`}
+        {!ad.habilitado && ' · A TI deve concluir a configuração e o HTTPS antes de liberar o login AD.'}</p>
+        : !erroAD && <p className="text-sm text-slate-700">Consultando integração…</p>}
+    </section>
+    <div className="grid items-start gap-6 lg:grid-cols-[1fr_390px]">
     <div className="space-y-3">{usuarios.map((u) => <article key={u.id} className="rounded-xl bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-bold">{u.nome} {u.id === usuarioAtual.id && <span className="text-sm font-normal">(sua conta)</span>}</h2>
         <p className="mt-1 break-all text-sm text-slate-700">Usuário: <strong>{u.nome_usuario}</strong> · {PERFIS[u.perfil]} · {u.ativo ? 'Ativo' : 'Inativo'}</p></div>
         <button onClick={() => setEditando(u)} className={SECUNDARIO} aria-label={`Editar credencial ${u.nome}`}>Editar credencial</button></div>
+      <p className="mt-2 break-all text-sm text-slate-700">{u.origem_autenticacao === 'AD' ? `Active Directory · ${u.usuario_ad}` : 'Conta local · senha do Cnutri'}</p>
       <p className="mt-3 text-sm text-slate-700">{u.perfil === 'ADMIN_TI' ? 'Acesso a todas as unidades' : u.filiais.map((f) => f.nome).join(', ') || 'Sem unidades vinculadas'}</p>
     </article>)}</div>
-    <FormularioCredencial key={editando?.id || 'nova'} usuario={editando} usuarioAtual={usuarioAtual} filiais={filiais}
+    <FormularioCredencial key={editando?.id || 'nova'} usuario={editando} usuarioAtual={usuarioAtual} filiais={filiais} ad={ad}
       onCancelar={() => setEditando(null)} onConcluido={(m) => { setEditando(null); onConcluido(m) }} />
+    </div>
   </div>
 }
 
-function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onConcluido }) {
-  const vazio = () => ({ nome: '', nome_usuario: '', senha: '', perfil: 'NUTRICIONISTA', ativo: true, filial_ids: [] })
+function FormularioCredencial({ usuario, usuarioAtual, filiais, ad, onCancelar, onConcluido }) {
+  const vazio = () => ({ nome: '', nome_usuario: '', senha: '', perfil: 'NUTRICIONISTA', ativo: true, filial_ids: [], origem_autenticacao: 'LOCAL', usuario_ad: '' })
   const [form, setForm] = useState(() => usuario ? { ...usuario, senha: '', filial_ids: usuario.filiais.map((f) => f.id) } : vazio())
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState(null)
   const propria = usuario?.id === usuarioAtual.id
+  const usaAD = form.origem_autenticacao === 'AD'
+  const exigeSenha = !usuario || usuario.origem_autenticacao === 'AD'
   const alterar = (chave, valor) => setForm((f) => ({ ...f, [chave]: valor }))
 
   async function salvar(e) {
     e.preventDefault(); setErro(null)
-    if ((!usuario || form.senha) && !senhaValida(form.senha)) { setErro(REGRA_SENHA); return }
+    if (!usaAD && (exigeSenha || form.senha) && !senhaValida(form.senha)) { setErro(REGRA_SENHA); return }
     if (form.perfil !== 'ADMIN_TI' && !filiais.some((f) => f.ativa && form.filial_ids.includes(f.id))) {
       setErro('Selecione pelo menos uma unidade ativa para este usuário.'); return
     }
     setSalvando(true)
     try {
-      const dados = { nome: form.nome, nome_usuario: form.nome_usuario, perfil: form.perfil, ativo: form.ativo, filial_ids: form.perfil === 'ADMIN_TI' ? [] : form.filial_ids }
-      if (form.senha) dados.senha = form.senha
+      const dados = { nome: form.nome, nome_usuario: form.nome_usuario, perfil: form.perfil, ativo: form.ativo, filial_ids: form.perfil === 'ADMIN_TI' ? [] : form.filial_ids,
+        origem_autenticacao: usaAD ? 'AD' : 'LOCAL', usuario_ad: usaAD ? form.usuario_ad.trim().toLowerCase() : null }
+      if (!usaAD && form.senha) dados.senha = form.senha
       if (usuario) await api.patch(`/admin/usuarios/${usuario.id}`, dados)
       else await api.post('/admin/usuarios', dados)
       if (!usuario) setForm(vazio())
-      onConcluido(form.senha ? 'Credencial salva com senha temporária. O usuário deverá alterá-la no próximo acesso.' : 'Credencial atualizada.')
+      onConcluido(usaAD ? 'Vínculo AD salvo. O acesso depende da integração ativa e da senha da rede.' : form.senha ? 'Credencial salva com senha temporária. O usuário deverá alterá-la no próximo acesso.' : 'Credencial atualizada.')
     } catch (e) { setErro(mensagemErro(e)) } finally { setSalvando(false) }
   }
 
@@ -184,9 +209,19 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, onCancelar, onCo
       minLength={3} maxLength={50} pattern={'[a-zA-Z0-9][a-zA-Z0-9._\\-]{2,49}'} placeholder="Ex.: maria.silva" aria-describedby="ajuda-nome-usuario"
       className={CAMPO} value={form.nome_usuario} onChange={(e) => alterar('nome_usuario', e.target.value.toLowerCase())} /></Campo>
     <p id="ajuda-nome-usuario" className="text-xs text-slate-700">De 3 a 50 caracteres, começando por letra ou número. Use letras sem acento, números, ponto, hífen ou sublinhado. Cada nome deve ser único.</p>
-    {propria ? <Link to="/senha" className="block text-sm font-semibold text-brand underline">Alterar minha senha com a senha atual</Link> : <Campo titulo={usuario ? 'Nova senha temporária (opcional)' : 'Senha temporária'}><input required={!usuario} type="password" autoComplete="new-password" minLength={MIN_SENHA} maxLength={MAX_SENHA} pattern={PADRAO_SENHA} title={REGRA_SENHA} aria-describedby="regra-senha-temporaria"
+    <Campo titulo="Autenticação"><select disabled={propria} className={CAMPO} value={form.origem_autenticacao || 'LOCAL'}
+      onChange={(e) => setForm((f) => ({ ...f, origem_autenticacao: e.target.value, senha: '' }))}>
+      <option value="LOCAL">Conta local do Cnutri</option><option value="AD">Active Directory (AD)</option>
+    </select></Campo>
+    {usaAD ? <>
+      <Campo titulo="Usuário no AD"><input required type="text" maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false}
+        placeholder={`usuario@${ad?.dominio || 'empresa.local'}`} className={CAMPO} value={form.usuario_ad || ''} disabled={propria}
+        onChange={(e) => alterar('usuario_ad', e.target.value.toLowerCase())} /></Campo>
+      <p className="text-sm text-slate-700">Use o nome de usuário do Cnutri para entrar, com a senha da rede. A senha do AD não é cadastrada ou redefinida aqui.</p>
+      {!ad?.habilitado && <p role="status" className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">O vínculo pode ser preparado, mas o login AD permanece indisponível até a TI ativar a integração.</p>}
+    </> : propria ? <Link to="/senha" className="block text-sm font-semibold text-brand underline">Alterar minha senha com a senha atual</Link> : <Campo titulo={!exigeSenha ? 'Nova senha temporária (opcional)' : 'Senha temporária'}><input required={exigeSenha} type="password" autoComplete="new-password" minLength={MIN_SENHA} maxLength={MAX_SENHA} pattern={PADRAO_SENHA} title={REGRA_SENHA} aria-describedby="regra-senha-temporaria"
       placeholder={usuario ? 'Preencha para substituir a senha' : 'De 8 a 12 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>}
-    {!propria && <p id="regra-senha-temporaria" className="text-xs text-slate-700">{REGRA_SENHA} Senhas criadas ou redefinidas pela TI devem ser trocadas pelo usuário no primeiro acesso.</p>}
+    {!propria && !usaAD && <p id="regra-senha-temporaria" className="text-xs text-slate-700">{REGRA_SENHA} Senhas criadas ou redefinidas pela TI devem ser trocadas pelo usuário no primeiro acesso.</p>}
     <Campo titulo="Perfil de acesso"><select disabled={propria} className={CAMPO} value={form.perfil} onChange={(e) => alterar('perfil', e.target.value)}>
       {Object.entries(PERFIS).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></Campo>
     {form.perfil === 'ADMIN_TI' ? <p className="rounded-lg bg-slate-100 p-3 text-sm text-slate-700">Acesso a todas as unidades e configurações do sistema.</p>

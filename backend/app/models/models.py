@@ -42,6 +42,9 @@ class Usuario(Base):
     # E-mails anteriores são preservados como dado legado, sem uso na autenticação.
     email: Mapped[str | None] = mapped_column(String(120), unique=True, nullable=True)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    origem_autenticacao: Mapped[str] = mapped_column(String(8), default="LOCAL", server_default="LOCAL", nullable=False)
+    usuario_ad: Mapped[str | None] = mapped_column(String(254))
+    ad_object_guid: Mapped[str | None] = mapped_column(String(36))
     perfil_id: Mapped[int] = mapped_column(ForeignKey("perfis.id", ondelete="RESTRICT"), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     troca_senha_obrigatoria: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
@@ -51,7 +54,11 @@ class Usuario(Base):
     filiais: Mapped[list["Filial"]] = relationship(
         secondary="usuarios_filiais", lazy="selectin"
     )
-    __table_args__ = (Index("uq_usuarios_nome_usuario", func.lower(nome_usuario), unique=True),)
+    __table_args__ = (
+        Index("uq_usuarios_nome_usuario", func.lower(nome_usuario), unique=True),
+        Index("uq_usuarios_ad", func.lower(usuario_ad), unique=True),
+        Index("uq_usuarios_ad_guid", ad_object_guid, unique=True),
+    )
 
 
 class UsuarioFilial(Base):

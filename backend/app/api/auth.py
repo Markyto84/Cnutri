@@ -1,9 +1,11 @@
 """Autenticação: nome de usuário definido pela TI e senha (JWT)."""
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ..core.database import get_db
@@ -13,6 +15,7 @@ from ..core.presenca import TEMPO_PRESENCA, agora_utc
 from ..core.login_usuarios import normalizar_usuario
 from ..core.controle_login import conferir_limites, logger
 from ..core.sessoes import emitir_sessao, revogar_sessoes
+from ..services.active_directory import ADIndisponivel, autenticar_ad
 from ..models.models import SessaoCopeira, SessaoUsuario, Usuario
 from ..schemas.schemas import FilialOut, PresencaUpdate, TokenResponse, TrocaSenhaCreate, UsuarioOut
 
@@ -32,7 +35,32 @@ async def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), d
         ).with_for_update(of=Usuario)
     )
     usuario = resultado.scalar_one_or_none()
-    correta = verificar_senha(form.password, usuario.senha_hash if usuario else HASH_COMPARACAO)
+    correta = False
+    if usuario and usuario.ativo and usuario.origem_autenticacao == "AD":
+        if not settings.AD_HABILITADO:
+            raise HTTPException(503, "Integração com o Active Directory desativada. Procure a TI.")
+        if request.url.scheme != "https":
+            raise HTTPException(503, "O acesso pelo Active Directory exige HTTPS no Cnutri. Procure a TI.")
+        try:
+            guid = await asyncio.to_thread(autenticar_ad, usuario.usuario_ad, form.password)
+        except ADIndisponivel:
+            for limite in limites:
+                limite.falhas += 1
+            await db.commit()
+            logger.warning("ad_indisponivel usuario_id=%s", usuario.id)
+            raise HTTPException(503, "Active Directory indisponível. Procure a TI ou tente novamente mais tarde.") from None
+        if guid and (not usuario.ad_object_guid or usuario.ad_object_guid == guid):
+            outra_conta = await db.scalar(select(Usuario.id).where(Usuario.ad_object_guid == guid, Usuario.id != usuario.id))
+            if outra_conta is None:
+                usuario.ad_object_guid = guid
+                try:
+                    await db.flush()
+                except IntegrityError:
+                    await db.rollback()
+                    raise HTTPException(401, "Usuário ou senha inválidos") from None
+                correta = True
+    else:
+        correta = verificar_senha(form.password, usuario.senha_hash if usuario and usuario.origem_autenticacao == "LOCAL" else HASH_COMPARACAO)
     if usuario is None or not correta or not usuario.ativo:
         for limite in limites:
             limite.falhas += 1
@@ -47,6 +75,8 @@ async def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), d
 
 @router.post("/senha", response_model=TokenResponse)
 async def trocar_senha(dados: TrocaSenhaCreate, request: Request, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
+    if usuario.origem_autenticacao == "AD":
+        raise HTTPException(403, "A senha desta conta é administrada pelo Active Directory. Solicite a alteração à TI.")
     ip = request.client.host if request.client else "desconhecido"
     limites = await conferir_limites(db, ip, f"senha:{usuario.id}")
     # Uma redefinição concorrente deve prevalecer sobre a senha carregada no início da requisição.

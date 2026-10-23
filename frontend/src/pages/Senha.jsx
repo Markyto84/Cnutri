@@ -31,6 +31,13 @@ export default function Senha() {
   }
 
   const campo = 'mt-1 min-h-12 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 text-base outline-none focus:border-brand'
+  if (usuario.origem_autenticacao === 'AD') return <main className="flex min-h-screen items-center justify-center bg-app-background p-4 text-slate-900">
+    <div className="w-full max-w-md space-y-5 rounded-xl bg-panel p-6">
+      <h1 className="text-2xl font-bold">Senha da rede</h1>
+      <p>Sua senha é administrada pelo Active Directory. Para alterar ou recuperar a senha, siga o procedimento da TI.</p>
+      <button onClick={() => navegar(destinoAposLogin(usuario, parametros))} className="font-semibold text-brand underline">Voltar ao painel</button>
+    </div>
+  </main>
   return <main className="flex min-h-screen items-center justify-center bg-app-background p-4 text-slate-900">
     <form onSubmit={salvar} className="w-full max-w-md space-y-5 rounded-2xl border-t-4 border-brand-vibrant bg-panel p-6 shadow-xl sm:p-8">
       <div><p className="text-sm font-semibold text-brand">Cnutri · {usuario.nome}</p><h1 className="mt-2 text-2xl font-bold">{usuario.troca_senha_obrigatoria ? 'Defina sua nova senha' : 'Alterar minha senha'}</h1></div>

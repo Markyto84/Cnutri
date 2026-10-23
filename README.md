@@ -400,12 +400,12 @@ Set-Location backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 91 testes de backend. Oito exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
+A suíte inclui testes que exigem `CNUTRI_TEST_POSTGRES_URL` apontando explicitamente
 para um banco de testes PostgreSQL com permissão para criar schemas. Usam schemas exclusivos,
-revertidos ou removidos ao terminar: três migrações e cinco verificações de concorrência de
+revertidos ou removidos ao terminar: migrações e verificações de concorrência de
 senhas, repetição de pedidos, consumo da fila e status durante o envio da etiqueta. Sem a
-variável, esses oito são omitidos; os outros 83 usam SQLite isolado ou verificam serviços
-Python sem acessar registros do hospital.
+variável, os testes PostgreSQL são omitidos; os demais usam SQLite isolado ou verificam
+serviços Python sem acessar registros do hospital.
 Os testes de entrega cobrem presença por login, saída, expiração, unidades, registro único,
 concorrência, proteção do canal interno e preservação do consumo após a entrega. Também verificam
 assinatura obrigatória, imagem salva, horário do servidor, acesso ao comprovante, filtros de data
@@ -423,9 +423,18 @@ renomeação mantendo senha e sessão, nomes inválidos/duplicados e cadastro re
 Também são verificados encerramento dos canais privados no logout/troca/reset, expiração
 de sessão já conectada, tentativas limitadas de impressão, transmissão incerta, preservação
 do documento, idempotência, limites dos turnos em Brasília e grupos com nomes iguais.
-No frontend, `npm test` executa onze testes de autorização, retorno seguro após o login,
-persistência da chave da solicitação, mensagens de impressão e regras das senhas novas.
+No frontend, `npm test` verifica autorização, retorno seguro após o login, condições
+do acompanhante, persistência da solicitação, mensagens de impressão, regras das senhas
+novas e proteção do protocolo encaminhado pelo proxy.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
+
+## Active Directory e permissões
+
+A área Administração → Credenciais permite escolher conta local ou AD local do
+Windows Server. A senha AD é validada no domínio; perfil e unidades continuam
+controlados no Cnutri. A integração vem desativada e exige LDAPS com certificado
+válido e HTTPS no acesso à aplicação. Usuários e senhas atuais são preservados.
+Veja [configuração, ativação e limites das sessões AD](ACTIVE-DIRECTORY.md).
 
 ## Configuração dos formulários no GitHub
 

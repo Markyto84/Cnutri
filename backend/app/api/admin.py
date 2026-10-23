@@ -2,6 +2,7 @@
 import asyncio
 from copy import deepcopy
 import socket
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -13,6 +14,7 @@ from ..core.database import get_db
 from ..core.security import exigir_perfis, hash_senha
 from ..core.sessoes import revogar_sessoes
 from ..core.ws import gerenciador_ws
+from ..services.active_directory import situacao_ad
 from ..models.models import Dieta, Filial, FormularioConfig, ImpressoraEtiqueta, Perfil, Usuario
 from ..schemas.schemas import FilialCreate, FilialOut, FilialUpdate, ImpressoraUpdate, ImpressoraEtiquetaOut, ImpressoraEtiquetaUpdate, UsuarioCreate, UsuarioOut, UsuarioUpdate
 from .gestao import ESQUEMA_PADRAO_ENFERMAGEM, ESQUEMA_PADRAO_MEDICO
@@ -168,6 +170,11 @@ async def validar_credencial(dados: UsuarioCreate | UsuarioUpdate, db: AsyncSess
 
 
 # ─── Utilizadores ────────────────────────────────────────────────────────────
+@router.get("/autenticacao-ad")
+async def configuracao_ad(_: Usuario = Depends(ADMIN)):
+    return situacao_ad()
+
+
 @router.get("/usuarios", response_model=list[UsuarioOut])
 async def listar_usuarios(db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
     return (await db.execute(consulta_usuarios().order_by(Usuario.nome))).scalars().all()
@@ -179,9 +186,13 @@ async def criar_usuario(dados: UsuarioCreate, db: AsyncSession = Depends(get_db)
     if existe:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nome de usuário já cadastrado")
     perfil, filiais = await validar_credencial(dados, db)
-    usuario = Usuario(nome=dados.nome, nome_usuario=dados.nome_usuario, senha_hash=hash_senha(dados.senha), perfil=perfil, filiais=filiais, troca_senha_obrigatoria=True)
+    local = dados.origem_autenticacao == "LOCAL"
+    usuario = Usuario(nome=dados.nome, nome_usuario=dados.nome_usuario,
+        senha_hash=hash_senha(dados.senha if local else secrets.token_urlsafe(32)),
+        origem_autenticacao=dados.origem_autenticacao, usuario_ad=dados.usuario_ad,
+        perfil=perfil, filiais=filiais, troca_senha_obrigatoria=local)
     db.add(usuario)
-    await confirmar(db, "Nome de usuário já cadastrado")
+    await confirmar(db, "Nome de usuário ou conta AD já cadastrados")
     await db.refresh(usuario)
     return UsuarioOut.model_validate(usuario)
 
@@ -195,21 +206,36 @@ async def atualizar_usuario(usuario_id: int, dados: UsuarioUpdate, db: AsyncSess
         raise HTTPException(status.HTTP_409_CONFLICT, "Você não pode desativar ou retirar o perfil administrativo da sua própria conta")
     if usuario.id == administrador.id and dados.senha is not None:
         raise HTTPException(422, "Use a opção Alterar minha senha para mudar a senha da própria conta")
-    if usuario.ativo and usuario.perfil.nome == "ADMIN_TI" and (not dados.ativo or dados.perfil != "ADMIN_TI"):
+    mudou_vinculo = usuario.origem_autenticacao != dados.origem_autenticacao or usuario.usuario_ad != dados.usuario_ad
+    if usuario.id == administrador.id and mudou_vinculo:
+        raise HTTPException(409, "Outra conta administrativa deve alterar a origem de autenticação da sua conta")
+    if usuario.ativo and usuario.perfil.nome == "ADMIN_TI" and usuario.origem_autenticacao == "LOCAL" and (
+        not dados.ativo or dados.perfil != "ADMIN_TI" or dados.origem_autenticacao != "LOCAL"
+    ):
         administradores = (await db.execute(
-            select(Usuario).join(Usuario.perfil).where(Usuario.ativo.is_(True), Perfil.nome == "ADMIN_TI")
+            select(Usuario).join(Usuario.perfil).where(Usuario.ativo.is_(True), Perfil.nome == "ADMIN_TI", Usuario.origem_autenticacao == "LOCAL")
             .order_by(Usuario.id).with_for_update(of=Usuario)
         )).scalars().all()
         if len(administradores) <= 1:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Mantenha pelo menos um administrador ativo")
+            raise HTTPException(status.HTTP_409_CONFLICT, "Mantenha pelo menos um administrador local ativo")
+    if usuario.origem_autenticacao == "AD" and dados.origem_autenticacao == "LOCAL" and dados.senha is None:
+        raise HTTPException(422, "Defina uma senha temporária ao converter a conta AD em conta local")
     perfil, filiais = await validar_credencial(dados, db)
     usuario.nome, usuario.nome_usuario = dados.nome, dados.nome_usuario
     usuario.perfil, usuario.filiais, usuario.ativo = perfil, filiais, dados.ativo
-    if dados.senha is not None:
+    usuario.origem_autenticacao, usuario.usuario_ad = dados.origem_autenticacao, dados.usuario_ad
+    if mudou_vinculo:
+        usuario.ad_object_guid = None
+    if dados.origem_autenticacao == "AD":
+        usuario.troca_senha_obrigatoria = False
+        if mudou_vinculo:
+            usuario.senha_hash = hash_senha(secrets.token_urlsafe(32))
+    elif dados.senha is not None:
         usuario.senha_hash = hash_senha(dados.senha)
         usuario.troca_senha_obrigatoria = True
+    if mudou_vinculo or dados.senha is not None or not dados.ativo:
         await revogar_sessoes(db, usuario.id)
-    await confirmar(db, "Nome de usuário já cadastrado")
+    await confirmar(db, "Nome de usuário ou conta AD já cadastrados")
     await db.refresh(usuario)
     await gerenciador_ws.encerrar_usuario(usuario.id)
     return UsuarioOut.model_validate(usuario)

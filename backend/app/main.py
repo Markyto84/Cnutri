@@ -13,6 +13,7 @@ from .core.login_usuarios import migrar_login_usuarios
 from .core.migracao_seguranca import migrar_seguranca
 from .core.migracao_operacao import migrar_operacao
 from .core.migracao_etiquetas import migrar_etiquetas
+from .core.migracao_ad import migrar_ad
 from .core.credenciais_iniciais import conferir_credenciais_producao
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(migrar_seguranca)
         await conn.run_sync(migrar_operacao)
         await conn.run_sync(migrar_etiquetas)
+        await conn.run_sync(migrar_ad)
     async with SessionLocal() as db:
         await executar_seed(db)
         if settings.APP_ENV == "production":

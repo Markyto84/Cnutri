@@ -71,7 +71,7 @@ export default function Login() {
         </button>
 
         <p className="text-center text-xs text-slate-700">
-          Use o usuário e a senha fornecidos pelo administrador de TI.
+          Use as credenciais fornecidas pela TI. Contas do AD utilizam a senha da rede.
         </p>
       </form>
     </div>

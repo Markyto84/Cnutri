@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', dados.access_token)
     localStorage.setItem('perfil', dados.perfil)
     localStorage.setItem('nome', dados.nome)
-    const sessao = { id: dados.usuario_id, nome: dados.nome, perfil: dados.perfil, filiais: dados.filiais, troca_senha_obrigatoria: Boolean(dados.troca_senha_obrigatoria) }
+    const sessao = { id: dados.usuario_id, nome: dados.nome, perfil: dados.perfil, filiais: dados.filiais, troca_senha_obrigatoria: Boolean(dados.troca_senha_obrigatoria), origem_autenticacao: dados.origem_autenticacao || 'LOCAL' }
     setUsuario(sessao)
     setPlantaoOnline(false)
     setCarregando(false)

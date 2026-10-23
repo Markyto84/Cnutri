@@ -16,10 +16,39 @@ from app.core.login_usuarios import PADRAO_USUARIO, migrar_login_usuarios
 from app.core.migracao_seguranca import migrar_seguranca
 from app.core.migracao_operacao import migrar_operacao
 from app.core.migracao_etiquetas import migrar_etiquetas
+from app.core.migracao_ad import migrar_ad
 
 
 @unittest.skipUnless(os.environ.get("CNUTRI_TEST_POSTGRES_URL"), "Requer CNUTRI_TEST_POSTGRES_URL para testar a migração PostgreSQL")
 class MigracaoLoginTest(unittest.IsolatedAsyncioTestCase):
+    async def test_migracao_ad_preserva_senhas_vinculos_e_define_contas_locais(self):
+        engine = create_async_engine(os.environ["CNUTRI_TEST_POSTGRES_URL"])
+        schema = "teste_ad_" + uuid4().hex
+        try:
+            async with engine.connect() as conn:
+                transacao = await conn.begin()
+                try:
+                    await conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+                    await conn.exec_driver_sql(f'SET LOCAL search_path TO "{schema}"')
+                    await conn.exec_driver_sql("CREATE TABLE usuarios (id INTEGER PRIMARY KEY, senha_hash TEXT NOT NULL)")
+                    await conn.exec_driver_sql("INSERT INTO usuarios VALUES (1, 'hash-preservado'), (2, 'outro-hash')")
+                    await conn.exec_driver_sql("CREATE TABLE vinculos (usuario_id INTEGER REFERENCES usuarios(id))")
+                    await conn.exec_driver_sql("INSERT INTO vinculos VALUES (1)")
+                    await conn.run_sync(migrar_ad)
+                    await conn.run_sync(migrar_ad)
+                    registros = (await conn.exec_driver_sql("SELECT id, senha_hash, origem_autenticacao, usuario_ad, ad_object_guid FROM usuarios ORDER BY id")).all()
+                    self.assertEqual([tuple(r) for r in registros], [(1, 'hash-preservado', 'LOCAL', None, None), (2, 'outro-hash', 'LOCAL', None, None)])
+                    self.assertEqual((await conn.exec_driver_sql("SELECT usuario_id FROM vinculos")).scalar_one(), 1)
+                    await conn.exec_driver_sql("UPDATE usuarios SET usuario_ad = 'pessoa@empresa.local', ad_object_guid = 'guid-exemplo' WHERE id = 1")
+                    for coluna, valor in (("usuario_ad", "PESSOA@EMPRESA.LOCAL"), ("ad_object_guid", "guid-exemplo")):
+                        with self.assertRaises(IntegrityError):
+                            async with conn.begin_nested():
+                                await conn.execute(text(f"UPDATE usuarios SET {coluna} = :valor WHERE id = 2"), {"valor": valor})
+                finally:
+                    await transacao.rollback()
+        finally:
+            await engine.dispose()
+
     async def test_migracao_de_etiquetas_preserva_fila_e_separa_tipos_sem_reimprimir(self):
         engine = create_async_engine(os.environ["CNUTRI_TEST_POSTGRES_URL"])
         schema = "teste_etiquetas_" + uuid4().hex

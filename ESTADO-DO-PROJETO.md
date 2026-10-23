@@ -40,6 +40,25 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Integração opcional com AD local preparada em 23/10/2026. Administração →
+  Credenciais permite conta local ou vínculo AD (UPN), mantendo perfil e unidades
+  no Cnutri. Somente contas previamente cadastradas/ativas acessam; senha da rede
+  não é persistida, não há fallback local, certificados LDAPS são obrigatórios e
+  login AD exige HTTPS. GUID fixa a identidade após o primeiro login; mantém um
+  administrador local ativo e revoga sessões ao converter origem/identidade.
+  Sessão AD limitada a 30 minutos por padrão; situação no domínio é reavaliada
+  no login, sem consulta contínua ao AD. Ver [configuração e limites](ACTIVE-DIRECTORY.md).
+  Domínio informado salvo somente no ambiente privado; AD permanece desativado,
+  aguardando a TI indicar controlador/certificados e a publicação HTTPS futura.
+  Descoberta DNS local encontrou vários controladores, sem escolher um ou enviar
+  credenciais. Nenhuma conta existente convertida. Passaram 138 testes de backend
+  (incluindo nove PostgreSQL em banco temporário separado) e 19 de frontend, além
+  de build e conferência do cadastro/edição em navegador com dados fictícios.
+  Lint mantém os dois avisos anteriores em Gestao.jsx. Atualização disponível na
+  rede, HTTP 200, integridade dos dados anteriores nas 14 tabelas confirmada;
+  backup privado `backups/backup-dietas-2026-10-23-antes-ad.dump` com catálogo de
+  124 linhas legível, sem teste completo de restauração.
+
 - ✅ Editor de formulários da Gestão identificado em 22/10/2026: nome de cada campo
   acima da caixa de opções, incluindo listas e botões de seleção, com atualização
   automática ao renomear ou criar campos. Nome/tipo do campo, título, informativo e
