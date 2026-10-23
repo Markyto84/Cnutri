@@ -1,0 +1,11 @@
+# Complemento para o servidor Linux já publicado com docker-compose.prod.yml.
+# Não execute para substituir a instalação Windows ou criar outro banco vazio.
+services:
+  frontend:
+    environment:
+      CNUTRI_HOSTNAME: ${CNUTRI_HOSTNAME:?Informe o nome DNS da aplicação}
+    ports:
+      - "443:443"
+    volumes:
+      - ./infra/nginx-https.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${CNUTRI_TLS_DIR:?Informe a pasta privada com servidor.pem e chave.pem}:/etc/nginx/cnutri-tls:ro

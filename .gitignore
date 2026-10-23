@@ -15,6 +15,14 @@ dev.log
 .env
 .env.local
 
+# Certificados e chaves da infraestrutura (configuração privada)
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+
 # Sistema
 .DS_Store
 Thumbs.db

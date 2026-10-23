@@ -13,6 +13,12 @@ $runtimeRoot = Join-Path $projectRoot 'work'
 $logsRoot = Join-Path $runtimeRoot 'logs'
 $pythonPath = Join-Path $backendRoot '.venv\Scripts\python.exe'
 $statePath = Join-Path $runtimeRoot 'servicos.json'
+$httpsConfigPath = Join-Path $runtimeRoot 'https\active.json'
+$httpsSettings = if (Test-Path -LiteralPath $httpsConfigPath) { Get-Content -LiteralPath $httpsConfigPath -Raw | ConvertFrom-Json } else { $null }
+$httpsEnabled = $null -ne $httpsSettings -and $httpsSettings.habilitado
+$frontendPort = if ($httpsEnabled) { 443 } else { 5173 }
+$frontendBase = if ($httpsEnabled) { $httpsSettings.url } else { 'http://127.0.0.1:5173' }
+$frontendHealth = "$frontendBase/api/health"
 
 function Assert-CommandSucceeded([string]$Action) {
     if ($LASTEXITCODE -ne 0) { throw "Falha ao $Action (codigo $LASTEXITCODE)." }
@@ -45,8 +51,8 @@ function Wait-Http([string]$Url) {
 
 function Show-ServiceInfo {
     Write-Host "Cnutri em execucao a partir de: $projectRoot" -ForegroundColor Green
-    Write-Host 'Formulario: http://localhost:5173/unidade-havai'
-    Write-Host 'Login:      http://localhost:5173/login'
+    Write-Host "Formulario: $frontendBase/unidade-havai"
+    Write-Host "Login:      $frontendBase/login"
     Write-Host "Logs:       $logsRoot"
 }
 
@@ -54,7 +60,7 @@ $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
 $npmPath = (Get-Command npm.cmd -ErrorAction Stop).Source
 Get-Command docker.exe -ErrorAction Stop | Out-Null
 $backendProcess = Get-OwnedListener 8000
-$frontendProcess = Get-OwnedListener 5173
+$frontendProcess = Get-OwnedListener $frontendPort
 if ($InstalarDependencias -and ($backendProcess -or $frontendProcess)) {
     throw 'Execute .\stop.ps1 antes de reinstalar as dependencias.'
 }
@@ -83,6 +89,12 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendRoot 'node_modules\vite\bin
 
 & $pythonPath (Join-Path $backendRoot 'configurar_ambiente.py') --inicializar-admin
 Assert-CommandSucceeded 'preparar a configuracao privada'
+if ($httpsEnabled) {
+    & $pythonPath (Join-Path $backendRoot 'https_config.py') --conferir-config $httpsConfigPath
+    Assert-CommandSucceeded 'conferir o certificado HTTPS'
+    if (-not (Test-Path -LiteralPath (Join-Path $runtimeRoot 'runtime\caddy\caddy.exe'))) { throw 'Execute configurar-https.ps1 para preparar o Caddy.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $frontendRoot 'dist\index.html'))) { throw 'Gere o frontend com npm run build antes de iniciar em HTTPS.' }
+}
 
 # O WMI inicia o supervisor fora da arvore do terminal. Interromper um comando de
 # desenvolvimento nao deve encerrar junto a API e o frontend que atendem a rede.
@@ -98,8 +110,8 @@ if (-not $SessaoIndependente -and (-not $backendProcess -or -not $frontendProces
     }
     if ($launch.ReturnValue -ne 0) { throw "Falha ao iniciar a sessao independente (codigo $($launch.ReturnValue))." }
     Wait-Http 'http://127.0.0.1:8000/api/health'
-    Wait-Http 'http://127.0.0.1:5173/api/health'
-    if (-not (Get-OwnedListener 8000) -or -not (Get-OwnedListener 5173)) { throw 'Os servicos iniciados nao pertencem a esta copia.' }
+    Wait-Http $frontendHealth
+    if (-not (Get-OwnedListener 8000) -or -not (Get-OwnedListener $frontendPort)) { throw 'Os servicos iniciados nao pertencem a esta copia.' }
     Show-ServiceInfo
     return
 }
@@ -126,19 +138,25 @@ $serviceState.backend = @{ id = $backendProcess.Id; startedAt = $backendProcess.
 $serviceState | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
 
 if (-not $frontendProcess) {
-    $vitePath = Join-Path $frontendRoot 'node_modules\vite\bin\vite.js'
-    $frontendArguments = '"{0}" --host 0.0.0.0 --port 5173 --strictPort' -f $vitePath
-    $frontendProcess = Start-Process -FilePath $nodePath -ArgumentList $frontendArguments `
+    if ($httpsEnabled) {
+        $frontendExecutable = Join-Path $runtimeRoot 'runtime\caddy\caddy.exe'
+        $frontendArguments = 'run --config "{0}" --adapter caddyfile' -f $httpsSettings.caddyfile
+    } else {
+        $frontendExecutable = $nodePath
+        $vitePath = Join-Path $frontendRoot 'node_modules\vite\bin\vite.js'
+        $frontendArguments = '"{0}" --host 0.0.0.0 --port 5173 --strictPort' -f $vitePath
+    }
+    $frontendProcess = Start-Process -FilePath $frontendExecutable -ArgumentList $frontendArguments `
         -WorkingDirectory $frontendRoot -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $logsRoot 'frontend.log') `
         -RedirectStandardError (Join-Path $logsRoot 'frontend-error.log')
 }
 $serviceState.frontend = @{ id = $frontendProcess.Id; startedAt = $frontendProcess.StartTime.ToUniversalTime().ToString('o') }
 $serviceState | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
-Wait-Http 'http://127.0.0.1:5173/api/health'
-$frontendProcess = Get-OwnedListener 5173
+Wait-Http $frontendHealth
+$frontendProcess = Get-OwnedListener $frontendPort
 if (-not $frontendProcess) { throw 'O processo do frontend nao foi identificado.' }
-$serviceState.frontend = @{ id = $frontendProcess.Id; startedAt = $frontendProcess.StartTime.ToUniversalTime().ToString('o') }
+$serviceState.frontend = @{ id = $frontendProcess.Id; startedAt = $frontendProcess.StartTime.ToUniversalTime().ToString('o'); https = $httpsEnabled; url = $frontendBase }
 $serviceState | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
 
 Show-ServiceInfo

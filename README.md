@@ -428,6 +428,15 @@ do acompanhante, persistência da solicitação, mensagens de impressão, regras
 novas e proteção do protocolo encaminhado pelo proxy.
 As impressoras são simuladas nesses testes; a saída em papel deve ser validada no equipamento real.
 
+## HTTPS
+
+Para configurar o certificado da TI na instalação Windows atual, use
+`configurar-https.ps1`. No servidor Linux/Docker, há o complemento
+`docker-compose.https.yml`. A ativação depende do nome DNS reservado ao Cnutri,
+certificado válido para esse nome e chave privada. Veja [HTTPS.md](HTTPS.md)
+para preparação, ativação, renovação e validações. Os acessos atuais são mantidos
+até que a configuração seja aplicada.
+
 ## Active Directory e permissões
 
 A área Administração → Credenciais permite escolher conta local ou AD local do

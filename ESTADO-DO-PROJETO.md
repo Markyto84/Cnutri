@@ -40,6 +40,24 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ⏳ HTTPS preparado em 23/10/2026, **ainda não ativado**: aguardando o nome DNS
+  reservado à aplicação e os arquivos do certificado/chave da TI. Solicitados ao
+  usuário; não foram encontrados nas pastas consultadas ou no repositório pessoal
+  de certificados. Não presumir que o domínio do AD é o endereço do aplicativo.
+  `configurar-https.ps1` prepara PEM/PFX, valida SAN/validade/chave/uso, testa
+  confiança TLS em sonda local antes da troca e permite aplicar com reversão.
+  `start.ps1` mantém HTTP por padrão e suporta Caddy com frontend compilado quando
+  existe `work/https/active.json`. Caddy 2.11.7 obtido da distribuição oficial,
+  pacote SHA-256 conferido; certificados/chaves/binários fora do Git. Portas 80 e
+  5173 passam a redirecionar para HTTPS/443 somente após aplicação. API e banco
+  preservados; nenhum certificado de teste foi instalado no Windows.
+  Sete testes de HTTPS aprovados, incluindo gateway real local com CA descartável,
+  redirecionamento canônico/caminho/parâmetros, SPA, API, WSS e falhas TLS; nginx -t
+  e Compose HTTPS conferidos em contêiner temporário sem portas públicas ou dados
+  do hospital. Scripts PowerShell conferidos; start em HTTP e acesso da rede
+  responderam HTTP 200. Homologação do certificado real, DNS, firewall e confiança
+  nas outras máquinas permanece pendente. Veja [HTTPS.md](HTTPS.md).
+
 - ✅ Integração opcional com AD local preparada em 23/10/2026. Administração →
   Credenciais permite conta local ou vínculo AD (UPN), mantendo perfil e unidades
   no Cnutri. Somente contas previamente cadastradas/ativas acessam; senha da rede

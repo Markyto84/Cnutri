@@ -56,7 +56,10 @@ protocolo real; um cabeçalho fornecido pelo cliente não libera a autenticaçã
 Na configuração final de HTTPS, mantenha o backend acessível somente ao proxy
 confiável. Se houver outro terminador TLS, a TI deve configurar explicitamente
 essa cadeia e os cabeçalhos do proxy; não aceite cabeçalhos de origens arbitrárias.
-O arquivo nginx atual atende HTTP e não foi convertido para HTTPS nesta entrega.
+O nginx padrão continua atendendo HTTP. Para publicar HTTPS, use a configuração
+Windows ou o complemento de produção descritos em [HTTPS.md](HTTPS.md), com os
+arquivos e o nome DNS fornecidos pela TI. A integração AD não é ativada
+automaticamente pela configuração do HTTPS.
 
 Depois de configurar o servidor/certificados, reinicie o backend e consulte
 Administração → Credenciais. O estado “Integração habilitada” informa a
