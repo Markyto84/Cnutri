@@ -17,6 +17,9 @@ Os painéis usam WebSocket com reconciliação condicional a cada dois minutos,
 contexto central de unidades/prazos/plantão e recuperação automática de falhas.
 Veja [sincronização e redução de consultas](SINCRONIZACAO-OPERACIONAL.md).
 
+A captura e geração dos comprovantes de assinatura ficam em um módulo reutilizável,
+com contrato de integração e testes de compatibilidade. Veja [módulo de assinatura](MODULO-ASSINATURA.md).
+
 ---
 
 ## Estrutura do projeto

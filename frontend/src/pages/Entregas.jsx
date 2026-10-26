@@ -4,7 +4,7 @@ import { useOperacao } from '../hooks/useOperacao.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
 import { api } from '../services/api.js'
 import { podeOperar, useAuth } from '../context/auth.js'
-import AssinaturaRecebedor from '../components/AssinaturaRecebedor.jsx'
+import { Assinatura, prepararAssinatura, validarAssinatura } from '../modules/assinatura/index.js'
 import FiltrosOperacao from '../components/FiltrosOperacao.jsx'
 import AlertaDemora from '../components/AlertaDemora.jsx'
 import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
@@ -78,6 +78,7 @@ function ModalEntrega({ pedido, filialId, copeiras, copeiraPropria, erroPlantao,
   const [etapa, setEtapa] = useState(1)
   const [recebedor, setRecebedor] = useState('')
   const [tracos, setTracos] = useState([])
+  const erroAssinatura = validarAssinatura(tracos)
   const disponivel = copeiras.some((c) => c.id === Number(copeiraId))
 
   useEffect(() => {
@@ -90,12 +91,13 @@ function ModalEntrega({ pedido, filialId, copeiras, copeiraPropria, erroPlantao,
     evento.preventDefault()
     if (enviando || !disponivel || !pronto) return
     if (etapa === 1) { setEtapa(2); setErro(''); return }
-    if (recebedor.trim().length < 3 || !tracos.length) return
+    if (recebedor.trim().length < 3) return
+    if (erroAssinatura) { setErro(erroAssinatura); return }
     setEnviando(true)
     setErro('')
     try {
       const { data } = await api.post(`/operacao/unidades/${filialId}/pedidos/${pedido.id}/entregar`, {
-        copeira_id: Number(copeiraId), recebedor_nome: recebedor.trim(), assinatura: { tracos },
+        copeira_id: Number(copeiraId), recebedor_nome: recebedor.trim(), assinatura: prepararAssinatura(tracos),
       })
       onConcluir(data)
     } catch (e) {
@@ -128,12 +130,12 @@ function ModalEntrega({ pedido, filialId, copeiras, copeiraPropria, erroPlantao,
           <input required minLength={3} maxLength={120} autoComplete="off" value={recebedor} onChange={(e) => setRecebedor(e.target.value)} disabled={enviando}
             className="mt-2 min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" />
         </label>
-        <AssinaturaRecebedor tracos={tracos} onChange={setTracos} disabled={enviando || !pronto} />
+        <Assinatura rotulo="Área de assinatura do recebedor" tracos={tracos} onChange={setTracos} disabled={enviando || !pronto} />
         <p className="text-xs text-slate-700">Ao finalizar, a assinatura e a data e hora da entrega serão salvas no relatório.</p>
       </>}
       <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
         <button type="button" disabled={enviando} onClick={() => etapa === 1 ? onFechar() : setEtapa(1)} className={`${BOTAO} bg-slate-50`}>Voltar</button>
-        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao) || (etapa === 2 && (!tracos.length || recebedor.trim().length < 3))} className={`${BOTAO} bg-brand text-white hover:bg-brand-hover`}>{enviando ? 'Registrando…' : etapa === 1 ? 'Continuar para assinatura' : 'Finalizar entrega'}</button>
+        <button type="submit" disabled={enviando || !disponivel || !pronto || Boolean(erroPlantao) || (etapa === 2 && (Boolean(erroAssinatura) || recebedor.trim().length < 3))} className={`${BOTAO} bg-brand text-white hover:bg-brand-hover`}>{enviando ? 'Registrando…' : etapa === 1 ? 'Continuar para assinatura' : 'Finalizar entrega'}</button>
       </div>
     </form>
   </dialog>
