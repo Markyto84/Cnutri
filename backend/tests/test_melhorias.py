@@ -105,7 +105,7 @@ class MelhoriasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual((await self.client.get(publico)).json(), dados)
         self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.b}/alertas")).json()["preparo_minutos"], 30)
-        h = await self.historico(self.gestor)
+        h = await self.historico()
         self.assertEqual(h["total"], 1)
         self.assertEqual(h["itens"][0]["antes"], {"preparo_minutos": 30, "entrega_minutos": 30})
         self.assertEqual(h["itens"][0]["depois"], dados)
@@ -174,7 +174,7 @@ class MelhoriasTest(unittest.IsolatedAsyncioTestCase):
         dieta = r.json()["id"]
         await self.client.patch(f"/api/gestao/dietas/{dieta}", headers=self.gestor, json={"nome": "Nome revisado", "severa": True})
         await self.client.delete(f"/api/gestao/dietas/{dieta}", headers=self.gestor)
-        h = await self.historico(self.gestor, entidade="DIETA")
+        h = await self.historico(entidade="DIETA")
         self.assertEqual(h["total"], 3)
         alteracao = h["itens"][1]
         self.assertEqual(alteracao["antes"], {"nome": "Geral fictícia", "severa": False})
@@ -213,7 +213,22 @@ class MelhoriasTest(unittest.IsolatedAsyncioTestCase):
         for segredo in ("Audit#123", "Outra#123", "senha_hash", "hash-nao-usado", "access_token"):
             self.assertNotIn(segredo, texto)
         self.assertEqual(len([i for i in h["itens"] if i["entidade"] == "CREDENCIAL"]), 2)
-        self.assertEqual((await self.historico(self.gestor, entidade="CREDENCIAL"))["total"], 0)
+        self.assertEqual((await self.client.get("/api/gestao/auditoria", headers=self.gestor, params={"entidade": "CREDENCIAL"})).status_code, 403)
+
+    async def test_historico_somente_ti_mesmo_com_filtros_e_gestor_continua_auditado(self):
+        r = await self.client.put(f"/api/gestao/alertas/{self.a}", headers=self.gestor,
+            json={"preparo_minutos": 45, "entrega_minutos": 60})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual((await self.client.get("/api/gestao/auditoria")).status_code, 401)
+        for headers in (self.gestor, self.cozinha, self.copeira):
+            for params in ({}, {"filial_id": self.a}, {"entidade": "ALERTAS"}, {"entidade": "CREDENCIAL"}):
+                r = await self.client.get("/api/gestao/auditoria", headers=headers, params=params)
+                self.assertEqual(r.status_code, 403, r.text)
+                self.assertNotIn("itens", r.json())
+        h = await self.historico(entidade="ALERTAS")
+        self.assertEqual(h["total"], 1)
+        self.assertIn("NUTRICIONISTA", h["itens"][0]["autor_nome"])
+        self.assertEqual(h["itens"][0]["depois"], {"preparo_minutos": 45, "entrega_minutos": 60})
 
     async def test_nova_unidade_registra_formularios_e_dietas_copiados(self):
         await self.client.post(f"/api/gestao/dietas?filial_id={self.a}", headers=self.gestor, json={"nome": "Geral de origem"})

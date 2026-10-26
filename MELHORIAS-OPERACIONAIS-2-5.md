@@ -58,7 +58,7 @@ segundos; o relógio visual também se atualiza sem depender de eventos WebSocke
 
 ## 5. Histórico administrativo
 
-Na Gestão ou Administração, abra **Histórico de alterações** para consultar autor,
+Com o perfil **Administrador de TI**, na Gestão ou Administração, abra **Histórico de alterações** para consultar autor,
 data/hora, cadastro afetado e os valores anteriores/novos. Há filtros de unidade,
 tipo de cadastro e período, além de paginação.
 
@@ -66,8 +66,10 @@ São registrados cadastros e alterações de unidades, dietas, formulários/card
 credenciais/perfis/vínculos, impressoras e prazos. Copiar uma nova unidade registra
 também os formulários e dietas criados. Troca/reset de senha registra somente o
 evento, sem a senha. Não são armazenados hashes, tokens, cookies ou conteúdo de
-pedidos nessa auditoria. Credenciais são visíveis exclusivamente à TI; a Gestão
-consulta apenas alterações das unidades permitidas.
+pedidos nessa auditoria. A consulta de toda a auditoria administrativa é exclusiva
+do perfil ADMIN_TI. Nutrição, Cozinha e Copeira recebem HTTP 403, inclusive em
+acesso direto à API; acesso sem sessão recebe HTTP 401. A aba é ocultada dos
+demais perfis. As ações desses usuários continuam sendo registradas normalmente.
 
 O evento é gravado na mesma transação da alteração. Uma falha/rollback não deixa
 histórico de uma mudança inexistente. Salvar sem modificar valores não inventa uma

@@ -40,6 +40,13 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ **Histórico de alterações** restrito ao perfil **ADMIN_TI** em 26/10/2026:
+  aba e conteúdo ocultos para gestores de Nutrição; consulta da API recusa todos
+  os demais perfis (403) e acesso anônimo (401). Ações continuam auditadas e os
+  registros existentes são preservados. Sem migração de banco ou mudança de senha.
+  24 testes direcionados aprovados em SQLite/PostgreSQL isolados, build e
+  conferência visual dos perfis Nutrição/TI. Lint mantém os dois avisos anteriores.
+
 - ✅ Gestão de Nutrição: aba redundante **Refeições médicas** removida em 26/10/2026.
   A configuração permanece concentrada em **Formulários → Médico**, incluindo
   refeições, suco, sobremesa e local de entrega. Componente sem uso removido;

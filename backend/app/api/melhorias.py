@@ -148,16 +148,13 @@ async def reenviar_impressao(trabalho_id: int, dados: ReimpressaoCreate,
 @router.get("/gestao/auditoria")
 async def listar_auditoria(response: Response, filial_id: int | None = Query(None, gt=0), entidade: ENTIDADES | None = None,
     inicio: date | None = None, fim: date | None = None, pagina: int = Query(1, ge=1, le=1000000),
-    tamanho: int = Query(20, ge=1, le=100), db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(GESTAO)):
+    tamanho: int = Query(20, ge=1, le=100), db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(exigir_perfis("ADMIN_TI"))):
     response.headers["Cache-Control"] = "private, no-store"
     de, ate = periodo(inicio, fim)
     condicoes = [await limitar_unidade(filial_id, usuario, db, AuditoriaAdministrativa.filial_id),
                   AuditoriaAdministrativa.criado_em >= de, AuditoriaAdministrativa.criado_em < ate]
     if entidade:
         condicoes.append(AuditoriaAdministrativa.entidade == entidade)
-    # Credenciais são globais e visíveis exclusivamente à TI, mesmo que seja incluído filial_id no futuro.
-    if usuario.perfil.nome != "ADMIN_TI":
-        condicoes.append(AuditoriaAdministrativa.entidade != "CREDENCIAL")
     total = await db.scalar(select(func.count()).select_from(AuditoriaAdministrativa).where(*condicoes))
     linhas = (await db.scalars(select(AuditoriaAdministrativa).where(*condicoes)
         .order_by(AuditoriaAdministrativa.id.desc()).offset((pagina - 1) * tamanho).limit(tamanho))).all()

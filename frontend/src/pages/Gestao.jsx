@@ -46,7 +46,7 @@ export default function Gestao() {
       </header>
 
       <nav className="mb-6 flex flex-wrap gap-2">
-        {[['dietas', '📋 Dietas'], ['prescricoes', 'Prescrições e rastreabilidade'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) => (
+        {[['dietas', '📋 Dietas'], ['prescricoes', 'Prescrições e rastreabilidade'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].filter(([id]) => id !== 'historico' || usuario.perfil === 'ADMIN_TI').map(([id, rotulo]) => (
           <button
             key={id}
             onClick={() => setAba(id)}
@@ -63,7 +63,7 @@ export default function Gestao() {
       {aba === 'relatorios' && <AbaRelatorios key={filialId} filialId={filialId} />}
       {aba === 'central-impressoes' && <CentralImpressoes key={filialId} filialId={filialId} />}
       {aba === 'alertas' && <ConfiguracaoAlertas key={filialId} filialId={filialId} />}
-      {aba === 'historico' && <HistoricoAdministrativo key={filialId} filialId={filialId} filiais={filiais} administrador={usuario.perfil === 'ADMIN_TI'} />}
+      {aba === 'historico' && usuario.perfil === 'ADMIN_TI' && <HistoricoAdministrativo key={filialId} filialId={filialId} filiais={filiais} administrador />}
     </div>
   )
 }
