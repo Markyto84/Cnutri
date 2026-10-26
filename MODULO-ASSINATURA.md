@@ -1,7 +1,12 @@
 # Módulo de assinatura
 
-O Cnutri utiliza um módulo reutilizável para assinatura manuscrita capturada na tela.
+**Situação atual: coleta suspensa no fluxo de Entregas, por solicitação do usuário.**
+A copeira finaliza pelo botão Realizar entrega, sem recebedor ou assinatura.
+Veja [entrega direta](ENTREGA-DIRETA.md).
+
+O código reutilizável fica preservado para futuras atualizações e reativação.
 Ele reúne captura, validação dos traços e geração do comprovante PNG, com contrato v1.
+As assinaturas já registradas continuam disponíveis nos relatórios autorizados.
 
 ## Responsabilidades
 

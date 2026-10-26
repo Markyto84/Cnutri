@@ -17,8 +17,9 @@ Os painéis usam WebSocket com reconciliação condicional a cada dois minutos,
 contexto central de unidades/prazos/plantão e recuperação automática de falhas.
 Veja [sincronização e redução de consultas](SINCRONIZACAO-OPERACIONAL.md).
 
-A captura e geração dos comprovantes de assinatura ficam em um módulo reutilizável,
-com contrato de integração e testes de compatibilidade. Veja [módulo de assinatura](MODULO-ASSINATURA.md).
+A coleta de assinatura está suspensa no fluxo de Entregas. A copeira usa **Realizar entrega**
+para finalizar o atendimento no próprio nome, com data/hora do servidor. Veja [entrega direta](ENTREGA-DIRETA.md).
+O [módulo de assinatura](MODULO-ASSINATURA.md) permanece disponível para futura reativação.
 
 ---
 
@@ -377,28 +378,27 @@ fica disponível na unidade selecionada. A presença é renovada a cada 30 segun
 encerra a sessão imediatamente; fechar o navegador ou perder a conexão remove o nome após até
 três minutos sem renovação. Sessões simultâneas da mesma pessoa não duplicam seu nome.
 
-Ao tocar em **Entregar**, a copeira registra em seu próprio nome; Gestão/TI seleciona uma copeira online. Avance para a assinatura. Informe o
-**Nome do recebedor** e peça que ele assine no quadro branco com o dedo, a caneta ou o mouse.
-**Limpar assinatura** permite refazer o desenho; mudar a orientação da tela preserva os traços.
-O botão **Finalizar entrega** exige nome e assinatura preenchidos. O servidor verifica novamente
-se a copeira está no plantão e se o pedido continua pronto; salva a assinatura, o recebedor e a
-entrega na mesma transação, e muda o pedido para **ENTREGUE**. A data e hora são registradas pelo
-banco no momento da finalização, sem usar o relógio informado pelo dispositivo. Se houver falha
-ao salvar a assinatura, toda a entrega é revertida. O pedido sai das listas de prontos e de
-entregas, mantendo histórico e indicadores. Confirmações repetidas ou concorrentes são bloqueadas.
+Ao tocar em **Realizar entrega**, a copeira finaliza o atendimento em um único passo, sem
+selecionar o próprio nome, preencher recebedor ou assinar. O servidor usa a identidade da sessão,
+verifica o plantão e se a refeição continua pronta, registra a entrega e muda o pedido para
+**ENTREGUE**. Gestão/TI seleciona uma copeira online e confirma em **Finalizar atendimento**.
+A data e hora são registradas pelo banco, sem usar o relógio do dispositivo. O pedido sai das
+listas de prontos e de entregas, mantendo histórico e indicadores. Confirmações repetidas ou
+concorrentes são bloqueadas. Novas entregas desse fluxo não criam comprovante de assinatura.
 
 Em **Gestão de Nutrição → Relatórios → Entregas e comprovantes de recebimento**, consulte o
 destinatário, refeição, copeira, recebedor, local/leito e **data e hora da entrega**. Os filtros
 por data e os horários usam Brasília (UTC-3); o relatório tem páginas de até 50 entregas.
 **Ver assinatura** abre a imagem do comprovante. A consulta e a imagem exigem perfil de Gestão
 ou Administração e acesso à unidade. As assinaturas não são publicadas no dashboard ou no
-WebSocket. Entregas antigas continuam visíveis, identificadas quando não possuem assinatura.
+WebSocket. Entregas sem assinatura continuam visíveis, sem recebedor ou imagem presumidos.
 
 As rotas `/api/operacao` e o WebSocket `/ws/operacao/{id}` fornecem os dados operacionais para
 essas telas. Prontuário, registro profissional, matrícula, sexo e data de nascimento não são
 publicados nesse canal; a idade é calculada no servidor. O canal interno `/ws/cozinha/{id}` segue
-restrito a perfis de operação autorizados. Atualização por consulta a cada dez segundos complementa
-o WebSocket; a lista de copeiras é consultada a cada cinco segundos.
+restrito a perfis de operação autorizados. Uma reconciliação condicional a cada dois minutos
+complementa o WebSocket; unidades, prazos e plantão são verificados centralmente a cada cinco
+segundos. Falhas ativam as consultas de recuperação descritas em SINCRONIZACAO-OPERACIONAL.md.
 
 As tabelas `sessoes_copeiras` e `entregas_pedidos` e o perfil `COPEIRA` são criados na inicialização,
 preservando usuários, pedidos e configurações existentes. O backup local anterior a essa atualização
@@ -406,7 +406,8 @@ fica em `backups/backup-dietas-2026-10-20-antes-entregas.dump`, fora do Git.
 
 A tabela `recebimentos_entregas`, criada automaticamente na inicialização, guarda o nome do
 recebedor e a imagem PNG da assinatura vinculada à entrega. O servidor recebe traços com limites
-de quantidade e coordenadas e gera o PNG com Pillow; rejeita assinaturas vazias ou inválidas.
+de quantidade e coordenadas e gera o PNG com Pillow para clientes anteriores que ainda enviem
+comprovante completo; rejeita assinaturas parciais ou inválidas. A tela atual dispensa essa coleta.
 Os backups do banco incluem os comprovantes. Antes dessa adição foi validado o backup
 `backups/backup-dietas-2026-10-20-antes-assinaturas.dump`, também fora do Git.
 

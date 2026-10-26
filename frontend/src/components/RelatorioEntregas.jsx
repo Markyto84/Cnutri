@@ -43,7 +43,7 @@ export default function RelatorioEntregas({ filialId }) {
 
   return <section className="min-w-0 rounded-xl bg-panel p-4 md:col-span-3 sm:p-5" aria-labelledby="relatorio-entregas">
     <h3 id="relatorio-entregas" className="text-lg font-bold">Entregas e comprovantes de recebimento</h3>
-    <p className="mt-1 text-sm text-slate-700">Responsável pela entrega, recebedor, assinatura e data e hora da conclusão. Horário de Brasília.</p>
+    <p className="mt-1 text-sm text-slate-700">Responsável pela entrega e data e hora da conclusão. Os comprovantes anteriores continuam disponíveis. Horário de Brasília.</p>
     <form onSubmit={filtrar} className="my-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
       <label className="min-w-0 text-sm font-semibold">Data inicial<input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" /></label>
       <label className="min-w-0 text-sm font-semibold">Data final<input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" /></label>
@@ -72,14 +72,14 @@ function Comprovante({ item, filialId }) {
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
       <div><dt className="text-slate-700">Copeira</dt><dd className="font-semibold">{item.copeira_nome}</dd></div>
       <div><dt className="text-slate-700">Registrado por</dt><dd className="font-semibold">{item.registrado_por_nome || 'Não registrado na entrega antiga'}</dd></div>
-      <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome || 'Não registrado na entrega antiga'}</dd></div>
+      {item.recebedor_nome && <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome}</dd></div>}
       <div><dt className="text-slate-700">Data e hora da entrega</dt><dd className="font-semibold">{horario(item.entregue_em)}</dd></div>
       <div><dt className="text-slate-700">Local / leito</dt><dd>{[item.local_entrega, item.leito && `Leito ${item.leito}`].filter(Boolean).join(' · ') || 'Não informado'}</dd></div>
     </dl>
     {item.assinatura_disponivel ? <>
       <button onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} className={`${BOTAO} bg-white text-brand-ink`}>{aberto ? 'Ocultar assinatura' : 'Ver assinatura'}</button>
       {aberto && <ImagemAssinatura filialId={filialId} pedidoId={item.pedido_id} recebedor={item.recebedor_nome} />}
-    </> : <p className="text-xs text-slate-700">Entrega anterior à coleta de assinatura digital.</p>}
+    </> : <p className="text-xs text-slate-700">Entrega finalizada sem assinatura registrada.</p>}
   </article>
 }
 
