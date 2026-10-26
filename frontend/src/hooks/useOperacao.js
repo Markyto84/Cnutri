@@ -1,111 +1,64 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../services/api.js'
 import { useAuth } from '../context/auth.js'
+import { atualizarPedidos, criarSincronizacaoOperacao } from '../services/sincronizacaoOperacao.js'
 
 export const operacao = { get: (url, config) => api.get(`/operacao${url}`, config) }
-const ETAPAS = ['PENDENTE', 'EM_PREPARO', 'PRONTO']
+const INICIAL = { filiais: [], pedidos: [], copeiras: [], alertas: { preparo_minutos: 30, entrega_minutos: 30 },
+  erro: null, carregando: true, indisponivel: false, conectado: false }
 
 function tocarAlerta() {
   try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const ganho = ctx.createGain()
-    osc.frequency.value = 880
-    ganho.gain.value = 0.2
-    osc.connect(ganho).connect(ctx.destination)
-    osc.start()
+    const ctx = new AudioContext(), osc = ctx.createOscillator(), ganho = ctx.createGain()
+    osc.frequency.value = 880; ganho.gain.value = 0.2
+    osc.connect(ganho).connect(ctx.destination); osc.start()
     setTimeout(() => { osc.stop(); ctx.close() }, 400)
   } catch { /* áudio depende das permissões do navegador */ }
 }
 
-export function useOperacao(filialId, som = false) {
-  const { usuario } = useAuth()
+export function useOperacao(filialId, som = false, entregas = false) {
+  const { usuario, carregando: acessoCarregando } = useAuth()
   const token = localStorage.getItem('token')
   const escopo = `${filialId}:${usuario?.id || ''}:${token || ''}`
-  const [filiais, setFiliais] = useState([])
-  const [consulta, setConsulta] = useState({ escopo: '', pedidos: [] })
-  const pedidos = consulta.escopo === escopo ? consulta.pedidos : []
-  const [erro, setErro] = useState(null)
-  const [carregando, setCarregando] = useState(true)
-  const [indisponivel, setIndisponivel] = useState(false)
-  const [conectado, setConectado] = useState(false)
-  const [alertas, setAlertas] = useState({ preparo_minutos: 30, entrega_minutos: 30 })
+  const [consulta, setConsulta] = useState({ ...INICIAL, escopo: '' })
+  const estado = consulta.escopo === escopo ? consulta : INICIAL
   const [agora, setAgora] = useState(Date.now)
-  const revisao = useRef(0)
-  const montado = useRef(false)
-  const filial = filiais.find((f) => f.id === Number(filialId))
-  const filialDisponivel = Boolean(filial)
+  const sincronizacao = useRef(null)
 
-  const aplicarPedido = useCallback((pedido) => {
-    revisao.current++
-    setConsulta((anterior) => {
-      const atuais = anterior.escopo === escopo ? anterior.pedidos : []
-      const lista = !ETAPAS.includes(pedido.status) ? atuais.filter((p) => p.id !== pedido.id)
-        : atuais.some((p) => p.id === pedido.id) ? atuais.map((p) => p.id === pedido.id ? pedido : p) : [...atuais, pedido]
-      return { escopo, pedidos: lista }
+  useEffect(() => {
+    if (acessoCarregando) return
+    const atualizar = (fn) => setConsulta((anterior) => fn(anterior.escopo === escopo ? anterior : { ...INICIAL, escopo }))
+    const sync = criarSincronizacaoOperacao({
+      filialId, token, entregas,
+      consultar: ({ signal, etag }) => operacao.get(`/unidades/${filialId}/estado`, {
+        signal, timeout: 10000, headers: etag ? { 'If-None-Match': etag } : {},
+        validateStatus: (status) => status === 200 || status === 304,
+      }),
+      criarSocket: (id, credencial) => {
+        const protocolo = window.location.protocol === 'https:' ? 'wss' : 'ws'
+        return credencial ? new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha/${id}`, ['cnutri', credencial])
+          : new WebSocket(`${protocolo}://${window.location.host}/ws/operacao/${id}`)
+      },
+      onEstado: ({ unidades, ...dados }) => atualizar((s) => ({ ...s, ...dados, filiais: unidades })),
+      onMensagem: (msg, repetida) => {
+        if (som && !repetida && msg.evento === 'novo_pedido') tocarAlerta()
+        atualizar((s) => ({ ...s, ...(msg.unidades ? { filiais: msg.unidades } : {}),
+          ...(msg.alertas ? { alertas: msg.alertas } : {}), ...(msg.copeiras ? { copeiras: msg.copeiras } : {}),
+          ...(msg.pedido ? { pedidos: atualizarPedidos(s.pedidos, msg.pedido) } : {}) }))
+      },
+      onConexao: (conectado) => atualizar((s) => ({ ...s, conectado })),
+      onErro: (erro) => atualizar((s) => ({ ...s, erro })),
+      onBloqueio: (indisponivel) => atualizar((s) => ({ ...s, indisponivel, ...(indisponivel ? { pedidos: [], copeiras: [] } : {}) })),
+      onCarregado: () => { setAgora(Date.now()); atualizar((s) => ({ ...s, carregando: false })) },
     })
-  }, [escopo])
-
-  const recarregar = useCallback(async (signal) => {
-    const versao = revisao.current
-    try {
-      const [unidades, lista, prazos] = await Promise.all([
-        operacao.get('/unidades', { signal }),
-        operacao.get(`/unidades/${filialId}/pedidos`, { signal }),
-        operacao.get(`/unidades/${filialId}/alertas`, { signal }).catch(() => null),
-      ])
-      if (signal?.aborted || !montado.current) return
-      setFiliais(unidades.data)
-      if (prazos) setAlertas(prazos.data)
-      setAgora(Date.now())
-      if (versao === revisao.current) setConsulta({ escopo, pedidos: lista.data })
-      setIndisponivel(false)
-      setErro(null)
-    } catch (e) {
-      if (signal?.aborted || !montado.current) return
-      setErro(e.response?.data?.detail || 'Sem conexão. Tentando atualizar o painel…')
-      if ([401, 403, 404, 422].includes(e.response?.status)) { setIndisponivel(true); setConsulta({ escopo, pedidos: [] }) }
-    } finally { if (!signal?.aborted && montado.current) setCarregando(false) }
-  }, [filialId, escopo])
-
-  useEffect(() => {
-    montado.current = true
-    const controller = new AbortController()
-    const inicial = setTimeout(() => recarregar(controller.signal), 0)
-    const intervalo = setInterval(() => recarregar(controller.signal), 10000)
+    sincronizacao.current = sync
+    sync.iniciar()
     const relogio = setInterval(() => setAgora(Date.now()), 30000)
-    return () => { montado.current = false; controller.abort(); clearTimeout(inicial); clearInterval(intervalo); clearInterval(relogio) }
-  }, [recarregar])
+    return () => { sync.parar(); clearInterval(relogio); if (sincronizacao.current === sync) sincronizacao.current = null }
+  }, [escopo, filialId, token, som, entregas, acessoCarregando])
 
-  useEffect(() => {
-    if (!filialDisponivel || indisponivel) return
-    const protocolo = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    let encerrado = false
-    let ws, tentativa
-    function conectar() {
-      if (encerrado) return
-      ws = token ? new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha/${filialId}`, ['cnutri', token])
-        : new WebSocket(`${protocolo}://${window.location.host}/ws/operacao/${filialId}`)
-      ws.onopen = () => { setConectado(true); recarregar() }
-      ws.onmessage = ({ data }) => {
-        try {
-          const msg = JSON.parse(data)
-          if (msg.pedido) {
-            if (som && msg.evento === 'novo_pedido') tocarAlerta()
-            aplicarPedido(msg.pedido)
-          }
-        } catch { /* ignora mensagens sem dados de pedido */ }
-      }
-      ws.onclose = ({ code }) => {
-        if (encerrado) return
-        setConectado(false)
-        if (code === 1008) { setIndisponivel(true); setConsulta({ escopo, pedidos: [] }); setErro(token ? 'Acesso encerrado. Atualize sua sessão.' : 'Unidade indisponível'); return }
-        tentativa = setTimeout(conectar, 3000)
-      }
-    }
-    conectar()
-    return () => { encerrado = true; clearTimeout(tentativa); ws?.close() }
-  }, [filialDisponivel, filialId, indisponivel, som, aplicarPedido, recarregar, token, escopo])
-
-  return { filial, filiais, pedidos, alertas, agora, erro, setErro, carregando, indisponivel, conectado, recarregar, aplicarPedido }
+  const recarregar = useCallback(() => sincronizacao.current?.recarregar(true), [])
+  const aplicarPedido = useCallback((pedido) => sincronizacao.current?.aplicarPedido(pedido), [])
+  const setErro = useCallback((erro) => setConsulta((s) => ({ ...s, erro })), [])
+  return { ...estado, filial: estado.filiais.find((f) => f.id === Number(filialId)), agora, recarregar, aplicarPedido, setErro }
 }

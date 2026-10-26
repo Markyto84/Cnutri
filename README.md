@@ -13,6 +13,10 @@ prescrição vigente, conferência, correções com motivo e histórico por pedi
 Os dashboards públicos mostram número/etapa; dados de pacientes exigem sessão da
 unidade. Veja [fluxo e permissões](PRESCRICOES-E-RASTREABILIDADE.md).
 
+Os painéis usam WebSocket com reconciliação condicional a cada dois minutos,
+contexto central de unidades/prazos/plantão e recuperação automática de falhas.
+Veja [sincronização e redução de consultas](SINCRONIZACAO-OPERACIONAL.md).
+
 ---
 
 ## Estrutura do projeto

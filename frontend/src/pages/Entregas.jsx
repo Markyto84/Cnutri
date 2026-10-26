@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { operacao, useOperacao } from '../hooks/useOperacao.js'
+import { useOperacao } from '../hooks/useOperacao.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
 import { api } from '../services/api.js'
 import { podeOperar, useAuth } from '../context/auth.js'
@@ -16,11 +16,11 @@ export default function Entregas() {
 }
 
 function PaginaEntregas({ filialId }) {
-  const painel = useOperacao(filialId)
+  const painel = useOperacao(filialId, false, true)
   const { usuario } = useAuth()
   const autorizado = podeOperar(usuario, filialId, ['COPEIRA', 'NUTRICIONISTA', 'ADMIN_TI'])
-  const [copeiras, setCopeiras] = useState([])
-  const [erroPlantao, setErroPlantao] = useState('')
+  const copeiras = painel.copeiras
+  const erroPlantao = painel.indisponivel ? 'Atualize seu acesso para consultar o plantão.' : ''
   const [selecionado, setSelecionado] = useState(null)
   const [aviso, setAviso] = useState('')
   const [filtros, setFiltros] = useState({ ...FILTROS_VAZIOS })
@@ -28,30 +28,10 @@ function PaginaEntregas({ filialId }) {
     .sort((a, b) => (a.concluido_em || a.criado_em).localeCompare(b.concluido_em || b.criado_em))
   const filtrados = filtrarPedidos(prontos, filtros)
 
-  const carregarCopeiras = useCallback(async (signal) => {
-    try {
-      const { data } = await operacao.get(`/unidades/${filialId}/copeiras`, { signal })
-      if (signal?.aborted) return
-      setCopeiras(data)
-      setErroPlantao('')
-    } catch (e) {
-      if (signal?.aborted) return
-      setErroPlantao(e.response?.data?.detail || 'Não foi possível atualizar as copeiras do plantão')
-      setCopeiras([])
-    }
-  }, [filialId])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    const inicial = setTimeout(() => carregarCopeiras(controller.signal), 0)
-    const intervalo = setInterval(() => carregarCopeiras(controller.signal), 5000)
-    return () => { controller.abort(); clearTimeout(inicial); clearInterval(intervalo) }
-  }, [carregarCopeiras])
-
   async function escolher(pedido) {
     if (!autorizado) return
     setSelecionado(pedido)
-    await carregarCopeiras()
+    await painel.recarregar()
   }
 
   function concluida(entrega) {
@@ -86,7 +66,7 @@ function PaginaEntregas({ filialId }) {
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
     {selecionado && autorizado && <ModalEntrega pedido={selecionado} filialId={filialId} copeiras={usuario.perfil === 'COPEIRA' ? copeiras.filter((c) => c.id === usuario.id) : copeiras} copeiraPropria={usuario.perfil === 'COPEIRA' ? usuario.id : null} erroPlantao={erroPlantao}
       pronto={prontos.some((p) => p.id === selecionado.id)} onFechar={() => setSelecionado(null)} onConcluir={concluida}
-      onRecarregar={() => { carregarCopeiras(); painel.recarregar() }} />}
+      onRecarregar={() => painel.recarregar()} />}
   </main>
 }
 
