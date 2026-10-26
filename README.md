@@ -228,8 +228,8 @@ variantes de foco/hover, `app-background`, `panel` e escala `slate` com tons azu
 login, gestão, administração, relatórios, cozinha e entregas compartilham essa paleta. Alertas de
 restrição/erro, avisos e indicadores de produção continuam identificados por suas cores funcionais.
 
-No painel **Gestão de Nutrição → Refeições médicas**, edite as listas de **Refeição**, **Suco**,
-**Sobremesa** e **Local de entrega**, com uma opção por linha em cada campo, e clique em **Salvar opções**.
+No painel **Gestão de Nutrição → Formulários → Médico**, edite as listas de **Refeição**, **Suco**,
+**Sobremesa** e **Local de entrega**, com uma opção por linha em cada campo, e publique o formulário.
 Essas listas alimentam o formulário médico, preservando a ordem e a obrigatoriedade dos campos.
 As opções são salvas no banco de dados, sem alterar as dietas ou o formulário de Enfermagem.
 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
-import RefeicoesMedicas from '../components/RefeicoesMedicas.jsx'
 import RelatorioEntregas from '../components/RelatorioEntregas.jsx'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
 import { SemUnidades } from '../context/AuthContext.jsx'
@@ -47,7 +46,7 @@ export default function Gestao() {
       </header>
 
       <nav className="mb-6 flex flex-wrap gap-2">
-        {[['dietas', '📋 Dietas'], ['prescricoes', 'Prescrições e rastreabilidade'], ['refeicoes-medicas', '🍽️ Refeições médicas'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) => (
+        {[['dietas', '📋 Dietas'], ['prescricoes', 'Prescrições e rastreabilidade'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) => (
           <button
             key={id}
             onClick={() => setAba(id)}
@@ -60,7 +59,6 @@ export default function Gestao() {
 
       {aba === 'dietas' && <AbaDietas key={filialId} filialId={filialId} />}
       {aba === 'prescricoes' && <Prescricoes key={filialId} filialId={filialId} />}
-      {aba === 'refeicoes-medicas' && <RefeicoesMedicas key={filialId} filialId={filialId} />}
       {aba === 'formularios' && <AbaFormularios key={filialId} filialId={filialId} />}
       {aba === 'relatorios' && <AbaRelatorios key={filialId} filialId={filialId} />}
       {aba === 'central-impressoes' && <CentralImpressoes key={filialId} filialId={filialId} />}

@@ -40,6 +40,11 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Gestão de Nutrição: aba redundante **Refeições médicas** removida em 26/10/2026.
+  A configuração permanece concentrada em **Formulários → Médico**, incluindo
+  refeições, suco, sobremesa e local de entrega. Componente sem uso removido;
+  nenhuma alteração de API, banco ou opções cadastradas.
+
 - ✅ Melhorias **1–4 de rastreabilidade assistencial** aplicadas em 26/10/2026:
   referência da prescrição vigente obrigatória para paciente/ambos; nomes digitados
   explicitamente informados, separados da conta autenticada; Gestão/Administração
