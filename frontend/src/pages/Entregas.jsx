@@ -5,6 +5,9 @@ import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.j
 import { api } from '../services/api.js'
 import { podeOperar, useAuth } from '../context/auth.js'
 import AssinaturaRecebedor from '../components/AssinaturaRecebedor.jsx'
+import FiltrosOperacao from '../components/FiltrosOperacao.jsx'
+import AlertaDemora from '../components/AlertaDemora.jsx'
+import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
 
 export default function Entregas() {
   const { filialId } = useParams()
@@ -19,8 +22,10 @@ function PaginaEntregas({ filialId }) {
   const [erroPlantao, setErroPlantao] = useState('')
   const [selecionado, setSelecionado] = useState(null)
   const [aviso, setAviso] = useState('')
+  const [filtros, setFiltros] = useState({ ...FILTROS_VAZIOS })
   const prontos = painel.pedidos.filter((p) => p.status === 'PRONTO')
     .sort((a, b) => (a.concluido_em || a.criado_em).localeCompare(b.concluido_em || b.criado_em))
+  const filtrados = filtrarPedidos(prontos, filtros)
 
   const carregarCopeiras = useCallback(async (signal) => {
     try {
@@ -66,10 +71,13 @@ function PaginaEntregas({ filialId }) {
     </div>
     {erroPlantao && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-amber-950">{erroPlantao}</p>}
     {!painel.carregando && !painel.indisponivel && <section aria-label="Refeições prontas para entrega">
+      <FiltrosOperacao pedidos={prontos} filtros={filtros} onChange={setFiltros} total={filtrados.length} />
       <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">{usuario?.perfil === 'COPEIRA' ? 'Registre suas entregas e colete a assinatura do recebedor.' : 'Selecione a refeição e indique a copeira que fará a entrega.'}</p></div>
       {!prontos.length && <div className="rounded-2xl bg-panel p-8 text-center"><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="mt-2 text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{prontos.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4 shadow-sm">
+      {prontos.length > 0 && !filtrados.length && <p className="rounded-xl bg-panel p-6">Nenhuma refeição corresponde aos filtros. Use “Limpar filtros” para ver todas.</p>}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{filtrados.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4 shadow-sm">
         <ResumoPedido pedido={pedido} />
+        <AlertaDemora pedido={pedido} limites={painel.alertas} agora={painel.agora} />
         {pedido.concluido_em && <p className="mt-3 text-xs text-slate-700">Pronto às {new Date(pedido.concluido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
         {autorizado && <div className="mt-auto pt-4"><button onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-brand-vibrant text-base text-brand-ink hover:bg-brand-vibrant-hover`}>Entregar</button></div>}
       </article>)}</div>

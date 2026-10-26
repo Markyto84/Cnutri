@@ -15,6 +15,7 @@ from ..core.security import exigir_perfis, hash_senha
 from ..core.sessoes import revogar_sessoes
 from ..core.ws import gerenciador_ws
 from ..services.active_directory import situacao_ad
+from ..services.auditoria import registrar, retrato, retrato_usuario, UNIDADE, ETIQUETA, DIETA, FORMULARIO
 from ..models.models import Dieta, Filial, FormularioConfig, ImpressoraEtiqueta, Perfil, Usuario
 from ..schemas.schemas import FilialCreate, FilialOut, FilialUpdate, ImpressoraUpdate, ImpressoraEtiquetaOut, ImpressoraEtiquetaUpdate, UsuarioCreate, UsuarioOut, UsuarioUpdate
 from .gestao import ESQUEMA_PADRAO_ENFERMAGEM, ESQUEMA_PADRAO_MEDICO
@@ -23,8 +24,8 @@ router = APIRouter(prefix="/api/admin", tags=["Administração"])
 ADMIN = exigir_perfis("ADMIN_TI")
 
 
-async def unidade(filial_id: int, db: AsyncSession) -> Filial:
-    filial = await db.get(Filial, filial_id)
+async def unidade(filial_id: int, db: AsyncSession, bloquear=False) -> Filial:
+    filial = await db.scalar(select(Filial).where(Filial.id == filial_id).with_for_update()) if bloquear else await db.get(Filial, filial_id)
     if filial is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Unidade não encontrada")
     return filial
@@ -67,10 +68,17 @@ async def criar_filial(dados: FilialCreate, db: AsyncSession = Depends(get_db), 
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Já existe uma unidade com este código")
-    for tipo, padrao in (("MEDICO", ESQUEMA_PADRAO_MEDICO), ("ENFERMAGEM", ESQUEMA_PADRAO_ENFERMAGEM)):
-        db.add(FormularioConfig(filial_id=filial.id, tipo_publico=tipo, esquema_json=deepcopy(esquemas.get(tipo, padrao))))
-    for dieta in dietas:
-        db.add(Dieta(filial_id=filial.id, nome=dieta.nome, descricao=dieta.descricao, severa=dieta.severa, ativa=dieta.ativa))
+    novos_formularios = [FormularioConfig(filial_id=filial.id, tipo_publico=tipo, esquema_json=deepcopy(esquemas.get(tipo, padrao)))
+        for tipo, padrao in (("MEDICO", ESQUEMA_PADRAO_MEDICO), ("ENFERMAGEM", ESQUEMA_PADRAO_ENFERMAGEM))]
+    novas_dietas = [Dieta(filial_id=filial.id, nome=dieta.nome, descricao=dieta.descricao, severa=dieta.severa, ativa=dieta.ativa) for dieta in dietas]
+    db.add_all(novos_formularios + novas_dietas)
+    await db.flush()
+    for config in novos_formularios:
+        registrar(db, _, "FORMULARIO", config.id, filial.id, None, retrato(config, FORMULARIO), "CRIAR")
+    for dieta in novas_dietas:
+        registrar(db, _, "DIETA", dieta.id, filial.id, None, retrato(dieta, DIETA), "CRIAR")
+    registrar(db, _, "UNIDADE", filial.id, filial.id, None,
+        {**retrato(filial, UNIDADE), "origem_filial_id": origem.id if origem else None}, "CRIAR")
     await confirmar(db, "Já existe uma unidade com este código")
     await db.refresh(filial)
     return filial
@@ -78,9 +86,11 @@ async def criar_filial(dados: FilialCreate, db: AsyncSession = Depends(get_db), 
 
 @router.patch("/filiais/{filial_id}", response_model=FilialOut)
 async def atualizar_filial(filial_id: int, dados: FilialUpdate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
-    filial = await unidade(filial_id, db)
+    filial = await unidade(filial_id, db, bloquear=True)
+    antes = retrato(filial, UNIDADE)
     for campo, valor in dados.model_dump(exclude_unset=True).items():
         setattr(filial, campo, valor)
+    registrar(db, _, "UNIDADE", filial.id, filial.id, antes, retrato(filial, UNIDADE))
     await confirmar(db, "Já existe uma unidade com este código")
     await db.refresh(filial)
     if not filial.ativa:
@@ -90,8 +100,10 @@ async def atualizar_filial(filial_id: int, dados: FilialUpdate, db: AsyncSession
 
 @router.patch("/filiais/{filial_id}/impressora", response_model=FilialOut)
 async def salvar_impressora(filial_id: int, dados: ImpressoraUpdate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
-    filial = await unidade(filial_id, db)
+    filial = await unidade(filial_id, db, bloquear=True)
+    antes = {"ip_impressora": filial.ip_impressora}
     filial.ip_impressora = dados.ip_impressora
+    registrar(db, _, "IMPRESSORA_FILIPETA", filial.id, filial.id, antes, {"ip_impressora": filial.ip_impressora})
     await db.commit()
     await db.refresh(filial)
     return filial
@@ -122,13 +134,15 @@ async def obter_impressora_etiquetas(filial_id: int, db: AsyncSession = Depends(
 
 @router.patch("/filiais/{filial_id}/etiquetas", response_model=ImpressoraEtiquetaOut)
 async def salvar_impressora_etiquetas(filial_id: int, dados: ImpressoraEtiquetaUpdate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(ADMIN)):
-    await unidade(filial_id, db)
+    await unidade(filial_id, db, bloquear=True)
     impressora = await db.get(ImpressoraEtiqueta, filial_id)
+    antes = retrato(impressora, ETIQUETA) if impressora else None
     if impressora is None:
         impressora = ImpressoraEtiqueta(filial_id=filial_id)
         db.add(impressora)
     for chave, valor in dados.model_dump().items():
         setattr(impressora, chave, valor)
+    registrar(db, _, "IMPRESSORA_ETIQUETA", filial_id, filial_id, antes, retrato(impressora, ETIQUETA), "CRIAR" if antes is None else "ALTERAR")
     await db.commit()
     await db.refresh(impressora)
     return impressora
@@ -192,6 +206,12 @@ async def criar_usuario(dados: UsuarioCreate, db: AsyncSession = Depends(get_db)
         origem_autenticacao=dados.origem_autenticacao, usuario_ad=dados.usuario_ad,
         perfil=perfil, filiais=filiais, troca_senha_obrigatoria=local)
     db.add(usuario)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "Nome de usuário ou conta AD já cadastrados") from None
+    registrar(db, _, "CREDENCIAL", usuario.id, None, None, retrato_usuario(usuario), "CRIAR")
     await confirmar(db, "Nome de usuário ou conta AD já cadastrados")
     await db.refresh(usuario)
     return UsuarioOut.model_validate(usuario)
@@ -202,6 +222,7 @@ async def atualizar_usuario(usuario_id: int, dados: UsuarioUpdate, db: AsyncSess
     usuario = (await db.execute(consulta_usuarios().where(Usuario.id == usuario_id).with_for_update(of=Usuario))).scalar_one_or_none()
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuário não encontrado")
+    antes = retrato_usuario(usuario)
     if usuario.id == administrador.id and (not dados.ativo or dados.perfil != "ADMIN_TI"):
         raise HTTPException(status.HTTP_409_CONFLICT, "Você não pode desativar ou retirar o perfil administrativo da sua própria conta")
     if usuario.id == administrador.id and dados.senha is not None:
@@ -235,6 +256,11 @@ async def atualizar_usuario(usuario_id: int, dados: UsuarioUpdate, db: AsyncSess
         usuario.troca_senha_obrigatoria = True
     if mudou_vinculo or dados.senha is not None or not dados.ativo:
         await revogar_sessoes(db, usuario.id)
+    depois = retrato_usuario(usuario)
+    if dados.senha is not None:
+        depois["senha_redefinida"] = True
+    registrar(db, administrador, "CREDENCIAL", usuario.id, None, antes, depois,
+        "REDEFINIR_SENHA" if dados.senha is not None else "ALTERAR")
     await confirmar(db, "Nome de usuário ou conta AD já cadastrados")
     await db.refresh(usuario)
     await gerenciador_ws.encerrar_usuario(usuario.id)

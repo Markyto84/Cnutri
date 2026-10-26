@@ -24,6 +24,8 @@ export function useOperacao(filialId, som = false) {
   const [carregando, setCarregando] = useState(true)
   const [indisponivel, setIndisponivel] = useState(false)
   const [conectado, setConectado] = useState(false)
+  const [alertas, setAlertas] = useState({ preparo_minutos: 30, entrega_minutos: 30 })
+  const [agora, setAgora] = useState(Date.now)
   const revisao = useRef(0)
   const montado = useRef(false)
   const filial = filiais.find((f) => f.id === Number(filialId))
@@ -41,12 +43,15 @@ export function useOperacao(filialId, som = false) {
   const recarregar = useCallback(async (signal) => {
     const versao = revisao.current
     try {
-      const [unidades, lista] = await Promise.all([
+      const [unidades, lista, prazos] = await Promise.all([
         operacao.get('/unidades', { signal }),
         operacao.get(`/unidades/${filialId}/pedidos`, { signal }),
+        operacao.get(`/unidades/${filialId}/alertas`, { signal }).catch(() => null),
       ])
       if (signal?.aborted || !montado.current) return
       setFiliais(unidades.data)
+      if (prazos) setAlertas(prazos.data)
+      setAgora(Date.now())
       if (versao === revisao.current) setPedidos(lista.data)
       setIndisponivel(false)
       setErro(null)
@@ -62,7 +67,8 @@ export function useOperacao(filialId, som = false) {
     const controller = new AbortController()
     const inicial = setTimeout(() => recarregar(controller.signal), 0)
     const intervalo = setInterval(() => recarregar(controller.signal), 10000)
-    return () => { montado.current = false; controller.abort(); clearTimeout(inicial); clearInterval(intervalo) }
+    const relogio = setInterval(() => setAgora(Date.now()), 30000)
+    return () => { montado.current = false; controller.abort(); clearTimeout(inicial); clearInterval(intervalo); clearInterval(relogio) }
   }, [recarregar])
 
   useEffect(() => {
@@ -94,5 +100,5 @@ export function useOperacao(filialId, som = false) {
     return () => { encerrado = true; clearTimeout(tentativa); ws?.close() }
   }, [filialDisponivel, filialId, indisponivel, som, aplicarPedido, recarregar])
 
-  return { filial, filiais, pedidos, erro, setErro, carregando, indisponivel, conectado, recarregar, aplicarPedido }
+  return { filial, filiais, pedidos, alertas, agora, erro, setErro, carregando, indisponivel, conectado, recarregar, aplicarPedido }
 }

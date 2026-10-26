@@ -40,6 +40,24 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Melhorias **2–5 da lista sugerida em 23/10** aplicadas em 26/10/2026:
+  **Central de impressões** na Gestão/TI, com filtros/paginação e reenvio protegido
+  pela fila existente; **pesquisa e filtros** de andar, leito, formulário e refeição
+  na cozinha/entregas, recolhíveis no celular; **Alertas de demora** com padrão de
+  **30 minutos por etapa** (solicitação → pronto e pronto → entrega), editáveis e
+  desativáveis por unidade; **Histórico de alterações** com autor, data e valores
+  anteriores/novos de cadastros, formulários/cardápios, credenciais, impressoras e
+  prazos. Auditoria na mesma transação, sem senhas/hashes/tokens ou eventos antigos
+  presumidos; credenciais somente para TI. Gravação de formulários serializada
+  para preservar versões e histórico sob concorrência.
+  Validação: 166 testes de backend aprovados (um teste opcional de HTTPS dispensado),
+  25 de frontend, build e conferência desktop/mobile com dados fictícios. Lint mantém
+  os dois avisos anteriores de efeitos. Banco temporário para testes PostgreSQL,
+  sem impressão física. Backup anterior privado com catálogo legível, integridade
+  das 14 tabelas existentes confirmada, duas tabelas novas e índice da fila criados.
+  Instalação atual respondendo HTTP 200 na rede; contas e senhas preservadas.
+  Detalhes e permissões em [MELHORIAS-OPERACIONAIS-2-5.md](MELHORIAS-OPERACIONAIS-2-5.md).
+
 - ⏳ HTTPS preparado em 23/10/2026, **ainda não ativado**: aguardando o nome DNS
   reservado à aplicação e os arquivos do certificado/chave da TI. Solicitados ao
   usuário; não foram encontrados nas pastas consultadas ou no repositório pessoal
@@ -343,10 +361,15 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 2. **Credenciais:** senhas iniciais substituídas por temporárias fortes, fora do Git. Os responsáveis devem definir suas senhas no próximo acesso.
 3. **Líquido espessado:** hoje é opcional e aparece sempre — avaliar se deve ser obrigatório
    ou dependente de grupo de dieta
-4. **Ideia sugerida (não confirmada):** filtro/colunas por refeição no Kanban
+4. **Cozinha e entregas:** pesquisa e filtros implementados em 26/10/2026;
+   reorganizar as colunas por refeição continua sendo uma opção futura.
 5. **Produção / item 10:** adiado pelo usuário para outro servidor; já há domínio e certificado
    da TI. Retomar HTTPS, início/recuperação automáticos, prontidão do banco, restrições de rede,
    credencial do banco, backup agendado e CORS_ORIGINS com a URL definitiva nessa instalação.
+
+Na lista mais recente de melhorias (23/10), permanecem pendentes os itens **1 —
+Monitoramento de API/banco** e **6 — Teste completo de recuperação de backups**.
+Os itens 2–5 dessa lista estão concluídos conforme o documento de melhorias operacionais.
 
 ## 6. Convenções técnicas importantes (não quebrar)
 

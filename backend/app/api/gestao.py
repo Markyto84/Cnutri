@@ -8,6 +8,7 @@ from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..models.models import Dieta, Filial, FormularioConfig, Usuario
 from ..schemas.schemas import DietaCreate, DietaOut, FormularioConfigOut, FormularioConfigUpdate
 from ..services.validacao_pedidos import validar_esquema
+from ..services.auditoria import registrar, retrato, DIETA, FORMULARIO
 
 router = APIRouter(prefix="/api/gestao", tags=["Gestão de Nutrição"])
 PERFIS_GESTAO = ("NUTRICIONISTA", "ADMIN_TI")
@@ -57,6 +58,8 @@ async def criar_dieta(filial_id: int, dados: DietaCreate, db: AsyncSession = Dep
     await verificar_acesso_filial(filial_id, _, db)
     dieta = Dieta(filial_id=filial_id, **dados.model_dump())
     db.add(dieta)
+    await db.flush()
+    registrar(db, _, "DIETA", dieta.id, filial_id, None, retrato(dieta, DIETA), "CRIAR")
     await db.commit()
     await db.refresh(dieta)
     return dieta
@@ -64,12 +67,14 @@ async def criar_dieta(filial_id: int, dados: DietaCreate, db: AsyncSession = Dep
 
 @router.patch("/dietas/{dieta_id}", response_model=DietaOut)
 async def atualizar_dieta(dieta_id: int, dados: DietaCreate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
-    dieta = await db.get(Dieta, dieta_id)
+    dieta = await db.scalar(select(Dieta).where(Dieta.id == dieta_id).with_for_update())
     if dieta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dieta não encontrada")
     await verificar_acesso_filial(dieta.filial_id, _, db)
+    antes = retrato(dieta, DIETA)
     for campo, valor in dados.model_dump().items():
         setattr(dieta, campo, valor)
+    registrar(db, _, "DIETA", dieta.id, dieta.filial_id, antes, retrato(dieta, DIETA))
     await db.commit()
     await db.refresh(dieta)
     return dieta
@@ -78,11 +83,13 @@ async def atualizar_dieta(dieta_id: int, dados: DietaCreate, db: AsyncSession = 
 @router.delete("/dietas/{dieta_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def desativar_dieta(dieta_id: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
     """Desativa (soft delete) para preservar o histórico de pedidos."""
-    dieta = await db.get(Dieta, dieta_id)
+    dieta = await db.scalar(select(Dieta).where(Dieta.id == dieta_id).with_for_update())
     if dieta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dieta não encontrada")
     await verificar_acesso_filial(dieta.filial_id, _, db)
+    antes = retrato(dieta, DIETA)
     dieta.ativa = False
+    registrar(db, _, "DIETA", dieta.id, dieta.filial_id, antes, retrato(dieta, DIETA), "DESATIVAR")
     await db.commit()
 
 
@@ -108,6 +115,8 @@ async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUp
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo deve ser MEDICO ou ENFERMAGEM")
     await _filial(filial_id, db)
     await verificar_acesso_filial(filial_id, _, db)
+    # Também serializa a criação inicial; antes/depois precisam refletir a versão gravada.
+    await db.scalar(select(Filial.id).where(Filial.id == filial_id).with_for_update())
     config = (
         await db.execute(
             select(FormularioConfig).where(
@@ -115,6 +124,7 @@ async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUp
             )
         )
     ).scalar_one_or_none()
+    antes = retrato(config, FORMULARIO) if config else None
     if config is None:
         config = FormularioConfig(filial_id=filial_id, tipo_publico=tipo, esquema_json=dados.esquema_json)
         db.add(config)
@@ -132,6 +142,8 @@ async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUp
                 "Recarregue a página (F5) para trazer a versão mais recente antes de publicar.",
             )
         config.esquema_json = dados.esquema_json
+    await db.flush()
+    registrar(db, _, "FORMULARIO", config.id, filial_id, antes, retrato(config, FORMULARIO), "CRIAR" if antes is None else "ALTERAR")
     await db.commit()
     await db.refresh(config)
     return config

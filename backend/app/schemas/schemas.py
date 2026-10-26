@@ -168,6 +168,12 @@ class PresencaUpdate(BaseModel):
     filial_id: int = Field(gt=0)
 
 
+class AlertasUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preparo_minutos: int | None = Field(default=None, ge=1, le=1440, strict=True)
+    entrega_minutos: int | None = Field(default=None, ge=1, le=1440, strict=True)
+
+
 class PontoAssinatura(BaseModel):
     x: float = Field(ge=0, le=1, allow_inf_nan=False)
     y: float = Field(ge=0, le=1, allow_inf_nan=False)

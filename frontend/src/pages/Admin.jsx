@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { useAuth } from '../context/auth.js'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
+import CentralImpressoes from '../components/CentralImpressoes.jsx'
+import ConfiguracaoAlertas from '../components/ConfiguracaoAlertas.jsx'
+import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
 import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
 
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand'
@@ -66,7 +69,7 @@ export default function Admin() {
       ].map(([rotulo, total]) => <div key={rotulo} className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">{rotulo}</p><p className="mt-1 text-3xl font-bold">{total}</p></div>)}
     </div>
     <nav className="flex flex-wrap gap-2" aria-label="Administração">
-      {[['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
+      {[['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
         <button key={id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}>{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />
@@ -75,6 +78,9 @@ export default function Admin() {
       {aba === 'credenciais' && <Credenciais filiais={dados.filiais} usuarios={dados.usuarios} usuarioAtual={usuario} onConcluido={concluido} />}
       {aba === 'impressoras' && <Impressoras filiais={dados.filiais} onConcluido={concluido} />}
       {aba === 'relatorios' && <RelatorioDietas filiais={dados.filiais} />}
+      {aba === 'central-impressoes' && <CentralImpressoes filiais={dados.filiais} />}
+      {aba === 'alertas' && <ConfiguracaoAlertas filiais={dados.filiais} />}
+      {aba === 'historico' && <HistoricoAdministrativo filiais={dados.filiais} administrador />}
     </>}
   </div>
 }

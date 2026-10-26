@@ -6,6 +6,9 @@ import { podeOperar, useAuth } from '../context/auth.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
 import { ConfirmarReenvio, EstadoImpressao } from '../components/ImpressaoPedido.jsx'
 import EtiquetaPedido from '../components/EtiquetaPedido.jsx'
+import FiltrosOperacao from '../components/FiltrosOperacao.jsx'
+import AlertaDemora from '../components/AlertaDemora.jsx'
+import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
 
 const COLUNAS = [
   { status: 'PENDENTE', titulo: 'Pendentes', cor: 'border-t-amber-500' },
@@ -27,7 +30,9 @@ function Dashboard({ filialId }) {
   const [aviso, setAviso] = useState('')
   const [confirmar, setConfirmar] = useState(null)
   const [etiquetar, setEtiquetar] = useState(null)
-  const falhas = painel.pedidos.filter((p) => ['FALHA', 'INCERTO'].includes(p.impressao?.estado)).length
+  const [filtros, setFiltros] = useState({ ...FILTROS_VAZIOS })
+  const filtrados = filtrarPedidos(painel.pedidos, filtros)
+  const falhas = filtrados.filter((p) => ['FALHA', 'INCERTO'].includes(p.impressao?.estado)).length
 
   async function agir(pedido, status, riscoConfirmado = false) {
     if (!autorizado || ocupados.includes(pedido.id)) return
@@ -57,20 +62,22 @@ function Dashboard({ filialId }) {
     {falhas > 0 && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{falhas} pedido(s) com falha ou envio de filipeta incerto. Confira os avisos de impressão nos cartões.</p>}
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}
     {!painel.carregando && !painel.indisponivel && <>
+      <FiltrosOperacao pedidos={painel.pedidos} filtros={filtros} onChange={setFiltros} total={filtrados.length} />
       <nav aria-label="Etapas da cozinha" className="mb-4 grid grid-cols-3 gap-2 md:hidden">
         {COLUNAS.map((col) => <button key={col.status} onClick={() => setFiltro(col.status)} aria-pressed={filtro === col.status}
           className={`min-h-14 rounded-xl px-2 py-3 text-sm font-semibold ${filtro === col.status ? 'bg-brand text-white' : 'bg-panel'}`}>
-          {col.titulo}<span className="ml-1">({painel.pedidos.filter((p) => p.status === col.status).length})</span>
+          {col.titulo}<span className="ml-1">({filtrados.filter((p) => p.status === col.status).length})</span>
         </button>)}
       </nav>
       <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
         {COLUNAS.map((col) => {
-          const pedidos = painel.pedidos.filter((p) => p.status === col.status)
+          const pedidos = filtrados.filter((p) => p.status === col.status)
           return <section key={col.status} className={`min-w-0 rounded-2xl border-t-4 bg-panel p-3 ${col.cor} ${filtro === col.status ? '' : 'hidden md:block'}`}>
             <h2 className="mb-3 text-lg font-bold">{col.titulo} <span className="font-normal text-slate-700">({pedidos.length})</span></h2>
             {!pedidos.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-700">Nenhuma refeição nesta etapa.</p>}
             <div className="space-y-3">{pedidos.map((pedido) => <article key={pedido.id} className="rounded-xl bg-white p-4 shadow-sm">
               <ResumoPedido pedido={pedido} />
+              <AlertaDemora pedido={pedido} limites={painel.alertas} agora={painel.agora} />
               <EstadoImpressao impressao={pedido.impressao} />
               <EstadoImpressao impressao={pedido.etiqueta} etiqueta />
               <div className="mt-4 flex flex-wrap gap-2">

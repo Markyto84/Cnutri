@@ -93,6 +93,8 @@ async def trocar_senha(dados: TrocaSenhaCreate, request: Request, db: AsyncSessi
     limites[1].falhas = 0
     usuario.troca_senha_obrigatoria = False
     await revogar_sessoes(db, usuario.id)
+    from ..services.auditoria import registrar
+    registrar(db, usuario, "CREDENCIAL", usuario.id, None, None, {"senha_alterada": True}, "TROCAR_SENHA")
     resposta = await emitir_sessao(db, usuario)
     from ..core.ws import gerenciador_ws
     await gerenciador_ws.encerrar_usuario(usuario.id)

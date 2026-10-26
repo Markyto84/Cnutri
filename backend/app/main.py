@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, auth, gestao, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
+from .api import admin, auth, gestao, melhorias, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.login_usuarios import migrar_login_usuarios
@@ -14,6 +14,7 @@ from .core.migracao_seguranca import migrar_seguranca
 from .core.migracao_operacao import migrar_operacao
 from .core.migracao_etiquetas import migrar_etiquetas
 from .core.migracao_ad import migrar_ad
+from .core.migracao_melhorias import migrar_melhorias
 from .core.credenciais_iniciais import conferir_credenciais_producao
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(migrar_operacao)
         await conn.run_sync(migrar_etiquetas)
         await conn.run_sync(migrar_ad)
+        await conn.run_sync(migrar_melhorias)
     async with SessionLocal() as db:
         await executar_seed(db)
         if settings.APP_ENV == "production":
@@ -70,6 +72,7 @@ app.include_router(admin.router)
 app.include_router(relatorios.router)
 app.include_router(relatorio_dietas.router)
 app.include_router(operacao.router)
+app.include_router(melhorias.router)
 
 
 @app.get("/api/health")

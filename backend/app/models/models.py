@@ -61,6 +61,31 @@ class Usuario(Base):
     )
 
 
+class ConfiguracaoOperacional(Base):
+    __tablename__ = "configuracoes_operacionais"
+
+    filial_id: Mapped[int] = mapped_column(ForeignKey("filiais.id", ondelete="CASCADE"), primary_key=True)
+    # Ausência da configuração usa 30 min; NULL explícito desativa a etapa.
+    preparo_minutos: Mapped[int | None] = mapped_column(Integer)
+    entrega_minutos: Mapped[int | None] = mapped_column(Integer)
+
+
+class AuditoriaAdministrativa(Base):
+    __tablename__ = "auditoria_administrativa"
+    __table_args__ = (Index("ix_auditoria_filial_data", "filial_id", "criado_em"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    autor_usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    autor_nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    filial_id: Mapped[int | None] = mapped_column(ForeignKey("filiais.id", ondelete="RESTRICT"))
+    entidade: Mapped[str] = mapped_column(String(30), nullable=False)
+    entidade_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    acao: Mapped[str] = mapped_column(String(30), nullable=False)
+    antes: Mapped[dict | None] = mapped_column(JSONType)
+    depois: Mapped[dict | None] = mapped_column(JSONType)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
 class UsuarioFilial(Base):
     __tablename__ = "usuarios_filiais"
 
