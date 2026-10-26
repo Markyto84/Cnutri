@@ -183,20 +183,27 @@ async def imprimir_etiqueta(filial_id: int, pedido_id: int, dados: ReimpressaoCr
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/entregar", status_code=201)
-async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request: Request,
+async def entregar(filial_id: int, pedido_id: int, request: Request, dados: EntregaCreate | None = None,
     db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(ENTREGADORES)):
     await verificar_acesso_filial(filial_id, usuario, db)
-    if usuario.perfil.nome == "COPEIRA" and dados.copeira_id != usuario.id:
-        raise HTTPException(403, "A copeira deve registrar a própria entrega")
+    dados = dados or EntregaCreate()
+    if usuario.perfil.nome == "COPEIRA":
+        if dados.copeira_id is not None and dados.copeira_id != usuario.id:
+            raise HTTPException(403, "A copeira deve registrar a própria entrega")
+        copeira_id = usuario.id
+    else:
+        copeira_id = dados.copeira_id
+        if copeira_id is None:
+            raise HTTPException(422, "Selecione a copeira do plantão responsável pela entrega")
     pedido = await obter_pedido(filial_id, pedido_id, db)
     if pedido.status != "PRONTO":
         raise HTTPException(409, "Somente refeições prontas podem ser entregues")
     sessao = (await db.execute(sessoes_online(filial_id).where(
-        SessaoCopeira.usuario_id == dados.copeira_id,
+        SessaoCopeira.usuario_id == copeira_id,
     ).limit(1).with_for_update(of=SessaoCopeira))).scalar_one_or_none()
     if sessao is None:
         raise HTTPException(409, "Esta copeira não está mais online nesta unidade. Selecione outra copeira do plantão")
-    copeira = await db.get(Usuario, dados.copeira_id)
+    copeira = await db.get(Usuario, copeira_id)
     alterado = await db.scalar(update(Pedido).where(Pedido.id == pedido.id, Pedido.status == "PRONTO")
         .values(status="ENTREGUE").returning(Pedido.id).execution_options(synchronize_session=False))
     if alterado is None:
@@ -205,13 +212,15 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
         registrado_por_usuario_id=usuario.id, ip_origem=request.client.host if request.client else None)
     db.add(entrega)
     await db.flush()
-    db.add(RecebimentoEntrega(pedido_id=pedido.id, recebedor_nome=dados.recebedor_nome,
-        assinatura_png=gerar_assinatura_png(dados.assinatura)))
+    assinatura_registrada = dados.assinatura is not None
+    if assinatura_registrada:
+        db.add(RecebimentoEntrega(pedido_id=pedido.id, recebedor_nome=dados.recebedor_nome,
+            assinatura_png=gerar_assinatura_png(dados.assinatura)))
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior="PRONTO", status_novo="ENTREGUE",
         alterado_por_usuario_id=usuario.id))
     registrar_etapa(db, pedido, usuario, "PRONTO", "ENTREGUE")
     registrar_evento(db, pedido, "ENTREGA_REGISTRADA", usuario, depois={"copeira_id": copeira.id,
-        "copeira_nome": copeira.nome, "recebedor_nome": dados.recebedor_nome, "assinatura_registrada": True})
+        "copeira_nome": copeira.nome, "recebedor_nome": dados.recebedor_nome, "assinatura_registrada": assinatura_registrada})
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
@@ -219,4 +228,4 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
     await notificar(pedido)
     return {"pedido_id": pedido.id, "status": "ENTREGUE", "copeira_id": entrega.copeira_id,
         "copeira_nome": entrega.copeira_nome, "entregue_em": data_utc(entrega.entregue_em),
-        "recebedor_nome": dados.recebedor_nome, "assinatura_registrada": True}
+        "recebedor_nome": dados.recebedor_nome, "assinatura_registrada": assinatura_registrada}

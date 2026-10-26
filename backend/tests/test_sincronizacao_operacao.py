@@ -1,5 +1,6 @@
 """Reconciliação condicional, contexto central e isolamento dos canais; dados fictícios."""
 from datetime import timedelta
+import asyncio
 import os
 import unittest
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from app.core.presenca import agora_utc
 from app.core.sessoes import emitir_sessao
 from app.core.ws import ConnectionManager
 from app.main import app, ws_cozinha, ws_operacao
-from app.models.models import ConfiguracaoOperacional, Filial, Pedido, Perfil, SessaoCopeira, Usuario
+from app.models.models import ConfiguracaoOperacional, EntregaPedido, Filial, Pedido, Perfil, RecebimentoEntrega, SessaoCopeira, Usuario
 from app.services.contexto_operacao import MonitorContexto
 
 
@@ -191,3 +192,14 @@ class SincronizacaoOperacaoPostgresTest(SincronizacaoOperacaoTest):
         async with self.admin_engine.begin() as c:
             await c.exec_driver_sql(f'CREATE SCHEMA "{self.schema}"')
         return create_async_engine(url, connect_args={"server_settings": {"search_path": self.schema}})
+
+    async def test_entrega_direta_concorrente_nao_duplica_atendimento(self):
+        rota = f"/api/operacao/unidades/{self.a}/pedidos/1/entregar"
+        respostas = await asyncio.wait_for(asyncio.gather(*[
+            self.cliente.post(rota, headers=self.cabecalhos("ana"), json={}) for _ in range(2)
+        ]), timeout=10)
+        self.assertEqual(sorted(r.status_code for r in respostas), [201, 409])
+        async with self.sessoes() as db:
+            self.assertEqual(len((await db.scalars(select(EntregaPedido))).all()), 1)
+            self.assertIsNone(await db.scalar(select(RecebimentoEntrega)))
+            self.assertEqual((await db.get(Pedido, 1)).status, "ENTREGUE")

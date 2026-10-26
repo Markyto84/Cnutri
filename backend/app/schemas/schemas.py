@@ -175,14 +175,21 @@ class AlertasUpdate(BaseModel):
 
 
 class EntregaCreate(BaseModel):
-    copeira_id: int = Field(gt=0)
-    recebedor_nome: str = Field(min_length=3, max_length=120)
-    assinatura: AssinaturaCreate
+    copeira_id: int | None = Field(default=None, gt=0)
+    # Compatibilidade com telas anteriores; a entrega atual dispensa comprovante.
+    recebedor_nome: str | None = Field(default=None, min_length=3, max_length=120)
+    assinatura: AssinaturaCreate | None = None
 
     @field_validator("recebedor_nome", mode="before")
     @classmethod
-    def limpar_nome(cls, valor: str) -> str:
+    def limpar_nome(cls, valor: str | None) -> str | None:
         return valor.strip() if isinstance(valor, str) else valor
+
+    @model_validator(mode="after")
+    def conferir_comprovante(self):
+        if (self.recebedor_nome is None) != (self.assinatura is None):
+            raise ValueError("O comprovante deve conter o nome do recebedor e a assinatura, ou nenhum dos dois")
+        return self
 
 
 # ─── Dietas ──────────────────────────────────────────────────────────────────

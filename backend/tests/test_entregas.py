@@ -14,7 +14,7 @@ from app.core.presenca import agora_utc
 from app.core.security import hash_senha
 from app.core.ws import gerenciador_ws
 from app.main import app, ws_cozinha, ws_operacao
-from app.models.models import EntregaPedido, Filial, HistoricoPedido, Pedido, Perfil, RecebimentoEntrega, SessaoCopeira, Usuario
+from app.models.models import EntregaPedido, EventoAssistencial, Filial, HistoricoPedido, Pedido, Perfil, RecebimentoEntrega, SessaoCopeira, Usuario
 
 SENHA = "TesteSeguro@123"
 HASH = hash_senha(SENHA)
@@ -217,11 +217,12 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         await self.client.post("/api/auth/logout", headers=token)
         self.assertEqual((await self.client.post(rota, headers=self.operador, json=self.comprovante())).status_code, 409)
 
-    async def test_sem_assinatura_valida_nao_conclui_nem_grava_entrega(self):
+    async def test_comprovante_parcial_ou_invalido_nao_conclui_nem_grava_entrega(self):
         await self.entrar()
         rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
         invalidos = [
-            {"copeira_id": self.ana},
+            {"copeira_id": self.ana, "recebedor_nome": "Recebedor sem assinatura"},
+            {"copeira_id": self.ana, "assinatura": self.comprovante()["assinatura"]},
             {**self.comprovante(), "recebedor_nome": "   "},
             {**self.comprovante(), "assinatura": {"tracos": []}},
             {**self.comprovante(), "assinatura": {"tracos": [[{"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 0.5}]]}},
@@ -235,6 +236,54 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await db.get(Pedido, self.pedidos['PRONTO'])).status, "PRONTO")
             for modelo in (EntregaPedido, RecebimentoEntrega, HistoricoPedido):
                 self.assertEqual(await db.scalar(select(func.count()).select_from(modelo)), 0)
+
+    async def test_copeira_finaliza_sem_comprovante_com_identidade_e_horario_do_servidor(self):
+        token = await self.entrar()
+        pedido_id = self.pedidos["PRONTO"]
+        rota = self.base + f"/pedidos/{pedido_id}/entregar"
+        antes = datetime.now(timezone.utc) - timedelta(seconds=1)
+        resposta = await self.client.post(rota, headers=token)
+        self.assertEqual(resposta.status_code, 201, resposta.text)
+        self.assertEqual(resposta.json()["copeira_id"], self.ana)
+        self.assertFalse(resposta.json()["assinatura_registrada"])
+        self.assertIsNone(resposta.json()["recebedor_nome"])
+        self.assertGreaterEqual(datetime.fromisoformat(resposta.json()["entregue_em"]), antes)
+        self.assertEqual((await self.client.post(rota, headers=token, json={})).status_code, 409)
+        async with self.sessoes() as db:
+            entrega = await db.get(EntregaPedido, pedido_id)
+            self.assertEqual(entrega.registrado_por_usuario_id, self.ana)
+            self.assertEqual((await db.get(Pedido, pedido_id)).status, "ENTREGUE")
+            self.assertIsNone(await db.get(RecebimentoEntrega, pedido_id))
+            evento = await db.scalar(select(EventoAssistencial).where(EventoAssistencial.acao == "ENTREGA_REGISTRADA"))
+            self.assertFalse(evento.depois["assinatura_registrada"])
+        relatorio = await self.client.get(f"/api/relatorios/entregas?filial_id={self.a}", headers=self.operador)
+        self.assertEqual(relatorio.status_code, 200)
+        item = relatorio.json()["itens"][0]
+        self.assertEqual(item["copeira_nome"], "Ana Teste")
+        self.assertEqual(item["entregue_em"], resposta.json()["entregue_em"])
+        self.assertFalse(item["assinatura_disponivel"])
+        self.assertIsNone(item["recebedor_nome"])
+        self.assertEqual((await self.client.get(f"/api/relatorios/entregas/{pedido_id}/assinatura?filial_id={self.a}", headers=self.operador)).status_code, 404)
+
+    async def test_gestao_pode_finalizar_sem_assinatura_mas_deve_indicar_copeira(self):
+        await self.entrar()
+        rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
+        self.assertEqual((await self.client.post(rota, headers=self.operador, json={})).status_code, 422)
+        resposta = await self.client.post(rota, headers=self.operador, json={"copeira_id": self.ana})
+        self.assertEqual(resposta.status_code, 201, resposta.text)
+        self.assertFalse(resposta.json()["assinatura_registrada"])
+
+    async def test_entrega_direta_exige_login_identidade_propria_e_plantao_da_unidade(self):
+        rota = self.base + f"/pedidos/{self.pedidos['PRONTO']}/entregar"
+        self.assertEqual((await self.client.post(rota, json={})).status_code, 401)
+        token = await self.entrar()
+        await self.entrar("bia")
+        self.assertEqual((await self.client.post(rota, headers=token, json={"copeira_id": self.bia})).status_code, 403)
+        await self.client.post("/api/auth/presenca", headers=token, json={"filial_id": self.b})
+        self.assertEqual((await self.client.post(rota, headers=token, json={})).status_code, 409)
+        async with self.sessoes() as db:
+            self.assertEqual((await db.get(Pedido, self.pedidos["PRONTO"])).status, "PRONTO")
+            self.assertEqual(await db.scalar(select(func.count()).select_from(EntregaPedido)), 0)
 
     async def test_assinatura_e_horario_servidor_aparecem_so_no_relatorio_autorizado(self):
         copeira = await self.entrar()
