@@ -23,6 +23,7 @@ from .models.models import Base
 from .seed import executar_seed
 from .services.fila_impressao import executar_fila
 from .services.monitoramento import EstadoMonitoramento
+from .services.contexto_operacao import executar_contexto
 
 logging.basicConfig(level=logging.INFO)
 INTERVALO_VALIDACAO_WS = 30
@@ -47,15 +48,17 @@ async def lifespan(app: FastAPI):
     parar = asyncio.Event()
     app.state.monitoramento = EstadoMonitoramento()
     tarefa = asyncio.create_task(executar_fila(SessionLocal, parar, app.state.monitoramento.fila))
+    contexto = asyncio.create_task(executar_contexto(SessionLocal, parar, gerenciador_ws))
     try:
         yield
     finally:
         parar.set()
         try:
-            await asyncio.wait_for(tarefa, timeout=10)
+            await asyncio.wait_for(asyncio.gather(tarefa, contexto), timeout=10)
         except TimeoutError:
             tarefa.cancel()
-            await asyncio.gather(tarefa, return_exceptions=True)
+            contexto.cancel()
+            await asyncio.gather(tarefa, contexto, return_exceptions=True)
 
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
@@ -105,7 +108,8 @@ async def ws_operacao(websocket: WebSocket, filial_id: int):
     await gerenciador_ws.conectar_publico(filial_id, websocket)
     try:
         while True:
-            await websocket.receive_text()
+            if await websocket.receive_text() == "ping":
+                await websocket.send_json({"evento": "pong"})
     except Exception:
         pass
     finally:
@@ -144,7 +148,9 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
                         raise HTTPException(403, "Acesso encerrado")
                 proxima_validacao = agora + INTERVALO_VALIDACAO_WS
             try:
-                await asyncio.wait_for(websocket.receive_text(), timeout=max(0.1, proxima_validacao - agora))
+                mensagem = await asyncio.wait_for(websocket.receive_text(), timeout=max(0.1, proxima_validacao - agora))
+                if mensagem == "ping":
+                    await websocket.send_json({"evento": "pong"})
             except TimeoutError:
                 pass
     except HTTPException:

@@ -14,6 +14,7 @@ from ..schemas.schemas import AlertasUpdate, ReimpressaoCreate
 from ..services.auditoria import registrar, retrato
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc
+from ..services.contexto_operacao import limites
 from .operacao import notificar, unidade_ativa
 
 router = APIRouter(prefix="/api", tags=["Melhorias operacionais"])
@@ -44,10 +45,6 @@ async def limitar_unidade(filial_id, usuario, db, coluna):
     if usuario.perfil.nome == "ADMIN_TI":
         return True
     return coluna.in_([f.id for f in usuario.filiais if f.ativa])
-
-
-def limites(config):
-    return {campo: getattr(config, campo) if config is not None else 30 for campo in ("preparo_minutos", "entrega_minutos")}
 
 
 @router.get("/operacao/unidades/{filial_id}/alertas")

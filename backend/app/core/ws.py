@@ -1,4 +1,5 @@
 """Gerenciador de conexões WebSocket para o painel da cozinha (atualização em tempo real)."""
+import asyncio
 from collections import defaultdict
 
 from fastapi import WebSocket
@@ -66,6 +67,26 @@ class ConnectionManager:
                 await ws.send_json(publica)
             except Exception:
                 self.desconectar(filial_id, ws)
+
+    async def transmitir_contexto(self, filial_id: int, publico: dict, privado: dict) -> None:
+        # Listas de copeiras nunca são transmitidas ao canal público.
+        publica = {k: publico[k] for k in ("unidades", "alertas") if k in publico}
+        interna = {**publica, **{k: privado[k] for k in ("copeiras",) if k in privado}}
+
+        async def enviar(ws, dados):
+            try:
+                await asyncio.wait_for(ws.send_json({"evento": "contexto_atualizado", **dados}), timeout=5)
+            except Exception:
+                self.desconectar(filial_id, ws)
+                try:
+                    await ws.close(code=1011)
+                except Exception:
+                    pass
+
+        envios = [enviar(ws, interna) for ws in list(self.ativos[filial_id])] if interna else []
+        if publica:
+            envios.extend(enviar(ws, publica) for ws in list(self.publicos[filial_id]))
+        await asyncio.gather(*envios)
 
 
 gerenciador_ws = ConnectionManager()

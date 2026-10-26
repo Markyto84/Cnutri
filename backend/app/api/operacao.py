@@ -1,6 +1,8 @@
 """Cozinha e entregas por unidade, sem exigir login para abrir os painéis."""
+from hashlib import sha256
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,6 +18,7 @@ from ..services.operacao import data_utc, pedido_operacional
 from ..services.assinatura import gerar_assinatura_png
 from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, nome_etiqueta, previa_png
 from ..services.assistencia import registrar_etapa, registrar_evento
+from ..services.contexto_operacao import carregar_contexto
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
@@ -76,6 +79,29 @@ async def listar_copeiras_online(filial_id: int, db: AsyncSession = Depends(get_
     ids = sessoes_online(filial_id).with_only_columns(SessaoCopeira.usuario_id)
     pessoas = (await db.execute(select(Usuario.id, Usuario.nome).where(Usuario.id.in_(ids)).order_by(Usuario.nome))).all()
     return [{"id": pessoa.id, "nome": pessoa.nome} for pessoa in pessoas]
+
+
+@router.get("/unidades/{filial_id}/estado")
+async def estado_painel(filial_id: int, request: Request, db: AsyncSession = Depends(get_db),
+                       usuario: Usuario | None = Depends(usuario_opcional)):
+    # Autorização sempre precede o ETag, inclusive para uma resposta sem alterações.
+    await unidade_ativa(filial_id, db)
+    if usuario:
+        await verificar_acesso_filial(filial_id, usuario, db)
+    unidades, contexto = await carregar_contexto(db, {filial_id})
+    pedidos = (await db.scalars(select(Pedido).options(selectinload(Pedido.dieta)).where(
+        Pedido.filial_id == filial_id, Pedido.status.in_(STATUS_ATIVOS),
+    ).order_by(Pedido.criado_em, Pedido.id))).all()
+    resposta = JSONResponse({"unidades": unidades, "alertas": contexto[filial_id]["alertas"],
+        "pedidos": [serializar(p, autenticado=usuario is not None) for p in pedidos],
+        "copeiras": contexto[filial_id]["copeiras"] if usuario else []})
+    escopo = f'{filial_id}:{usuario.id if usuario else "publico"}:'.encode()
+    etag = '"' + sha256(escopo + resposta.body).hexdigest() + '"'
+    cabecalhos = {"ETag": etag, "Cache-Control": "private, no-store", "Vary": "Authorization"}
+    if etag in [t.strip() for t in request.headers.get("if-none-match", "").split(",")]:
+        return Response(status_code=304, headers=cabecalhos)
+    resposta.headers.update(cabecalhos)
+    return resposta
 
 
 @router.patch("/unidades/{filial_id}/pedidos/{pedido_id}/status")
