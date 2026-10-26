@@ -40,6 +40,23 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Melhorias **1 e 6 da lista de 23/10** aplicadas em 26/10/2026: Administração
+  abre em **Monitoramento**, com API, banco, atividade/contadores da fila e resultado
+  da recuperação, atualizado a cada 15 segundos. Detalhes somente ADMIN_TI; sonda
+  pública mínima `/api/health/ready` consulta o banco e retorna 200/503, preservando
+  `/api/health` como liveness. Consumidor mantém sinal de atividade; Docker verifica
+  prontidão. CLI `backend/validar_recuperacao.py --container dietas-db` cria backup
+  privado consistente e restaura em banco UUID separado, sem API/seed/impressão.
+  Recuperação real validada nas **17 tabelas**, incluindo conteúdo SHA-256, estrutura,
+  sequências, formulários, pedidos e PNGs de assinaturas; cópia temporária removida.
+  Resultado privado em `work/recuperacao/ultimo_resultado.json`, somente resumo
+  permitido na API; dumps e dados fora do Git. Compose monta somente esse diretório
+  de relatório como leitura. Validação: 178 testes de backend e 28 de frontend
+  aprovados, um teste opcional de HTTPS dispensado, build e conferência desktop/mobile.
+  Lint mantém os dois avisos anteriores. Integridade das 17 tabelas preservada na
+  publicação; saúde/prontidão HTTP 200 na rede. Veja
+  [MONITORAMENTO-E-RECUPERACAO.md](MONITORAMENTO-E-RECUPERACAO.md).
+
 - ✅ Melhorias **2–5 da lista sugerida em 23/10** aplicadas em 26/10/2026:
   **Central de impressões** na Gestão/TI, com filtros/paginação e reenvio protegido
   pela fila existente; **pesquisa e filtros** de andar, leito, formulário e refeição
@@ -364,12 +381,12 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 4. **Cozinha e entregas:** pesquisa e filtros implementados em 26/10/2026;
    reorganizar as colunas por refeição continua sendo uma opção futura.
 5. **Produção / item 10:** adiado pelo usuário para outro servidor; já há domínio e certificado
-   da TI. Retomar HTTPS, início/recuperação automáticos, prontidão do banco, restrições de rede,
+   da TI. Retomar HTTPS, início/recuperação automáticos, validar prontidão no destino, restrições de rede,
    credencial do banco, backup agendado e CORS_ORIGINS com a URL definitiva nessa instalação.
 
-Na lista mais recente de melhorias (23/10), permanecem pendentes os itens **1 —
-Monitoramento de API/banco** e **6 — Teste completo de recuperação de backups**.
-Os itens 2–5 dessa lista estão concluídos conforme o documento de melhorias operacionais.
+Os **seis itens da lista de melhorias de 23/10 estão concluídos** na instalação atual:
+1 e 6 no documento de monitoramento/recuperação; 2–5 no documento de melhorias
+operacionais. A implantação em outro servidor continua como etapa própria.
 
 ## 6. Convenções técnicas importantes (não quebrar)
 
@@ -437,12 +454,14 @@ O PostgreSQL é a fonte da verdade para configurações de formulário, dietas e
 ser atualizada após alterações pelo gestor. Ela não é aplicada automaticamente por `git pull`;
 para recuperar esquemas em outro ambiente, use a API de Gestão conforme o README, com `versao`.
 Dados de pacientes, pedidos, usuários e backups completos ficam fora do Git.
-Para migrar/backup:
+Para criar uma cópia e testar a recuperação em banco temporário separado:
 
-```bash
-docker exec dietas-db pg_dump -U dietas dietas > backups/backup-$(date +%F).sql
-cat backups/backup-XXXX.sql | docker exec -i dietas-db-prod psql -U dietas -d dietas   # restaurar
+```powershell
+.\backend\.venv\Scripts\python.exe .\backend\validar_recuperacao.py --container dietas-db
 ```
+
+O comando preserva a origem e não inicia a aplicação na cópia. Para manutenção em
+outro ambiente e alcance da validação, veja [MONITORAMENTO-E-RECUPERACAO.md](MONITORAMENTO-E-RECUPERACAO.md).
 
 ## 8. Fluxo de trabalho (multi-estação)
 

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, auth, gestao, melhorias, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
+from .api import admin, auth, gestao, melhorias, monitoramento, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.login_usuarios import migrar_login_usuarios
@@ -21,6 +21,7 @@ from .core.ws import gerenciador_ws
 from .models.models import Base
 from .seed import executar_seed
 from .services.fila_impressao import executar_fila
+from .services.monitoramento import EstadoMonitoramento
 
 logging.basicConfig(level=logging.INFO)
 INTERVALO_VALIDACAO_WS = 30
@@ -42,7 +43,8 @@ async def lifespan(app: FastAPI):
         if settings.APP_ENV == "production":
             await conferir_credenciais_producao(db)
     parar = asyncio.Event()
-    tarefa = asyncio.create_task(executar_fila(SessionLocal, parar))
+    app.state.monitoramento = EstadoMonitoramento()
+    tarefa = asyncio.create_task(executar_fila(SessionLocal, parar, app.state.monitoramento.fila))
     try:
         yield
     finally:
@@ -73,6 +75,7 @@ app.include_router(relatorios.router)
 app.include_router(relatorio_dietas.router)
 app.include_router(operacao.router)
 app.include_router(melhorias.router)
+app.include_router(monitoramento.router)
 
 
 @app.get("/api/health")

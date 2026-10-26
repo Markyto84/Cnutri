@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     JWT_EXPIRA_MINUTOS: int = 720
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    BACKUP_RELATORIO_ARQUIVO: Path = Field(default=BACKEND.parent / "work/recuperacao/ultimo_resultado.json", repr=False)
     AD_HABILITADO: bool = False
     AD_DOMINIO: str = ""
     AD_SERVIDOR: str = ""

@@ -4,6 +4,10 @@ Plataforma multifilial para solicitação, preparo, entrega e auditoria de dieta
 
 **Stack:** FastAPI (Python) · React + Vite · PostgreSQL 16 · WebSockets · Impressão ESC/POS · Docker
 
+Administração → **Monitoramento** mostra API, banco, fila de impressão e o último
+teste de recuperação. O teste completo de backup em banco temporário e o roteiro
+de manutenção estão em [Monitoramento e recuperação](MONITORAMENTO-E-RECUPERACAO.md).
+
 ---
 
 ## Estrutura do projeto
@@ -166,9 +170,12 @@ na redefinição pela TI e na troca em `/senha`; as senhas temporárias geradas 
 Senhas existentes continuam válidas até serem trocadas, inclusive as que têm mais de 12 caracteres.
 
 Veja [Segurança — itens 1 a 3](SEGURANCA-ITENS-1-3.md) para permissões, regras do formulário e validação.
-A preparação de HTTPS, recuperação automática e backups permanece no item 10 do review,
+A preparação de HTTPS, recuperação automática dos serviços e agenda de cópias externas permanece no item 10 do review,
 adiado pelo usuário para outro servidor. Os itens 4–9 estão descritos em
 [Estabilização — itens 4 a 9](ESTABILIZACAO-ITENS-4-9.md).
+
+O monitoramento e o teste de recuperação local do banco foram implementados em
+26/10/2026: [procedimento e validação](MONITORAMENTO-E-RECUPERACAO.md).
 
 ## Desenvolvimento (Windows)
 

@@ -28,6 +28,10 @@ services:
       # Somente o nginx publica portas; ele substitui os cabeçalhos recebidos.
       FORWARDED_ALLOW_IPS: "*"
       CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
+      BACKUP_RELATORIO_ARQUIVO: /var/lib/cnutri-monitoramento/ultimo_resultado.json
+    volumes:
+      # Apenas o resultado agregado; os dumps do banco não são montados na API.
+      - ./work/recuperacao:/var/lib/cnutri-monitoramento:ro
     depends_on:
       db:
         condition: service_healthy

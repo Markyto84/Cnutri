@@ -149,15 +149,26 @@ async def processar_um(sessoes):
     return True
 
 
-async def executar_fila(sessoes, parar):
-    while not parar.is_set():
-        try:
-            await recuperar_interrompidos(sessoes)
-            if await processar_um(sessoes):
-                continue
-        except Exception as exc:
-            logger.error("fila_indisponivel tipo=%s", type(exc).__name__)
-        try:
-            await asyncio.wait_for(parar.wait(), timeout=1)
-        except TimeoutError:
-            pass
+async def executar_fila(sessoes, parar, sinal=None):
+    if sinal:
+        sinal.ativa = True
+    try:
+        while not parar.is_set():
+            try:
+                await recuperar_interrompidos(sessoes)
+                processou = await processar_um(sessoes)
+                if sinal:
+                    sinal.registrar(True)
+                if processou:
+                    continue
+            except Exception as exc:
+                if sinal:
+                    sinal.registrar(False)
+                logger.error("fila_indisponivel tipo=%s", type(exc).__name__)
+            try:
+                await asyncio.wait_for(parar.wait(), timeout=1)
+            except TimeoutError:
+                pass
+    finally:
+        if sinal:
+            sinal.ativa = False
