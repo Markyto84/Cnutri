@@ -80,3 +80,11 @@ aprovados. Lint conserva os dois avisos de efeitos já existentes em Gestão.
 Navegador conferido com dados fictícios: referência, conferência, correção,
 histórico, modo público após logout e tela de 390 × 844. Homologação isolada,
 sem impressoras e sem dados de pacientes reais.
+
+Publicação na rede concluída com backup privado anterior e conferência SHA-256
+dos campos existentes das 17 tabelas, preservados antes de reiniciar os serviços.
+A tabela nova iniciou vazia, sem atribuições retroativas. API/prontidão HTTP 200,
+área assistencial sem sessão HTTP 401 e projeção pública conferida sem campos
+clínicos. Recuperação real após a atualização validou as 18 tabelas, conteúdo,
+estrutura e sequências, em banco temporário separado, removido ao final; sem
+iniciar API ou impressão da cópia. Senhas e configurações anteriores preservadas.

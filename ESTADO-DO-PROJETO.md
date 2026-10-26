@@ -54,7 +54,11 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
   Migração aditiva de duas colunas e uma tabela. 188 testes de backend e 31 de
   frontend aprovados; cinco testes opcionais de infraestrutura dispensados nesta
   rodada, build e conferência desktop/mobile com dados fictícios. Lint conserva
-  os dois avisos anteriores. Veja [fluxo e limites](PRESCRICOES-E-RASTREABILIDADE.md).
+  os dois avisos anteriores. Publicado na rede, saúde/prontidão HTTP 200 e acesso
+  assistencial anônimo HTTP 401. Backup anterior privado, SHA-256 dos campos
+  existentes das 17 tabelas preservado na migração; tabela de eventos vazia,
+  sem prescrições retroativas. Recuperação real posterior validou as 18 tabelas
+  e removeu a cópia temporária. Veja [fluxo e limites](PRESCRICOES-E-RASTREABILIDADE.md).
 
 - ✅ Melhorias **1 e 6 da lista de 23/10** aplicadas em 26/10/2026: Administração
   abre em **Monitoramento**, com API, banco, atividade/contadores da fila e resultado
