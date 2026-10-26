@@ -18,7 +18,8 @@ const COLUNAS = [
 
 export default function Cozinha() {
   const { filialId } = useParams()
-  return <Dashboard key={filialId} filialId={filialId} />
+  const { usuario } = useAuth()
+  return <Dashboard key={`${filialId}:${usuario?.id || 'publico'}`} filialId={filialId} />
 }
 
 function Dashboard({ filialId }) {

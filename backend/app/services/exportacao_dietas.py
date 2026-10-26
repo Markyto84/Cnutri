@@ -31,6 +31,10 @@ COLUNAS = [
     ("assinatura_registrada", "Assinatura registrada", 23), ("outros_campos", "Outros campos informados", 52),
     ("registrado_por_nome", "Entrega registrada por", 32),
     ("unidade_codigo", "Código da unidade", 26), ("unidade_id", "ID da unidade", 16), ("dieta_id", "ID da dieta", 14),
+    ("solicitante_identificacao", "Registro do solicitante informado", 32), ("versao_pedido", "Versão do pedido", 18),
+    ("prescricao_referencia", "Referência da prescrição", 36), ("prescricao_data_hora", "Prescrição (Brasília)", 26),
+    ("prescritor_nome", "Prescritor informado", 32), ("prescritor_registro", "Registro do prescritor informado", 34),
+    ("prescricao_situacao", "Situação do vínculo", 26), ("conferencia_nome", "Conferência registrada por", 32), ("conferencia_em", "Conferência (Brasília)", 26),
 ]
 RESUMO = [("unidade", "Unidade", 38), ("dieta", "Dieta / categoria", 32), ("total", "Solicitações", 15),
     ("pendentes", "Pendentes", 14), ("em_preparo", "Em preparo", 14), ("prontos", "Prontos", 13),
@@ -47,7 +51,7 @@ def limpar(valor):
 
 def valor_celula(item, chave):
     valor = item.get(chave)
-    if chave in ("criado_em", "concluido_em", "entregue_em"):
+    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em"):
         return horario_brasilia(valor)
     if chave == "status":
         return STATUS.get(valor, valor)

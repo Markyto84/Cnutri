@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, auth, gestao, melhorias, monitoramento, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
+from .api import admin, assistencia, auth, gestao, melhorias, monitoramento, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.login_usuarios import migrar_login_usuarios
@@ -15,6 +15,7 @@ from .core.migracao_operacao import migrar_operacao
 from .core.migracao_etiquetas import migrar_etiquetas
 from .core.migracao_ad import migrar_ad
 from .core.migracao_melhorias import migrar_melhorias
+from .core.migracao_assistencia import migrar_assistencia
 from .core.credenciais_iniciais import conferir_credenciais_producao
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(migrar_etiquetas)
         await conn.run_sync(migrar_ad)
         await conn.run_sync(migrar_melhorias)
+        await conn.run_sync(migrar_assistencia)
     async with SessionLocal() as db:
         await executar_seed(db)
         if settings.APP_ENV == "production":
@@ -76,6 +78,15 @@ app.include_router(relatorio_dietas.router)
 app.include_router(operacao.router)
 app.include_router(melhorias.router)
 app.include_router(monitoramento.router)
+app.include_router(assistencia.router)
+
+
+@app.middleware("http")
+async def impedir_cache_clinico(request, call_next):
+    resposta = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        resposta.headers["Cache-Control"] = "private, no-store"
+    return resposta
 
 
 @app.get("/api/health")
@@ -113,7 +124,7 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
             usuario = await get_current_user(protocolos[1], db)
             if usuario.troca_senha_obrigatoria:
                 raise HTTPException(403, "Atualize sua senha antes de continuar")
-            if usuario.perfil.nome not in pedidos.PERFIS_OPERACAO:
+            if usuario.perfil.nome not in (*pedidos.PERFIS_OPERACAO, "COPEIRA"):
                 raise HTTPException(403, "Perfil sem acesso ao canal interno da cozinha")
             await verificar_acesso_filial(filial_id, usuario, db)
             usuario_id = usuario.id
@@ -129,7 +140,7 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
                 async with SessionLocal() as db:
                     atual = await get_current_user(protocolos[1], db)
                     await verificar_acesso_filial(filial_id, atual, db)
-                    if atual.troca_senha_obrigatoria or atual.perfil.nome not in pedidos.PERFIS_OPERACAO:
+                    if atual.troca_senha_obrigatoria or atual.perfil.nome not in (*pedidos.PERFIS_OPERACAO, "COPEIRA"):
                         raise HTTPException(403, "Acesso encerrado")
                 proxima_validacao = agora + INTERVALO_VALIDACAO_WS
             try:

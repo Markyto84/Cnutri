@@ -66,6 +66,7 @@ def texto(valor):
 def detalhar(linha):
     pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo = linha
     dados = pedido.dados_dinamicos or {}
+    referencia = pedido.prescricao or {}
     campos = ("refeicao", "cardapio", "cardapio_acompanhante", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "internado_mais_6h")
     extras = {k: v for k, v in dados.items() if k not in {*campos, "andar", "local_entrega", "sexo", "data_nascimento", "matricula", "prontuario"}}
     return {"pedido_id": pedido.id, "unidade_id": pedido.filial_id, "unidade_codigo": codigo, "dieta_id": pedido.dieta_id, "unidade": unidade, "criado_em": data_utc(pedido.criado_em),
@@ -77,7 +78,12 @@ def detalhar(linha):
         "observacoes_alergias": pedido.observacoes_alergias or "", "solicitante_nome": pedido.solicitante_nome or "",
         "concluido_em": data_utc(pedido.concluido_em), "entregue_em": data_utc(entregue_em),
         "copeira_nome": copeira or "", "recebedor_nome": recebedor or "", "registrado_por_nome": operador or "", "assinatura_registrada": recebedor is not None,
-        "outros_campos": texto(extras) if extras else ""}
+        "outros_campos": texto(extras) if extras else "",
+        "solicitante_identificacao": pedido.solicitante_identificacao, "versao_pedido": pedido.versao,
+        "prescricao_referencia": referencia.get("referencia", ""), "prescricao_data_hora": referencia.get("data_hora"),
+        "prescritor_nome": referencia.get("prescritor_nome", ""), "prescritor_registro": referencia.get("prescritor_registro", ""),
+        "prescricao_situacao": referencia.get("situacao", "Sem referência registrada"),
+        "conferencia_nome": referencia.get("conferida_por_nome", ""), "conferencia_em": referencia.get("conferida_em")}
 
 
 def horario_brasilia(valor: str | None):

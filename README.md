@@ -8,6 +8,11 @@ Administração → **Monitoramento** mostra API, banco, fila de impressão e o 
 teste de recuperação. O teste completo de backup em banco temporário e o roteiro
 de manutenção estão em [Monitoramento e recuperação](MONITORAMENTO-E-RECUPERACAO.md).
 
+Gestão e Administração → **Prescrições e rastreabilidade** oferece referência da
+prescrição vigente, conferência, correções com motivo e histórico por pedido.
+Os dashboards públicos mostram número/etapa; dados de pacientes exigem sessão da
+unidade. Veja [fluxo e permissões](PRESCRICOES-E-RASTREABILIDADE.md).
+
 ---
 
 ## Estrutura do projeto
@@ -156,7 +161,8 @@ ativas ainda usando a senha inicial antiga. O Compose de produção exige as var
 O backend de produção fica na rede interna do Docker; somente o nginx publica portas e substitui
 os cabeçalhos de origem para a limitação de autenticação por IP.
 
-O dashboard da cozinha e a lista de entregas continuam públicos para consulta. Mudar etapas,
+O dashboard da cozinha e a lista de entregas mostram número e etapa sem login.
+Nomes, dietas, alergias e locais exigem conta autorizada da unidade. Mudar etapas,
 cancelar e reimprimir exige perfil Cozinha, Nutricionista ou Admin TI com acesso à unidade.
 Registrar entrega exige Copeira (somente a própria entrega), Nutricionista ou Admin TI.
 A gestão seleciona uma copeira online; o relatório identifica a copeira e quem registrou a ação.

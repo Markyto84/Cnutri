@@ -20,6 +20,9 @@ from ..schemas.schemas import PedidoCreate, PedidoOut
 from ..services.fila_impressao import enfileirar
 from ..services.validacao_pedidos import validar_pedido
 from ..services.formulario_paciente import formulario_paciente
+from ..core.security import usuario_opcional, verificar_acesso_filial
+from ..models.models import Usuario
+from ..services.assistencia import referencia_informada, registrar_evento, retrato, validar_referencia
 
 router = APIRouter(prefix="/api/public", tags=["Kiosk Público"])
 
@@ -55,18 +58,22 @@ async def obter_config_kiosk(slug: str, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.post("/{slug}/pedidos", response_model=PedidoOut, status_code=status.HTTP_201_CREATED)
+@router.post("/{slug}/pedidos", status_code=status.HTTP_201_CREATED)
 async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, response: Response,
-    chave: UUID | None = Header(default=None, alias="Idempotency-Key"), db: AsyncSession = Depends(get_db)):
+    chave: UUID | None = Header(default=None, alias="Idempotency-Key"), db: AsyncSession = Depends(get_db),
+    usuario: Usuario | None = Depends(usuario_opcional)):
     filial = await obter_filial(slug, db)
     filial_id = filial.id
+    if usuario:
+        await verificar_acesso_filial(filial_id, usuario, db)
 
     chave = str(chave or uuid4())
     resumo = sha256(json.dumps(dados.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
     existente = await buscar_envio(db, filial.id, chave)
     if existente:
         return conferir_repeticao(existente, resumo, response)
-    await validar_pedido(db, filial.id, dados)
+    dieta = await validar_pedido(db, filial.id, dados)
+    validar_referencia(dados)
 
     pedido = Pedido(
         filial_id=filial.id,
@@ -81,10 +88,14 @@ async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, respons
         dados_dinamicos=dados.dados_dinamicos,
         ip_origem=request.client.host if request.client else None,
         status="PENDENTE", chave_envio=chave, hash_envio=resumo,
+        prescricao=referencia_informada(dados), versao=1,
     )
+    pedido.dieta = dieta
     db.add(pedido)
     try:
         await db.flush()
+        registrar_evento(db, pedido, "SOLICITADO", usuario, depois=retrato(pedido),
+            motivo="Solicitante e prescritor informados no formulário; referência ainda não conferida pela gestão")
         await enfileirar(db, pedido, filial)
         await db.commit()
     except IntegrityError:
@@ -100,7 +111,7 @@ async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, respons
         filial.id,
         {"evento": "novo_pedido", "pedido": PedidoOut.model_validate(pedido).model_dump(mode="json")},
     )
-    return pedido
+    return {"id": pedido.id, "impressao": pedido.impressao}
 
 
 async def buscar_envio(db, filial_id, chave):
@@ -111,7 +122,7 @@ def conferir_repeticao(pedido, resumo, response):
     if pedido.hash_envio != resumo:
         raise HTTPException(409, jsonable_encoder({"mensagem": "A solicitação anterior já foi registrada. Os novos dados não foram enviados", "pedido_id": pedido.id, "impressao": pedido.impressao}))
     response.status_code = 200
-    return pedido
+    return {"id": pedido.id, "impressao": pedido.impressao}
 
 
 @router.get("/{slug}/solicitacoes/{chave}")

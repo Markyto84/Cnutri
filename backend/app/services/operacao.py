@@ -14,7 +14,12 @@ def data_utc(valor) -> str | None:
     return data.replace(tzinfo=timezone.utc).isoformat() if data.tzinfo is None else data.isoformat()
 
 
-def pedido_operacional(dados: dict) -> dict:
+def pedido_operacional(dados: dict, autenticado=False) -> dict:
+    if not autenticado:
+        # Sem nomes, localização, dieta, alergias, metadados de impressão ou campos futuros.
+        return {"id": dados["id"], "filial_id": dados["filial_id"], "tipo_solicitacao": dados["tipo_solicitacao"],
+            "status": dados["status"], "criado_em": data_utc(dados.get("criado_em")),
+            "concluido_em": data_utc(dados.get("concluido_em")), "dados_restritos": True}
     dinamicos = dados.get("dados_dinamicos") or {}
     idade = None
     try:
@@ -37,4 +42,5 @@ def pedido_operacional(dados: dict) -> dict:
         "concluido_em": data_utc(dados.get("concluido_em")),
         "impressao": dados.get("impressao"),
         "etiqueta": dados.get("etiqueta"),
+        "versao": dados.get("versao", 1),
     }

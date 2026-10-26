@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..core.database import get_db
-from ..core.security import exigir_perfis, verificar_acesso_filial
+from ..core.security import exigir_perfis, usuario_opcional, verificar_acesso_filial
 from ..core.presenca import sessoes_online
 from ..core.ws import gerenciador_ws
 from ..models.models import EntregaPedido, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
@@ -15,6 +15,7 @@ from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc, pedido_operacional
 from ..services.assinatura import gerar_assinatura_png
 from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, nome_etiqueta, previa_png
+from ..services.assistencia import registrar_etapa, registrar_evento
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
@@ -39,8 +40,8 @@ async def obter_pedido(filial_id: int, pedido_id: int, db: AsyncSession) -> Pedi
     return pedido
 
 
-def serializar(pedido: Pedido) -> dict:
-    return pedido_operacional(PedidoOut.model_validate(pedido).model_dump(mode="json"))
+def serializar(pedido: Pedido, autenticado=True) -> dict:
+    return pedido_operacional(PedidoOut.model_validate(pedido).model_dump(mode="json"), autenticado=autenticado)
 
 
 async def notificar(pedido: Pedido):
@@ -56,17 +57,22 @@ async def listar_unidades(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/unidades/{filial_id}/pedidos")
-async def listar_pedidos(filial_id: int, db: AsyncSession = Depends(get_db)):
+async def listar_pedidos(filial_id: int, db: AsyncSession = Depends(get_db), usuario: Usuario | None = Depends(usuario_opcional)):
     await unidade_ativa(filial_id, db)
+    if usuario:
+        await verificar_acesso_filial(filial_id, usuario, db)
     pedidos = (await db.execute(select(Pedido).options(selectinload(Pedido.dieta)).where(
         Pedido.filial_id == filial_id, Pedido.status.in_(STATUS_ATIVOS),
     ).order_by(Pedido.criado_em))).scalars().all()
-    return [serializar(pedido) for pedido in pedidos]
+    return [serializar(pedido, autenticado=usuario is not None) for pedido in pedidos]
 
 
 @router.get("/unidades/{filial_id}/copeiras")
-async def listar_copeiras_online(filial_id: int, db: AsyncSession = Depends(get_db)):
+async def listar_copeiras_online(filial_id: int, db: AsyncSession = Depends(get_db), usuario: Usuario | None = Depends(usuario_opcional)):
     await unidade_ativa(filial_id, db)
+    if not usuario:
+        return []
+    await verificar_acesso_filial(filial_id, usuario, db)
     ids = sessoes_online(filial_id).with_only_columns(SessaoCopeira.usuario_id)
     pessoas = (await db.execute(select(Usuario.id, Usuario.nome).where(Usuario.id.in_(ids)).order_by(Usuario.nome))).all()
     return [{"id": pessoa.id, "nome": pessoa.nome} for pessoa in pessoas]
@@ -92,6 +98,7 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
     if alterado is None:
         raise HTTPException(409, "Outro painel já atualizou este pedido")
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id))
+    registrar_etapa(db, pedido, usuario, anterior, dados.status)
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
@@ -176,6 +183,9 @@ async def entregar(filial_id: int, pedido_id: int, dados: EntregaCreate, request
         assinatura_png=gerar_assinatura_png(dados.assinatura)))
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior="PRONTO", status_novo="ENTREGUE",
         alterado_por_usuario_id=usuario.id))
+    registrar_etapa(db, pedido, usuario, "PRONTO", "ENTREGUE")
+    registrar_evento(db, pedido, "ENTREGA_REGISTRADA", usuario, depois={"copeira_id": copeira.id,
+        "copeira_nome": copeira.nome, "recebedor_nome": dados.recebedor_nome, "assinatura_registrada": True})
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])

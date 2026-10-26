@@ -271,10 +271,15 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             patch("app.services.fila_impressao.enviar_filipeta", return_value=None) as imprimir,
             patch("app.services.impressora.rasterizar_filipeta", wraps=rasterizar_filipeta) as desenhar,
         ):
+            if payload["tipo_solicitacao"] == "PACIENTE":
+                payload["prescricao"] = {"referencia": "Prontuário fictício", "data_hora": "2026-10-20T09:00:00-03:00", "prescritor_nome": "Prescritora Fictícia", "prescritor_registro": "CRN TESTE"}
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json=payload)
             self.assertEqual(resposta.status_code, 201, resposta.text)
-            self.assertEqual(resposta.json()["prontuario"], payload["prontuario"])
-            self.assertEqual(resposta.json()["dados_dinamicos"], payload["dados_dinamicos"])
+            self.assertNotIn("prontuario", resposta.json())
+            async with self.sessoes() as db:
+                salvo = await db.get(Pedido, resposta.json()["id"])
+                self.assertEqual(salvo.prontuario, payload["prontuario"])
+                self.assertEqual(salvo.dados_dinamicos, payload["dados_dinamicos"])
             imprimir.assert_not_called()
             self.assertEqual(resposta.json()["impressao"]["estado"], "PENDENTE")
             await processar_um(self.sessoes)

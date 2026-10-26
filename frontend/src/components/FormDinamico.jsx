@@ -2,8 +2,9 @@
 import { useState } from 'react'
 import { ajustarValores, campoVisivel, dietasDisponiveis, erroAcompanhante, opcoesCardapio } from '../services/formularioPaciente.js'
 
-export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, campos, dietas, enviando, erro, onCancelar, onEnviar }) {
-  const [valores, setValores] = useState({})
+export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, campos, dietas, enviando, erro, onCancelar, onEnviar,
+  valoresIniciais = {}, complemento, textoBotao = 'Enviar Solicitação' }) {
+  const [valores, setValores] = useState(valoresIniciais)
 
   const setValor = (id, v) => setValores((a) => ajustarValores(campos, dietas, { ...a, [id]: v }))
 
@@ -18,7 +19,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
   }
 
   return (
-    <form onSubmit={submeter} className="mx-auto max-w-2xl space-y-5 rounded-2xl bg-panel p-8 shadow-xl">
+    <form onSubmit={submeter} className="mx-auto max-w-2xl space-y-5 rounded-2xl bg-panel p-4 shadow-xl sm:p-8">
       <h2 className="text-2xl font-bold text-slate-900">{titulo}</h2>
 
       {cabecalho && (
@@ -169,6 +170,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
         </div>
       ))}
 
+      {complemento?.(valores)}
       <div className="flex gap-3 pt-2">
         <button
           type="button"
@@ -182,7 +184,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
           disabled={enviando || !!avisoAcompanhante}
           className="flex-1 rounded-lg bg-brand px-6 py-3 text-lg font-bold text-white hover:bg-brand-hover disabled:opacity-50"
         >
-          {enviando ? 'A enviar…' : 'Enviar Solicitação'}
+          {enviando ? 'A enviar…' : textoBotao}
         </button>
       </div>
     </form>

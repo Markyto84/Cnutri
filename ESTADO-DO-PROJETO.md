@@ -40,6 +40,22 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ Melhorias **1–4 de rastreabilidade assistencial** aplicadas em 26/10/2026:
+  referência da prescrição vigente obrigatória para paciente/ambos; nomes digitados
+  explicitamente informados, separados da conta autenticada; Gestão/Administração
+  com **Prescrições e rastreabilidade**, conferência manual, correção com motivo,
+  versões e autor/horário. Correção invalida conferência, volta a Pendentes e
+  substitui impressões pendentes; documentos enviados/incertos exigem confirmação
+  de substituição com a cozinha. Eventos preservam nomes/perfis à época; histórico
+  JSON e relatório Excel/ODS/CSV com metadados da prescrição. Dados anteriores
+  sem prescrição/autores presumidos. Consulta pública somente por número/etapa;
+  detalhes operacionais e nomes de copeiras exigem conta/vínculo, inclusive em
+  HTTP/WebSocket, com limpeza ao sair. Campos clínicos completos só Gestão/TI.
+  Migração aditiva de duas colunas e uma tabela. 188 testes de backend e 31 de
+  frontend aprovados; cinco testes opcionais de infraestrutura dispensados nesta
+  rodada, build e conferência desktop/mobile com dados fictícios. Lint conserva
+  os dois avisos anteriores. Veja [fluxo e limites](PRESCRICOES-E-RASTREABILIDADE.md).
+
 - ✅ Melhorias **1 e 6 da lista de 23/10** aplicadas em 26/10/2026: Administração
   abre em **Monitoramento**, com API, banco, atividade/contadores da fila e resultado
   da recuperação, atualizado a cada 15 segundos. Detalhes somente ADMIN_TI; sonda

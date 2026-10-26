@@ -101,14 +101,17 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({p["status"] for p in resposta.json()}, {"PENDENTE", "EM_PREPARO", "PRONTO"})
         for privado in ("prontuario", "solicitante_identificacao", "matricula", "data_nascimento", "sexo"):
             self.assertNotIn(privado, resposta.text)
-        self.assertIsInstance(resposta.json()[0]["idade"], int)
+        self.assertNotIn("idade", resposta.json()[0])
+        privada = await self.client.get(self.base + "/pedidos", headers=self.operador)
+        self.assertIsInstance(privada.json()[0]["idade"], int)
         self.assertEqual((await self.client.get("/api/admin/usuarios")).status_code, 401)
         self.assertEqual((await self.client.get(f"/api/pedidos?filial_id={self.a}")).status_code, 401)
 
     async def test_login_aparece_logout_remove_e_invalida_sessao(self):
         self.assertEqual((await self.client.get(self.base + "/copeiras")).json(), [])
         token = await self.entrar()
-        self.assertEqual((await self.client.get(self.base + "/copeiras")).json(), [{"id": self.ana, "nome": "Ana Teste"}])
+        self.assertEqual((await self.client.get(self.base + "/copeiras")).json(), [])
+        self.assertEqual((await self.client.get(self.base + "/copeiras", headers=self.operador)).json(), [{"id": self.ana, "nome": "Ana Teste"}])
         self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.b}/copeiras")).json(), [])
         self.assertEqual((await self.client.post("/api/auth/logout", headers=token)).status_code, 200)
         self.assertEqual((await self.client.get(self.base + "/copeiras")).json(), [])
@@ -119,22 +122,22 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         resposta = await self.client.post("/api/auth/presenca", headers=token, json={"filial_id": self.b})
         self.assertEqual(resposta.status_code, 200, resposta.text)
         self.assertEqual((await self.client.get(self.base + "/copeiras")).json(), [])
-        self.assertEqual(len((await self.client.get(f"/api/operacao/unidades/{self.b}/copeiras")).json()), 1)
+        self.assertEqual(len((await self.client.get(f"/api/operacao/unidades/{self.b}/copeiras", headers=self.operador)).json()), 1)
         async with self.sessoes() as db:
             sessao = (await db.execute(select(SessaoCopeira))).scalar_one()
             sessao.presenca_ate = agora_utc() - timedelta(seconds=1)
             await db.commit()
         self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.b}/copeiras")).json(), [])
         self.assertEqual((await self.client.post("/api/auth/presenca", headers=token, json={"filial_id": self.a})).status_code, 200)
-        self.assertEqual(len((await self.client.get(self.base + "/copeiras")).json()), 1)
+        self.assertEqual(len((await self.client.get(self.base + "/copeiras", headers=self.operador)).json()), 1)
         bia = await self.entrar("bia")
         self.assertEqual((await self.client.post("/api/auth/presenca", headers=bia, json={"filial_id": self.b})).status_code, 403)
 
     async def test_duas_abas_ou_sessoes_nao_duplicam_nome(self):
         primeira, segunda = await self.entrar(), await self.entrar()
-        self.assertEqual(len((await self.client.get(self.base + "/copeiras")).json()), 1)
+        self.assertEqual(len((await self.client.get(self.base + "/copeiras", headers=self.operador)).json()), 1)
         await self.client.post("/api/auth/logout", headers=primeira)
-        self.assertEqual(len((await self.client.get(self.base + "/copeiras")).json()), 1)
+        self.assertEqual(len((await self.client.get(self.base + "/copeiras", headers=self.operador)).json()), 1)
         await self.client.post("/api/auth/logout", headers=segunda)
         self.assertEqual((await self.client.get(self.base + "/copeiras")).json(), [])
 
@@ -320,8 +323,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             interno = SocketTeste()
             interno.scope = {"subprotocols": ["cnutri", token["Authorization"].removeprefix("Bearer ")]}
             await ws_cozinha(interno, self.a)
-            self.assertFalse(interno.aceito)
-            self.assertEqual(interno.fechado, 1008)
+            self.assertTrue(interno.aceito)
             socket = SocketTeste()
             await ws_operacao(socket, self.a)
             self.assertTrue(socket.aceito)
@@ -340,7 +342,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
                 "prontuario": "PRIVADO", "dados_dinamicos": {"matricula": "PRIVADO", "refeicao": "JANTAR"},
             }})
             self.assertNotIn("prontuario", socket.mensagens[0]["pedido"])
-            self.assertEqual(socket.mensagens[0]["pedido"]["dados_dinamicos"], {"refeicao": "JANTAR"})
+            self.assertNotIn("dados_dinamicos", socket.mensagens[0]["pedido"])
         finally:
             gerenciador_ws.desconectar(self.a, socket)
 

@@ -10,12 +10,14 @@ from ..core.ws import gerenciador_ws
 from ..models.models import Filial, HistoricoPedido, Pedido, Usuario
 from ..schemas.schemas import PedidoOut, ReimpressaoCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
+from ..services.operacao import pedido_operacional
+from ..services.assistencia import registrar_etapa
 
 router = APIRouter(prefix="/api/pedidos", tags=["Cozinha / Kanban"])
 PERFIS_OPERACAO = ("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
 
 
-@router.get("", response_model=list[PedidoOut])
+@router.get("")
 async def listar_pedidos(
     filial_id: int,
     status_filtro: str | None = None,
@@ -33,10 +35,15 @@ async def listar_pedidos(
     if status_filtro:
         consulta = consulta.where(Pedido.status == status_filtro)
     pedidos = (await db.execute(consulta)).scalars().all()
-    return pedidos
+    return [resposta_por_perfil(p, _) for p in pedidos]
 
 
-@router.patch("/{pedido_id}/status", response_model=PedidoOut)
+def resposta_por_perfil(pedido, usuario):
+    dados = PedidoOut.model_validate(pedido).model_dump(mode="json")
+    return dados if usuario.perfil.nome in ("NUTRICIONISTA", "ADMIN_TI") else pedido_operacional(dados, autenticado=True)
+
+
+@router.patch("/{pedido_id}/status")
 async def alterar_status(
     pedido_id: int,
     dados: StatusUpdate,
@@ -56,7 +63,7 @@ async def alterar_status(
     if anterior == "ENTREGUE":
         raise HTTPException(409, "Este pedido já foi entregue")
     if anterior == dados.status:
-        return pedido
+        return resposta_por_perfil(pedido, usuario)
     valores = {"status": dados.status}
     if dados.status == "PRONTO":
         valores["concluido_em"] = func.now()
@@ -74,6 +81,7 @@ async def alterar_status(
             alterado_por_usuario_id=usuario.id,
         )
     )
+    registrar_etapa(db, pedido, usuario, anterior, dados.status)
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
@@ -85,7 +93,7 @@ async def alterar_status(
             "pedido": PedidoOut.model_validate(pedido).model_dump(mode="json"),
         },
     )
-    return pedido
+    return resposta_por_perfil(pedido, usuario)
 
 
 @router.post("/{pedido_id}/reimprimir", status_code=202)

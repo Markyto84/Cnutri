@@ -11,7 +11,8 @@ import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js
 
 export default function Entregas() {
   const { filialId } = useParams()
-  return <PaginaEntregas key={filialId} filialId={filialId} />
+  const { usuario } = useAuth()
+  return <PaginaEntregas key={`${filialId}:${usuario?.id || 'publico'}`} filialId={filialId} />
 }
 
 function PaginaEntregas({ filialId }) {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import axios from 'axios'
+import { api } from '../services/api.js'
+import { useAuth } from '../context/auth.js'
 
-export const operacao = axios.create({ baseURL: '/api/operacao' })
+export const operacao = { get: (url, config) => api.get(`/operacao${url}`, config) }
 const ETAPAS = ['PENDENTE', 'EM_PREPARO', 'PRONTO']
 
 function tocarAlerta() {
@@ -18,8 +19,12 @@ function tocarAlerta() {
 }
 
 export function useOperacao(filialId, som = false) {
+  const { usuario } = useAuth()
+  const token = localStorage.getItem('token')
+  const escopo = `${filialId}:${usuario?.id || ''}:${token || ''}`
   const [filiais, setFiliais] = useState([])
-  const [pedidos, setPedidos] = useState([])
+  const [consulta, setConsulta] = useState({ escopo: '', pedidos: [] })
+  const pedidos = consulta.escopo === escopo ? consulta.pedidos : []
   const [erro, setErro] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [indisponivel, setIndisponivel] = useState(false)
@@ -33,12 +38,13 @@ export function useOperacao(filialId, som = false) {
 
   const aplicarPedido = useCallback((pedido) => {
     revisao.current++
-    setPedidos((atuais) => {
-      if (!ETAPAS.includes(pedido.status)) return atuais.filter((p) => p.id !== pedido.id)
-      return atuais.some((p) => p.id === pedido.id)
-        ? atuais.map((p) => p.id === pedido.id ? pedido : p) : [...atuais, pedido]
+    setConsulta((anterior) => {
+      const atuais = anterior.escopo === escopo ? anterior.pedidos : []
+      const lista = !ETAPAS.includes(pedido.status) ? atuais.filter((p) => p.id !== pedido.id)
+        : atuais.some((p) => p.id === pedido.id) ? atuais.map((p) => p.id === pedido.id ? pedido : p) : [...atuais, pedido]
+      return { escopo, pedidos: lista }
     })
-  }, [])
+  }, [escopo])
 
   const recarregar = useCallback(async (signal) => {
     const versao = revisao.current
@@ -52,15 +58,15 @@ export function useOperacao(filialId, som = false) {
       setFiliais(unidades.data)
       if (prazos) setAlertas(prazos.data)
       setAgora(Date.now())
-      if (versao === revisao.current) setPedidos(lista.data)
+      if (versao === revisao.current) setConsulta({ escopo, pedidos: lista.data })
       setIndisponivel(false)
       setErro(null)
     } catch (e) {
       if (signal?.aborted || !montado.current) return
       setErro(e.response?.data?.detail || 'Sem conexão. Tentando atualizar o painel…')
-      if ([404, 422].includes(e.response?.status)) { setIndisponivel(true); setPedidos([]) }
+      if ([401, 403, 404, 422].includes(e.response?.status)) { setIndisponivel(true); setConsulta({ escopo, pedidos: [] }) }
     } finally { if (!signal?.aborted && montado.current) setCarregando(false) }
-  }, [filialId])
+  }, [filialId, escopo])
 
   useEffect(() => {
     montado.current = true
@@ -78,7 +84,8 @@ export function useOperacao(filialId, som = false) {
     let ws, tentativa
     function conectar() {
       if (encerrado) return
-      ws = new WebSocket(`${protocolo}://${window.location.host}/ws/operacao/${filialId}`)
+      ws = token ? new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha/${filialId}`, ['cnutri', token])
+        : new WebSocket(`${protocolo}://${window.location.host}/ws/operacao/${filialId}`)
       ws.onopen = () => { setConectado(true); recarregar() }
       ws.onmessage = ({ data }) => {
         try {
@@ -92,13 +99,13 @@ export function useOperacao(filialId, som = false) {
       ws.onclose = ({ code }) => {
         if (encerrado) return
         setConectado(false)
-        if (code === 1008) { setIndisponivel(true); setPedidos([]); setErro('Unidade indisponível'); return }
+        if (code === 1008) { setIndisponivel(true); setConsulta({ escopo, pedidos: [] }); setErro(token ? 'Acesso encerrado. Atualize sua sessão.' : 'Unidade indisponível'); return }
         tentativa = setTimeout(conectar, 3000)
       }
     }
     conectar()
     return () => { encerrado = true; clearTimeout(tentativa); ws?.close() }
-  }, [filialDisponivel, filialId, indisponivel, som, aplicarPedido, recarregar])
+  }, [filialDisponivel, filialId, indisponivel, som, aplicarPedido, recarregar, token, escopo])
 
   return { filial, filiais, pedidos, alertas, agora, erro, setErro, carregando, indisponivel, conectado, recarregar, aplicarPedido }
 }

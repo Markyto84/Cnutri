@@ -50,12 +50,15 @@ class ConnectionManager:
         mortos: list[WebSocket] = []
         for ws in list(self.ativos[filial_id]):
             try:
-                await ws.send_json(mensagem)
+                interna = {"evento": mensagem.get("evento")}
+                if mensagem.get("pedido"):
+                    interna["pedido"] = pedido_operacional(mensagem["pedido"], autenticado=True)
+                await ws.send_json(interna)
             except Exception:
                 mortos.append(ws)
         for ws in mortos:
             self.desconectar(filial_id, ws)
-        publica = {**mensagem}
+        publica = {"evento": mensagem.get("evento")}
         if mensagem.get("pedido"):
             publica["pedido"] = pedido_operacional(mensagem["pedido"])
         for ws in list(self.publicos[filial_id]):

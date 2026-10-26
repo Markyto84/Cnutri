@@ -1,5 +1,5 @@
 """Schemas Pydantic de validação de entrada/saída."""
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
 from math import hypot
 from typing import Annotated, Any, Literal
@@ -233,6 +233,33 @@ class FormularioConfigUpdate(BaseModel):
 
 
 # ─── Pedidos ─────────────────────────────────────────────────────────────────
+class ReferenciaPrescricao(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    referencia: str = Field(min_length=1, max_length=150)
+    data_hora: datetime
+    prescritor_nome: str = Field(min_length=3, max_length=100)
+    prescritor_registro: str = Field(min_length=3, max_length=100)
+
+    @field_validator("referencia", "prescritor_nome", "prescritor_registro", mode="before")
+    @classmethod
+    def limpar_referencia(cls, valor):
+        if isinstance(valor, str):
+            valor = valor.strip()
+            if any(ord(c) < 32 or ord(c) == 127 for c in valor):
+                raise ValueError("Use um texto em uma linha")
+        return valor
+
+    @field_validator("data_hora")
+    @classmethod
+    def validar_horario(cls, valor):
+        if valor.tzinfo is None:
+            raise ValueError("Informe o fuso horário da prescrição")
+        valor = valor.astimezone(timezone.utc)
+        if valor > datetime.now(timezone.utc) + timedelta(minutes=5):
+            raise ValueError("A prescrição não pode ter data e hora futuras")
+        return valor
+
+
 class PedidoCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tipo_solicitacao: TipoSolicitacao
@@ -244,6 +271,7 @@ class PedidoCreate(BaseModel):
     dieta_id: int | None = Field(default=None, gt=0, strict=True)
     observacoes_alergias: str | None = Field(default=None, max_length=5000)
     dados_dinamicos: dict[str, Any] = Field(default_factory=dict, max_length=100)
+    prescricao: ReferenciaPrescricao | None = None
 
     @field_validator("solicitante_identificacao", "solicitante_nome", "leito", "prontuario", "nome_paciente", "observacoes_alergias", mode="before")
     @classmethod
@@ -282,6 +310,26 @@ class PedidoOut(BaseModel):
     concluido_em: datetime | None
     impressao: ImpressaoOut | None = None
     etiqueta: ImpressaoOut | None = None
+    prescricao: dict[str, Any] | None = None
+    versao: int = 1
+
+
+class PedidoAssistencialUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    versao: int = Field(ge=1, strict=True)
+    motivo: str = Field(min_length=5, max_length=1000)
+    pedido: PedidoCreate
+    confirmar_substituicao: bool = False
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def limpar_motivo(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
+
+
+class ConferenciaPrescricao(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    versao: int = Field(ge=1, strict=True)
 
 
 class StatusUpdate(BaseModel):

@@ -31,6 +31,7 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
     {usuario?.perfil === 'COPEIRA' && <p role="status" className={`rounded-lg p-3 text-sm ${nestePlantao && plantaoOnline ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
       <strong>{usuario.nome}</strong> · {nestePlantao && plantaoOnline ? 'Você está online neste plantão' : 'Sua presença depende de conexão e vínculo com esta unidade'}
     </p>}
+    {!usuario && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Consulta pública por número e etapa. Entre com uma conta vinculada à unidade para visualizar destinatários, dietas e locais de entrega.</p>}
   </header>
 }
 

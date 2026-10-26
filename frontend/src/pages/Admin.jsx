@@ -7,6 +7,7 @@ import CentralImpressoes from '../components/CentralImpressoes.jsx'
 import ConfiguracaoAlertas from '../components/ConfiguracaoAlertas.jsx'
 import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
 import Monitoramento from '../components/Monitoramento.jsx'
+import Prescricoes from '../components/Prescricoes.jsx'
 import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
 
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand'
@@ -70,12 +71,13 @@ export default function Admin() {
       ].map(([rotulo, total]) => <div key={rotulo} className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">{rotulo}</p><p className="mt-1 text-3xl font-bold">{total}</p></div>)}
     </div>}
     <nav className="flex flex-wrap gap-2" aria-label="Administração">
-      {[['monitoramento', 'Monitoramento'], ['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
+      {[['monitoramento', 'Monitoramento'], ['prescricoes', 'Prescrições e rastreabilidade'], ['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
         <button key={id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}>{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />
     {carregando ? <p>Carregando administração…</p> : <>
       {aba === 'monitoramento' && <Monitoramento onAbrirCentral={() => setAba('central-impressoes')} />}
+      {aba === 'prescricoes' && <Prescricoes filiais={dados.filiais} />}
       {aba === 'unidades' && <Unidades filiais={dados.filiais} onConcluido={concluido} />}
       {aba === 'credenciais' && <Credenciais filiais={dados.filiais} usuarios={dados.usuarios} usuarioAtual={usuario} onConcluido={concluido} />}
       {aba === 'impressoras' && <Impressoras filiais={dados.filiais} onConcluido={concluido} />}

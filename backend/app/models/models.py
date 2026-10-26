@@ -155,6 +155,9 @@ class Pedido(Base):
     concluido_em: Mapped[datetime | None] = mapped_column(DateTime)
     chave_envio: Mapped[str | None] = mapped_column(String(36))
     hash_envio: Mapped[str | None] = mapped_column(String(64))
+    # Referência ao prontuário externo; não representa prescrição emitida pelo Cnutri.
+    prescricao: Mapped[dict | None] = mapped_column(JSONType)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     __table_args__ = (UniqueConstraint("filial_id", "chave_envio", name="uq_pedido_chave_envio"),)
 
     filial: Mapped[Filial] = relationship()
@@ -196,6 +199,22 @@ class TrabalhoImpressao(Base):
     enviado_em: Mapped[datetime | None] = mapped_column(DateTime)
     reserva: Mapped[str | None] = mapped_column(String(36))
     solicitado_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"))
+
+
+class EventoAssistencial(Base):
+    __tablename__ = "eventos_assistenciais"
+    __table_args__ = (Index("ix_evento_pedido_data", "pedido_id", "id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), nullable=False)
+    acao: Mapped[str] = mapped_column(String(30), nullable=False)
+    autor_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"))
+    autor_nome: Mapped[str | None] = mapped_column(String(100))
+    autor_perfil: Mapped[str | None] = mapped_column(String(30))
+    motivo: Mapped[str | None] = mapped_column(String(1000))
+    antes: Mapped[dict | None] = mapped_column(JSONType)
+    depois: Mapped[dict | None] = mapped_column(JSONType)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 Index("uq_impressao_ativa_tipo", TrabalhoImpressao.pedido_id, TrabalhoImpressao.tipo_documento, unique=True,

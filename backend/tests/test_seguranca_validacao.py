@@ -89,6 +89,7 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
 
     def paciente(self):
         return {"tipo_solicitacao": "PACIENTE", "solicitante_identificacao": "COREN TESTE", "solicitante_nome": "Enfermeira Fictícia",
+            "prescricao": {"referencia": "Prontuário fictício", "data_hora": "2026-10-20T09:00:00-03:00", "prescritor_nome": "Prescritora Fictícia", "prescritor_registro": "CRN TESTE"},
             "leito": "10", "prontuario": "FICTÍCIO", "nome_paciente": "Paciente Fictício", "dieta_id": self.dieta,
             "observacoes_alergias": "Sem restrições", "dados_dinamicos": {"andar": "TÉRREO - OBSERVAÇÃO", "internado_mais_6h": "Não",
                 "matricula": "FICTÍCIA", "data_nascimento": "1970-01-01", "sexo": "FEMININO", "refeicao": "ALMOÇO", "para": "Paciente",
@@ -149,7 +150,7 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get("/api/auth/me", headers=token)).status_code, 401)
         nova = {"Authorization": "Bearer " + r.json()["access_token"]}
         self.assertEqual((await self.client.post("/api/auth/presenca", headers=nova, json={"filial_id": self.a})).status_code, 200)
-        self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.a}/copeiras")).json()[0]["id"], self.ids["bia"])
+        self.assertEqual((await self.client.get(f"/api/operacao/unidades/{self.a}/copeiras", headers=nova)).json()[0]["id"], self.ids["bia"])
 
     async def test_logout_troca_e_reset_revogam_tokens_anteriores_de_todos_os_perfis(self):
         admin = await self.entrar()
@@ -303,7 +304,9 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
         for dados in (self.medico(), self.paciente()):
             r = await self.client.post("/api/public/teste-a/pedidos", json=dados)
             self.assertEqual(r.status_code, 201, r.text)
-            self.assertEqual(r.json()["dados_dinamicos"], dados["dados_dinamicos"])
+            self.assertNotIn("dados_dinamicos", r.json())
+            async with self.sessoes() as db:
+                self.assertEqual((await db.get(Pedido, r.json()["id"])).dados_dinamicos, dados["dados_dinamicos"])
 
     async def test_campos_obrigatorios_opcoes_tipos_tamanhos_e_datas_invalidos_nao_gravam_nem_imprimem(self):
         alteracoes = [lambda p: p.update(solicitante_identificacao="  "), lambda p: p.update(solicitante_nome="  "),

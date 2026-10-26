@@ -15,6 +15,7 @@ from ..models.models import Filial, SessaoCopeira, SessaoUsuario, Usuario
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_opcional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 CREDENCIAIS_INVALIDAS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,6 +81,15 @@ async def filiais_permitidas(usuario: Usuario, db: AsyncSession) -> list[Filial]
     if usuario.perfil.nome == "ADMIN_TI":
         return list((await db.execute(select(Filial).order_by(Filial.nome))).scalars().all())
     return sorted((f for f in usuario.filiais if f.ativa), key=lambda f: f.nome)
+
+
+async def usuario_opcional(token: str | None = Depends(oauth2_opcional), db: AsyncSession = Depends(get_db)):
+    if token is None:
+        return None
+    usuario = await get_current_user(token, db)
+    if usuario.troca_senha_obrigatoria:
+        raise HTTPException(403, "Atualize sua senha antes de continuar")
+    return usuario
 
 
 async def verificar_acesso_filial(filial_id: int, usuario: Usuario, db: AsyncSession) -> Filial:

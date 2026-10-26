@@ -59,6 +59,7 @@ class FormularioAcompanhanteTest(unittest.IsolatedAsyncioTestCase):
 
     def dados(self, para="Paciente"):
         return {"tipo_solicitacao": "PACIENTE", "solicitante_identificacao": "COREN TESTE",
+            "prescricao": {"referencia": "Prontuário fictício", "data_hora": "2026-10-20T09:00:00-03:00", "prescritor_nome": "Prescritora Fictícia", "prescritor_registro": "CRN TESTE"} if para != "Acompanhante" else None,
             "solicitante_nome": "Enfermeira fictícia", "nome_paciente": "Paciente fictício",
             "prontuario": "TESTE", "leito": "OBS-12", "dieta_id": self.pastosa,
             "observacoes_alergias": "Dados fictícios", "dados_dinamicos": {
@@ -69,6 +70,11 @@ class FormularioAcompanhanteTest(unittest.IsolatedAsyncioTestCase):
         async with self.sessoes() as db:
             return (await db.scalar(select(func.count()).select_from(Pedido)),
                 await db.scalar(select(func.count()).select_from(TrabalhoImpressao)))
+
+    async def salvo(self, resposta):
+        r = await self.client.get(f"/api/assistencia/pedidos/{resposta.json()['id']}", headers=self.headers)
+        self.assertEqual(r.status_code, 200, r.text)
+        return r.json()["pedido"]
 
     async def test_config_derivada_em_todas_unidades_preserva_cadastro_e_medico(self):
         for slug in ("acompanhante-a", "acompanhante-b"):
@@ -89,8 +95,9 @@ class FormularioAcompanhanteTest(unittest.IsolatedAsyncioTestCase):
     async def test_paciente_continua_com_dieta_e_cardapio_proprios(self):
         r = await self.client.post(self.rota, json=self.dados())
         self.assertEqual(r.status_code, 201, r.text)
-        self.assertEqual(r.json()["dieta"]["nome"], "PASTOSA")
-        self.assertNotIn("cardapio_acompanhante", r.json()["dados_dinamicos"])
+        salvo = await self.salvo(r)
+        self.assertEqual(salvo["dieta"]["nome"], "PASTOSA")
+        self.assertNotIn("cardapio_acompanhante", salvo["dados_dinamicos"])
 
     async def test_acompanhante_aceita_geral_e_recusa_dieta_especial_ou_de_outra_unidade(self):
         for dieta in (self.pastosa, self.outra, None):
@@ -106,17 +113,19 @@ class FormularioAcompanhanteTest(unittest.IsolatedAsyncioTestCase):
         dados["dados_dinamicos"]["cardapio"] = GERAL
         r = await self.client.post(self.rota, json=dados)
         self.assertEqual(r.status_code, 201, r.text)
-        self.assertEqual(r.json()["dieta_id"], self.geral)
-        self.assertEqual(r.json()["dados_dinamicos"]["cardapio"], GERAL)
+        salvo = await self.salvo(r)
+        self.assertEqual(salvo["dieta_id"], self.geral)
+        self.assertEqual(salvo["dados_dinamicos"]["cardapio"], GERAL)
 
     async def test_ambos_preserva_dieta_paciente_e_cardapio_geral_no_painel_e_filipeta(self):
         dados = self.dados("Paciente e Acompanhante")
         dados["dados_dinamicos"]["cardapio_acompanhante"] = GERAL
         r = await self.client.post(self.rota, json=dados)
         self.assertEqual(r.status_code, 201, r.text)
-        self.assertEqual(r.json()["dieta_id"], self.pastosa)
-        self.assertEqual(r.json()["dados_dinamicos"]["cardapio"], PASTOSA)
-        painel = (await self.client.get(f"/api/operacao/unidades/{self.a}/pedidos")).json()
+        salvo = await self.salvo(r)
+        self.assertEqual(salvo["dieta_id"], self.pastosa)
+        self.assertEqual(salvo["dados_dinamicos"]["cardapio"], PASTOSA)
+        painel = (await self.client.get(f"/api/operacao/unidades/{self.a}/pedidos", headers=self.headers)).json()
         self.assertEqual(painel[0]["dados_dinamicos"]["cardapio_acompanhante"], GERAL)
         async with self.sessoes() as db:
             pedido = await db.get(Pedido, r.json()["id"])

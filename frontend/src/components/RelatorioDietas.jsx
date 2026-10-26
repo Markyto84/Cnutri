@@ -112,6 +112,8 @@ export default function RelatorioDietas({ filialId, filiais }) {
           <p className="text-slate-700">Solicitação: {horario(item.criado_em)}</p><p className="text-slate-700">Entrega: {horario(item.entregue_em)}{item.copeira_nome && ` · ${item.copeira_nome}`}</p>
           {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
           {item.recebedor_nome && <p className="text-slate-700">Recebedor: {item.recebedor_nome} · Assinatura registrada</p>}
+          {item.prescricao_referencia && <div className="rounded-lg bg-white p-3"><p><strong>Prescrição:</strong> {item.prescricao_referencia} · {horario(item.prescricao_data_hora)}</p>
+            <p>{item.prescritor_nome} · {item.prescritor_registro}</p><p>Vínculo: {item.prescricao_situacao === 'CONFERIDA' ? `conferido por ${item.conferencia_nome}` : 'informado pelo solicitante'}</p></div>}
         </article>)}</div>
         <nav aria-label="Páginas do relatório de dietas" className="flex flex-wrap items-center justify-between gap-2">
           <button onClick={() => setConsulta((atual) => ({ ...atual, pagina: atual.pagina - 1 }))} disabled={resultado.pagina <= 1} className={`${BOTAO} bg-slate-50`}>Anterior</button><span className="text-sm">Página {resultado.pagina} de {resultado.total_paginas}</span><button onClick={() => setConsulta((atual) => ({ ...atual, pagina: atual.pagina + 1 }))} disabled={resultado.pagina >= resultado.total_paginas} className={`${BOTAO} bg-slate-50`}>Próxima</button>

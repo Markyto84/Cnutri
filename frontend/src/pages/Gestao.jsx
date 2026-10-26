@@ -9,6 +9,7 @@ import { useAuth } from '../context/auth.js'
 import CentralImpressoes from '../components/CentralImpressoes.jsx'
 import ConfiguracaoAlertas from '../components/ConfiguracaoAlertas.jsx'
 import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
+import Prescricoes from '../components/Prescricoes.jsx'
 
 /** Painel da Nutrição: catálogo de dietas, editor de formulários e relatórios. */
 export default function Gestao() {
@@ -46,7 +47,7 @@ export default function Gestao() {
       </header>
 
       <nav className="mb-6 flex flex-wrap gap-2">
-        {[['dietas', '📋 Dietas'], ['refeicoes-medicas', '🍽️ Refeições médicas'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) => (
+        {[['dietas', '📋 Dietas'], ['prescricoes', 'Prescrições e rastreabilidade'], ['refeicoes-medicas', '🍽️ Refeições médicas'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) => (
           <button
             key={id}
             onClick={() => setAba(id)}
@@ -58,6 +59,7 @@ export default function Gestao() {
       </nav>
 
       {aba === 'dietas' && <AbaDietas key={filialId} filialId={filialId} />}
+      {aba === 'prescricoes' && <Prescricoes key={filialId} filialId={filialId} />}
       {aba === 'refeicoes-medicas' && <RefeicoesMedicas key={filialId} filialId={filialId} />}
       {aba === 'formularios' && <AbaFormularios key={filialId} filialId={filialId} />}
       {aba === 'relatorios' && <AbaRelatorios key={filialId} filialId={filialId} />}
