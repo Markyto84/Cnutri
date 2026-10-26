@@ -1,13 +1,13 @@
 """Schemas Pydantic de validação de entrada/saída."""
 from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
-from math import hypot
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..core.login_usuarios import PADRAO_USUARIO, normalizar_usuario
 from ..core.politica_senha import MIN_SENHA, MAX_SENHA, validar_senha
+from ..modules.assinatura import AssinaturaCreate, PontoAssinatura  # compatibilidade com integrações existentes
 
 TipoPublico = Literal["MEDICO", "ENFERMAGEM"]
 TipoSolicitacao = Literal["MEDICO", "PACIENTE"]
@@ -172,25 +172,6 @@ class AlertasUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     preparo_minutos: int | None = Field(default=None, ge=1, le=1440, strict=True)
     entrega_minutos: int | None = Field(default=None, ge=1, le=1440, strict=True)
-
-
-class PontoAssinatura(BaseModel):
-    x: float = Field(ge=0, le=1, allow_inf_nan=False)
-    y: float = Field(ge=0, le=1, allow_inf_nan=False)
-
-
-class AssinaturaCreate(BaseModel):
-    tracos: list[Annotated[list[PontoAssinatura], Field(min_length=2, max_length=1500)]] = Field(min_length=1, max_length=40)
-
-    @field_validator("tracos")
-    @classmethod
-    def validar_desenho(cls, tracos):
-        if sum(len(traco) for traco in tracos) > 8000:
-            raise ValueError("Assinatura muito extensa. Limpe o campo e assine novamente")
-        comprimento = sum(hypot(b.x - a.x, b.y - a.y) for traco in tracos for a, b in zip(traco, traco[1:]))
-        if comprimento < 0.08:
-            raise ValueError("Desenhe a assinatura do recebedor no campo indicado")
-        return tracos
 
 
 class EntregaCreate(BaseModel):

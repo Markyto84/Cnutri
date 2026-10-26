@@ -15,7 +15,7 @@ from ..models.models import EntregaPedido, Filial, HistoricoPedido, ImpressoraEt
 from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import data_utc, pedido_operacional
-from ..services.assinatura import gerar_assinatura_png
+from ..modules.assinatura import gerar_assinatura_png
 from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, nome_etiqueta, previa_png
 from ..services.assistencia import registrar_etapa, registrar_evento
 from ..services.contexto_operacao import carregar_contexto

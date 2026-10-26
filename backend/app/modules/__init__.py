@@ -1,0 +1,1 @@
+"""Módulos reutilizáveis da aplicação."""
