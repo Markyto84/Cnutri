@@ -279,7 +279,10 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             async with self.sessoes() as db:
                 salvo = await db.get(Pedido, resposta.json()["id"])
                 self.assertEqual(salvo.prontuario, payload["prontuario"])
-                self.assertEqual(salvo.dados_dinamicos, payload["dados_dinamicos"])
+                esperado = dict(payload["dados_dinamicos"])
+                if esperado.get("liquido_espessado") == "NÉCTAR":
+                    esperado.update(liquido_espessado="Sim", tipo_liquido_espessado="NÉCTAR")
+                self.assertEqual(salvo.dados_dinamicos, esperado)
             imprimir.assert_not_called()
             self.assertEqual(resposta.json()["impressao"]["estado"], "PENDENTE")
             await processar_um(self.sessoes)
@@ -322,7 +325,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
         pedido = pedido_paciente()
         pedido.dieta_id = self.dieta_id
         texto = await self.conferir_envio_e_reimpressao(pedido)
-        for trecho in ("Tipo de Dieta: PASTOSA", "RESTRIÇÃO SEVERA", "Matrícula: MAT-000789", "Data de Nascimento: 23/04/1958", "Líquido espessado: NÉCTAR"):
+        for trecho in ("Tipo de Dieta: PASTOSA", "RESTRIÇÃO SEVERA", "Matrícula: MAT-000789", "Data de Nascimento: 23/04/1958", "Líquido espessado: Sim", "Líquidos disponíveis: NÉCTAR"):
             self.assertIn(trecho, texto)
 
     async def test_sem_impressora_salva_pedido_e_informa_erro_na_reimpressao(self):

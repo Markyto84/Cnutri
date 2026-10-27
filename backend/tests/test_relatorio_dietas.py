@@ -16,7 +16,7 @@ from sqlalchemy import select, update
 from app.core.database import Base, get_db
 from app.core.security import criar_token, hash_senha
 from app.main import app
-from app.models.models import Dieta, EntregaPedido, Filial, Pedido, Perfil, RecebimentoEntrega, SessaoUsuario, Usuario
+from app.models.models import Dieta, EntregaPedido, EventoAssistencial, Filial, Pedido, Perfil, RecebimentoEntrega, SessaoUsuario, Usuario
 from app.services.exportacao_dietas import COLUNAS
 
 HASH = hash_senha("TesteSeguro@123")
@@ -220,6 +220,45 @@ class RelatorioDietasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(vazio["itens"], [])
         for formato in ("xlsx", "ods", "csv"):
             self.assertEqual((await self.arquivo(formato, inicio="2026-10-19T00:00:00-03:00", fim="2026-10-19T23:59:59-03:00")).status_code, 200)
+
+    async def test_cancelamento_atual_e_solicitante_exportados_sem_duplicar_contagem(self):
+        motivo = '=MOTIVO FICTÍCIO: refeição duplicada, conferida pela equipe'
+        async with self.sessoes() as db:
+            for nome, razao in (("Operador antigo", "Primeiro cancelamento"), ("Cozinha Fictícia", motivo)):
+                db.add(EventoAssistencial(pedido_id=self.ids["fim"], acao="ETAPA_ALTERADA", autor_nome=nome,
+                    motivo=razao, depois={"status": "CANCELADO"}, criado_em=datetime(2026, 10, 20, 16, 15)))
+            # Evidência antiga de cancelamento não deve aparecer num pedido atualmente pronto.
+            db.add(EventoAssistencial(pedido_id=self.ids["pronto"], acao="ETAPA_ALTERADA", autor_nome="Operador antigo",
+                motivo="Etapa histórica", depois={"status": "CANCELADO"}))
+            await db.commit()
+        resultado = await self.obter(status="CANCELADO")
+        self.assertEqual(resultado["totais"]["cancelados"], 1)
+        self.assertEqual(len(resultado["itens"]), 1)
+        item = resultado["itens"][0]
+        self.assertEqual(item["cancelado_por_nome"], "Cozinha Fictícia")
+        self.assertEqual(item["solicitante_nome"], "Solicitante Fictício")
+        self.assertEqual(item["motivo_cancelamento"], motivo)
+        self.assertTrue(item["cancelado_em"].startswith("2026-10-20T16:15"))
+        pronto = (await self.obter(status="PRONTO"))["itens"][0]
+        self.assertEqual(pronto["motivo_cancelamento"], "")
+        self.assertIsNone(pronto["cancelado_em"])
+        livro = load_workbook(BytesIO((await self.arquivo("xlsx", status="CANCELADO")).content))
+        indices = {chave: n for n, (chave, _, _) in enumerate(COLUNAS)}
+        linha = list(livro["Solicitações"].iter_rows(min_row=8))[0]
+        self.assertEqual(linha[indices["solicitante_nome"]].value, "Solicitante Fictício")
+        self.assertEqual(linha[indices["cancelado_por_nome"]].value, "Cozinha Fictícia")
+        self.assertEqual(linha[indices["motivo_cancelamento"]].value, motivo)
+        self.assertEqual(linha[indices["motivo_cancelamento"]].data_type, "s")
+        self.assertEqual(linha[indices["cancelado_em"]].value, datetime(2026, 10, 20, 13, 15))
+        livro.close()
+        ods = load(BytesIO((await self.arquivo("ods", status="CANCELADO")).content))
+        linha = ods.spreadsheet.getElementsByType(Table)[1].getElementsByType(TableRow)[7]
+        celulas = linha.getElementsByType(TableCell)
+        self.assertEqual(extractText(celulas[indices["motivo_cancelamento"]]), motivo)
+        self.assertFalse(celulas[indices["motivo_cancelamento"]].getAttribute("formula"))
+        registros = list(csv.DictReader(StringIO((await self.arquivo("csv", status="CANCELADO")).content.decode("utf-8-sig"))))
+        self.assertEqual(registros[0]["Motivo do cancelamento"], "'" + motivo)
+        self.assertEqual(registros[0]["Solicitante"], "Solicitante Fictício")
 
     async def test_texto_muito_longo_nao_e_truncado_silenciosamente(self):
         async with self.sessoes() as db:

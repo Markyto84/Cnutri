@@ -322,6 +322,18 @@ class ConferenciaPrescricao(BaseModel):
 
 class StatusUpdate(BaseModel):
     status: StatusPedido
+    motivo: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def limpar_motivo(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
+
+    @model_validator(mode="after")
+    def exigir_motivo_cancelamento(self):
+        if self.status == "CANCELADO" and (not self.motivo or len(self.motivo) < 5):
+            raise ValueError("Informe o motivo do cancelamento com pelo menos 5 caracteres")
+        return self
 
 
 # ─── Relatórios ──────────────────────────────────────────────────────────────

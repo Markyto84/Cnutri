@@ -36,5 +36,5 @@ def registrar_evento(db, pedido, acao, usuario=None, antes=None, depois=None, mo
         motivo=motivo, antes=antes, depois=depois))
 
 
-def registrar_etapa(db, pedido, usuario, anterior, novo):
-    registrar_evento(db, pedido, "ETAPA_ALTERADA", usuario, {"status": anterior}, {"status": novo})
+def registrar_etapa(db, pedido, usuario, anterior, novo, motivo=None):
+    registrar_evento(db, pedido, "ETAPA_ALTERADA", usuario, {"status": anterior}, {"status": novo}, motivo)

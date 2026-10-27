@@ -18,7 +18,7 @@ from app.core.database import Base, get_db
 from app.core.security import get_current_user
 from app.core.migracao_melhorias import migrar_melhorias
 from app.main import app
-from app.models.models import AuditoriaAdministrativa, Filial, FormularioConfig, Pedido, Perfil, TrabalhoImpressao, Usuario
+from app.models.models import AuditoriaAdministrativa, EventoAssistencial, Filial, FormularioConfig, Pedido, Perfil, TrabalhoImpressao, Usuario
 
 
 class MelhoriasTest(unittest.IsolatedAsyncioTestCase):
@@ -72,6 +72,66 @@ class MelhoriasTest(unittest.IsolatedAsyncioTestCase):
             async with self.admin_engine.begin() as conn:
                 await conn.exec_driver_sql(f'DROP SCHEMA "{self.schema}" CASCADE')
             await self.admin_engine.dispose()
+
+    async def test_cancelamento_exige_motivo_e_preserva_autor_solicitante_e_horario(self):
+        for legado in (False, True):
+            pedido = await self.pedido(estado="PENDENTE")
+            url = f"/api/pedidos/{pedido}/status" if legado else f"/api/operacao/unidades/{self.a}/pedidos/{pedido}/status"
+            for motivo in (None, "", "    ", "abcd", "a" * 1001):
+                r = await self.client.patch(url, headers=self.cozinha, json={"status": "CANCELADO", "motivo": motivo})
+                self.assertEqual(r.status_code, 422, r.text)
+            motivo = "  Refeição solicitada em duplicidade.  "
+            r = await self.client.patch(url, headers=self.cozinha, json={"status": "CANCELADO", "motivo": motivo})
+            self.assertEqual(r.status_code, 200, r.text)
+            repetido = await self.client.patch(url, headers=self.admin, json={"status": "CANCELADO", "motivo": "Não sobrescrever o motivo"})
+            self.assertEqual(repetido.status_code, 200 if legado else 409)
+            async with self.sessoes() as db:
+                eventos = (await db.scalars(select(EventoAssistencial).where(EventoAssistencial.pedido_id == pedido))).all()
+                self.assertEqual(len(eventos), 1)
+                evento = eventos[0]
+                self.assertEqual(evento.motivo, motivo.strip())
+                self.assertEqual(evento.autor_nome, "Pessoa fictícia COZINHA")
+                self.assertIsNotNone(evento.criado_em)
+            relatorio = await self.client.get("/api/relatorios/dietas-periodo", headers=self.admin,
+                params={"inicio": "2020-01-01T00:00:00Z", "fim": "2100-01-01T00:00:00Z", "status": "CANCELADO"})
+            self.assertEqual(relatorio.status_code, 200, relatorio.text)
+            item = next(i for i in relatorio.json()["itens"] if i["pedido_id"] == pedido)
+            self.assertEqual(item["solicitante_nome"], "Solicitante fictício")
+            self.assertEqual(item["solicitante_identificacao"], "FICTICIO")
+            self.assertEqual(item["cancelado_por_nome"], evento.autor_nome)
+            self.assertEqual(item["cancelado_por_usuario_id"], evento.autor_usuario_id)
+            self.assertEqual(item["motivo_cancelamento"], motivo.strip())
+            self.assertTrue(item["cancelado_em"])
+            self.assertEqual(relatorio.json()["totais"]["cancelados"], 2 if legado else 1)
+
+    async def test_nutricao_mantem_textos_e_listas_mas_so_ti_altera_estrutura(self):
+        url = f"/api/gestao/formularios/{self.a}/ENFERMAGEM"
+        atual = (await self.client.get(url, headers=self.gestor)).json()
+        for chave, valor in (("rotulo", "Outro nome"), ("obrigatorio", False)):
+            esquema = deepcopy(atual["esquema_json"])
+            esquema["campos"][0][chave] = valor
+            self.assertEqual((await self.client.put(url, headers=self.gestor, json={"esquema_json": esquema})).status_code, 403)
+        esquema = deepcopy(atual["esquema_json"])
+        esquema["campos"].append({"id": "campo_novo", "tipo": "texto", "rotulo": "Novo campo"})
+        self.assertEqual((await self.client.put(url, headers=self.gestor, json={"esquema_json": esquema})).status_code, 403)
+        self.assertEqual((await self.client.post(url + "/resetar", headers=self.gestor)).status_code, 403)
+        esquema["campos"].extend([
+            {"id": "refeicao", "tipo": "selecao", "rotulo": "Refeição", "opcoes": ["Almoço"]},
+            {"id": "liquido_espessado", "tipo": "selecao", "rotulo": "Líquido espessado", "opcoes": ["NÉCTAR", "MEL"]},
+            {"id": "cardapio", "tipo": "cardapio", "rotulo": "Cardápio", "grupos": []},
+        ])
+        self.assertEqual((await self.client.put(url, headers=self.admin, json={"esquema_json": esquema})).status_code, 200)
+        esquema = (await self.client.get(url, headers=self.gestor)).json()["esquema_json"]
+        esquema["cabecalho"] = "Novo aviso da Nutrição"
+        lista = next(c for c in esquema["campos"] if c["tipo"] in ("selecao", "radio") and c["id"] != "liquido_espessado")
+        lista["opcoes"] = ["Nova opção"]
+        next(c for c in esquema["campos"] if c["id"] == "tipo_liquido_espessado")["opcoes"] = ["PUDIM"]
+        cardapio = next((c for c in esquema["campos"] if c["tipo"] == "cardapio"), None)
+        if cardapio:
+            cardapio["grupos"] = [{"nome": "Geral", "dietas": ["GERAL"], "opcoes": ["Refeição nova"]}]
+        r = await self.client.put(url, headers=self.gestor, json={"esquema_json": esquema})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["esquema_json"], esquema)
 
     async def pedido(self, filial=None, estado="PRONTO"):
         async with self.sessoes() as db:

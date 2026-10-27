@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from ..models.models import Dieta, FormularioConfig
 from .formulario_paciente import ACOMPANHANTE, AMBOS, CARDAPIO_ACOMPANHANTE, campo_visivel, formulario_paciente, normalizar_nome, opcoes_cardapio
+from .liquido_espessado import formulario_liquidos, normalizar_liquidos
 
 FIXOS = {"leito", "prontuario", "nome_paciente", "dieta_id", "observacoes_alergias", "solicitante_nome"}
 TIPOS = {"texto", "texto_longo", "data", "selecao", "radio", "cardapio", "selecao_dietas"}
@@ -47,7 +48,9 @@ async def validar_pedido(db, filial_id, dados):
     if config is None:
         raise HTTPException(409, "Formulário indisponível. Solicite a configuração ao gestor")
     validar_esquema(config.esquema_json)
-    esquema = formulario_paciente(config.esquema_json) if tipo == "ENFERMAGEM" else config.esquema_json
+    esquema = formulario_liquidos(config.esquema_json)
+    if tipo == "ENFERMAGEM":
+        esquema = formulario_paciente(esquema)
     campos = esquema["campos"]
     catalogo = (await db.execute(select(Dieta).where(Dieta.filial_id == filial_id, Dieta.ativa.is_(True)))).scalars().all()
     dietas = {d.id: d for d in catalogo}
@@ -62,6 +65,7 @@ async def validar_pedido(db, filial_id, dados):
     dinamicos = dados.dados_dinamicos
     if len(json.dumps(dinamicos, ensure_ascii=False).encode("utf-8")) > 65536:
         raise HTTPException(422, "Os dados do formulário excedem 64 KB")
+    dinamicos = dados.dados_dinamicos = normalizar_liquidos(campos, dinamicos)
     definidos = {campo["id"] for campo in campos}
     for chave in dinamicos:
         if chave not in definidos or chave in FIXOS:
@@ -91,7 +95,7 @@ async def validar_pedido(db, filial_id, dados):
         valor = getattr(dados, chave, None) if chave in FIXOS else dinamicos.get(chave)
         if not campo_visivel(campo, dinamicos):
             if valor is not None and valor != "":
-                erro(chave, rotulo, "disponível somente para Paciente e Acompanhante")
+                erro(chave, rotulo, "disponível somente quando a condição do formulário é atendida")
             continue
         opcoes = campo.get("opcoes", [])
         if tipo == "cardapio":

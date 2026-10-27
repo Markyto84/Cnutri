@@ -8,6 +8,7 @@ from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..models.models import Dieta, Filial, FormularioConfig, Usuario
 from ..schemas.schemas import DietaCreate, DietaOut, FormularioConfigOut, FormularioConfigUpdate
 from ..services.validacao_pedidos import validar_esquema
+from ..services.liquido_espessado import estrutura_formulario, formulario_liquidos
 from ..services.auditoria import registrar, retrato, DIETA, FORMULARIO
 
 router = APIRouter(prefix="/api/gestao", tags=["Gestão de Nutrição"])
@@ -105,11 +106,13 @@ async def obter_formulario(filial_id: int, tipo: str, db: AsyncSession = Depends
             )
         )
     ).scalar_one_or_none()
-    return config
+    return FormularioConfigOut.model_validate(config, from_attributes=True).model_copy(update={"esquema_json": formulario_liquidos(config.esquema_json)}) if config else None
 
 
 @router.put("/formularios/{filial_id}/{tipo}", response_model=FormularioConfigOut)
 async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUpdate, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
+    validar_esquema(dados.esquema_json)
+    dados.esquema_json = formulario_liquidos(dados.esquema_json)
     validar_esquema(dados.esquema_json)
     if tipo not in ("MEDICO", "ENFERMAGEM"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo deve ser MEDICO ou ENFERMAGEM")
@@ -125,6 +128,8 @@ async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUp
         )
     ).scalar_one_or_none()
     antes = retrato(config, FORMULARIO) if config else None
+    if _.perfil.nome != "ADMIN_TI" and (config is None or estrutura_formulario(config.esquema_json) != estrutura_formulario(dados.esquema_json)):
+        raise HTTPException(403, "A estrutura dos campos é administrada pela TI. A Nutrição pode editar textos, cardápios e opções das listas.")
     if config is None:
         config = FormularioConfig(filial_id=filial_id, tipo_publico=tipo, esquema_json=dados.esquema_json)
         db.add(config)
@@ -151,6 +156,8 @@ async def salvar_formulario(filial_id: int, tipo: str, dados: FormularioConfigUp
 
 @router.post("/formularios/{filial_id}/{tipo}/resetar", response_model=FormularioConfigOut)
 async def resetar_formulario(filial_id: int, tipo: str, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_perfis(*PERFIS_GESTAO))):
+    if _.perfil.nome != "ADMIN_TI":
+        raise HTTPException(403, "A restauração da estrutura do formulário é administrada pela TI")
     padroes = {"MEDICO": ESQUEMA_PADRAO_MEDICO, "ENFERMAGEM": ESQUEMA_PADRAO_ENFERMAGEM}
     if tipo not in padroes:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo deve ser MEDICO ou ENFERMAGEM")

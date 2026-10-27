@@ -14,6 +14,7 @@ from ..schemas.schemas import ConferenciaPrescricao, PedidoAssistencialUpdate, P
 from ..services.assistencia import CAMPOS_PEDIDO, referencia_informada, registrar_evento, retrato, validar_referencia
 from ..services.fila_impressao import enfileirar
 from ..services.formulario_paciente import formulario_paciente
+from ..services.liquido_espessado import formulario_liquidos
 from ..services.operacao import data_utc
 from ..services.validacao_pedidos import validar_pedido
 
@@ -67,7 +68,7 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
         TrabalhoImpressao.estado.in_(("ENVIADO", "INCERTO"))).limit(1))
     response.headers["Cache-Control"] = "private, no-store"
     return {"pedido": PedidoOut.model_validate(pedido).model_dump(mode="json"),
-        "formulario": formulario_paciente(config.esquema_json) if config else None,
+        "formulario": formulario_paciente(formulario_liquidos(config.esquema_json)) if config else None,
         "documentos_emitidos": emitidos is not None,
         "eventos": [{"id": e.id, "acao": e.acao, "autor_usuario_id": e.autor_usuario_id,
             "autor_nome": e.autor_nome, "autor_perfil": e.autor_perfil, "motivo": e.motivo,

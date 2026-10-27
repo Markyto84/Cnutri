@@ -109,10 +109,10 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_papel_unidade_e_identidade_da_copeira_sao_impostos_pelo_servidor(self):
         ana, outra, cozinha = await self.entrar("ana"), await self.entrar("outro"), await self.entrar("cozinha")
-        self.assertEqual((await self.client.patch(self.base + "/status", headers=ana, json={"status": "CANCELADO"})).status_code, 403)
+        self.assertEqual((await self.client.patch(self.base + "/status", headers=ana, json={"status": "CANCELADO", "motivo": "Cancelamento de teste"})).status_code, 403)
         self.assertEqual((await self.client.post(self.base + "/reimprimir", headers=ana)).status_code, 403)
         for sufixo in ("/status", "/reimprimir"):
-            r = await (self.client.patch(self.base + sufixo, headers=outra, json={"status": "CANCELADO"}) if sufixo == "/status" else self.client.post(self.base + sufixo, headers=outra))
+            r = await (self.client.patch(self.base + sufixo, headers=outra, json={"status": "CANCELADO", "motivo": "Cancelamento de teste"}) if sufixo == "/status" else self.client.post(self.base + sufixo, headers=outra))
             self.assertEqual(r.status_code, 403)
         self.assertEqual((await self.client.post(self.base + "/entregar", headers=cozinha, json=self.comprovante())).status_code, 403)
         self.assertEqual((await self.client.post(self.base + "/entregar", headers=ana, json={**self.comprovante(), "copeira_id": self.ids["bia"]})).status_code, 403)
@@ -306,7 +306,10 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(r.status_code, 201, r.text)
             self.assertNotIn("dados_dinamicos", r.json())
             async with self.sessoes() as db:
-                self.assertEqual((await db.get(Pedido, r.json()["id"])).dados_dinamicos, dados["dados_dinamicos"])
+                esperado = dict(dados["dados_dinamicos"])
+                if esperado.get("liquido_espessado") == "NÉCTAR":
+                    esperado.update(liquido_espessado="Sim", tipo_liquido_espessado="NÉCTAR")
+                self.assertEqual((await db.get(Pedido, r.json()["id"])).dados_dinamicos, esperado)
 
     async def test_campos_obrigatorios_opcoes_tipos_tamanhos_e_datas_invalidos_nao_gravam_nem_imprimem(self):
         alteracoes = [lambda p: p.update(solicitante_identificacao="  "), lambda p: p.update(solicitante_nome="  "),

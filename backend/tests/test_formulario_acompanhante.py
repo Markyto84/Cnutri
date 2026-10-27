@@ -14,6 +14,7 @@ from app.core.sessoes import emitir_sessao
 from app.main import app
 from app.models.models import Dieta, Filial, FormularioConfig, Pedido, Perfil, TrabalhoImpressao, Usuario
 from app.services.formulario_paciente import formulario_paciente
+from app.services.liquido_espessado import formulario_liquidos
 from app.services.impressora import compor_linhas_filipeta
 
 ESQUEMAS = json.loads((Path(__file__).resolve().parents[2] / "configuracoes/formularios-unidade-havai.json").read_text(encoding="utf-8"))["formularios"]
@@ -56,6 +57,52 @@ class FormularioAcompanhanteTest(unittest.IsolatedAsyncioTestCase):
         await self.client.aclose()
         app.dependency_overrides.clear()
         await self.engine.dispose()
+
+    async def test_liquido_sim_nao_preserva_opcoes_e_cadastro_original(self):
+        config = (await self.client.get("/api/public/acompanhante-a/config")).json()["formularios"]["ENFERMAGEM"]
+        principal = next(c for c in config["campos"] if c["id"] == "liquido_espessado")
+        lista = next(c for c in config["campos"] if c["id"] == "tipo_liquido_espessado")
+        original = next(c for c in ESQUEMAS["ENFERMAGEM"]["campos"] if c["id"] == "liquido_espessado")
+        self.assertEqual(principal["opcoes"], ["Sim", "Não"])
+        self.assertEqual(lista["opcoes"], original["opcoes"])
+        self.assertTrue(lista["obrigatorio"])
+        self.assertEqual(lista["exibir_quando"], {"campo": "liquido_espessado", "valor": "Sim"})
+        self.assertEqual(formulario_liquidos(config), config)
+        async with self.sessoes() as db:
+            armazenado = await db.scalar(select(FormularioConfig).where(FormularioConfig.filial_id == self.a, FormularioConfig.tipo_publico == "ENFERMAGEM"))
+            self.assertEqual(armazenado.esquema_json, ESQUEMAS["ENFERMAGEM"])
+
+    async def test_liquido_sim_exige_tipo_valido_e_sai_na_cozinha_e_filipeta(self):
+        dados = self.dados()
+        dados["dados_dinamicos"]["liquido_espessado"] = "Sim"
+        for valor in (None, "", "FORA DO CADASTRO"):
+            dados["dados_dinamicos"]["tipo_liquido_espessado"] = valor
+            r = await self.client.post(self.rota, json=dados)
+            self.assertEqual(r.status_code, 422, r.text)
+        self.assertEqual(await self.totais(), (0, 0))
+        dados["dados_dinamicos"]["tipo_liquido_espessado"] = "NÉCTAR"
+        r = await self.client.post(self.rota, json=dados)
+        self.assertEqual(r.status_code, 201, r.text)
+        painel = (await self.client.get(f"/api/operacao/unidades/{self.a}/pedidos", headers=self.headers)).json()
+        self.assertEqual(painel[0]["dados_dinamicos"]["tipo_liquido_espessado"], "NÉCTAR")
+        async with self.sessoes() as db:
+            pedido = await db.get(Pedido, r.json()["id"])
+            texto = " ".join(l.texto for l in compor_linhas_filipeta(pedido, "Unidade fictícia", ESQUEMAS["ENFERMAGEM"], "PASTOSA"))
+            self.assertIn("Líquido espessado: Sim", texto)
+            self.assertIn("Líquidos disponíveis: NÉCTAR", texto)
+
+    async def test_liquido_nao_limpa_tipo_e_cliente_antigo_migra_ao_enviar(self):
+        for valor in ("Não", "NÉCTAR"):
+            dados = self.dados()
+            dados["dados_dinamicos"].update(liquido_espessado=valor, tipo_liquido_espessado="MEL")
+            r = await self.client.post(self.rota, json=dados)
+            self.assertEqual(r.status_code, 201, r.text)
+            salvo = (await self.salvo(r))["dados_dinamicos"]
+            self.assertEqual(salvo["liquido_espessado"], "Não" if valor == "Não" else "Sim")
+            if valor == "Não":
+                self.assertNotIn("tipo_liquido_espessado", salvo)
+            else:
+                self.assertEqual(salvo["tipo_liquido_espessado"], "NÉCTAR")
 
     def dados(self, para="Paciente"):
         return {"tipo_solicitacao": "PACIENTE", "solicitante_identificacao": "COREN TESTE",

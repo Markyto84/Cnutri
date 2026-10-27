@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.database import Base, get_db
 from app.core.security import hash_senha
 from app.main import app, ws_cozinha
+from app.services.liquido_espessado import formulario_liquidos
 from app.models.models import Dieta, Filial, FormularioConfig, Perfil, Usuario
 
 SENHA = "Teste@123"
@@ -96,7 +97,7 @@ class AdministracaoTest(unittest.IsolatedAsyncioTestCase):
         config = (await self.client.get("/api/public/unidade-c/config")).json()
         self.assertEqual(config["formularios"], origem["formularios"])
         salvo_enfermagem = (await self.client.get(f"/api/gestao/formularios/{nova}/ENFERMAGEM", headers=self.admin)).json()
-        self.assertEqual(salvo_enfermagem["esquema_json"], self.esquemas["ENFERMAGEM"])
+        self.assertEqual(salvo_enfermagem["esquema_json"], formulario_liquidos(self.esquemas["ENFERMAGEM"]))
         self.assertEqual([d["nome"] for d in config["dietas"]], ["GERAL"])
         self.assertIsNone(resposta.json()["ip_impressora"])
         atual = (await self.client.get(f"/api/gestao/formularios/{nova}/MEDICO", headers=self.admin)).json()

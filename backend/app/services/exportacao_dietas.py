@@ -35,6 +35,9 @@ COLUNAS = [
     ("prescricao_referencia", "Referência da prescrição", 36), ("prescricao_data_hora", "Prescrição (Brasília)", 26),
     ("prescritor_nome", "Prescritor informado", 32), ("prescritor_registro", "Registro do prescritor informado", 34),
     ("prescricao_situacao", "Situação do vínculo", 26), ("conferencia_nome", "Conferência registrada por", 32), ("conferencia_em", "Conferência (Brasília)", 26),
+    ("tipo_liquido_espessado", "Líquido disponível selecionado", 30),
+    ("cancelado_por_nome", "Cancelado por", 32), ("cancelado_por_usuario_id", "ID de quem cancelou", 22),
+    ("motivo_cancelamento", "Motivo do cancelamento", 52), ("cancelado_em", "Cancelamento (Brasília)", 26),
 ]
 RESUMO = [("unidade", "Unidade", 38), ("dieta", "Dieta / categoria", 32), ("total", "Solicitações", 15),
     ("pendentes", "Pendentes", 14), ("em_preparo", "Em preparo", 14), ("prontos", "Prontos", 13),
@@ -51,7 +54,7 @@ def limpar(valor):
 
 def valor_celula(item, chave):
     valor = item.get(chave)
-    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em"):
+    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em", "cancelado_em"):
         return horario_brasilia(valor)
     if chave == "status":
         return STATUS.get(valor, valor)

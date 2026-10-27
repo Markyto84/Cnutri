@@ -4,8 +4,9 @@ from datetime import datetime, timedelta, timezone
 import json
 
 from sqlalchemy import case, func, select
+from sqlalchemy.orm import aliased
 
-from ..models.models import Dieta, EntregaPedido, Filial, Pedido, RecebimentoEntrega, Usuario
+from ..models.models import Dieta, EntregaPedido, EventoAssistencial, Filial, Pedido, RecebimentoEntrega, Usuario
 from .operacao import data_utc
 
 BRASILIA = timezone(timedelta(hours=-3))
@@ -20,8 +21,8 @@ class ConsultaDietas:
     contexto: dict
 
 
-def consulta_base(consulta: ConsultaDietas):
-    return (select(Pedido, Filial.nome, Dieta.nome, EntregaPedido.entregue_em,
+def consulta_base(consulta: ConsultaDietas, incluir_cancelamento=True):
+    base = (select(Pedido, Filial.nome, Dieta.nome, EntregaPedido.entregue_em,
         EntregaPedido.copeira_nome, RecebimentoEntrega.recebedor_nome, Usuario.nome, Filial.codigo_slug)
         .join(Filial, Filial.id == Pedido.filial_id)
         .outerjoin(Dieta, Dieta.id == Pedido.dieta_id)
@@ -29,11 +30,21 @@ def consulta_base(consulta: ConsultaDietas):
         .outerjoin(RecebimentoEntrega, RecebimentoEntrega.pedido_id == Pedido.id)
         .outerjoin(Usuario, Usuario.id == EntregaPedido.registrado_por_usuario_id)
         .where(*consulta.filtros))
+    if not incluir_cancelamento:
+        return base
+    cancelamento = aliased(EventoAssistencial, name="cancelamento")
+    ultimo_cancelamento = (select(EventoAssistencial.id).where(
+        EventoAssistencial.pedido_id == Pedido.id, Pedido.status == "CANCELADO",
+        EventoAssistencial.acao == "ETAPA_ALTERADA",
+        EventoAssistencial.depois["status"].as_string() == "CANCELADO",
+    ).order_by(EventoAssistencial.id.desc()).limit(1).correlate(Pedido).scalar_subquery())
+    return base.add_columns(cancelamento.autor_nome, cancelamento.autor_usuario_id, cancelamento.motivo,
+        cancelamento.criado_em).outerjoin(cancelamento, cancelamento.id == ultimo_cancelamento)
 
 
 async def resumir(db, consulta: ConsultaDietas):
     categoria = func.coalesce(Dieta.nome, case((Pedido.tipo_solicitacao == "MEDICO", "Refeição médica"), else_="Dieta não informada"))
-    linhas = (await db.execute(consulta_base(consulta).with_only_columns(
+    linhas = (await db.execute(consulta_base(consulta, incluir_cancelamento=False).with_only_columns(
         Filial.id, Filial.codigo_slug, Filial.nome, Dieta.id, categoria, Pedido.status, func.count(Pedido.id), maintain_column_froms=True,
     ).group_by(Filial.id, Filial.codigo_slug, Filial.nome, Dieta.id, categoria, Pedido.status).order_by(Filial.nome, Filial.id, categoria))).all()
     return agrupar(linhas)
@@ -64,10 +75,10 @@ def texto(valor):
 
 
 def detalhar(linha):
-    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo = linha
+    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo, cancelador, cancelador_id, motivo, cancelado_em = linha
     dados = pedido.dados_dinamicos or {}
     referencia = pedido.prescricao or {}
-    campos = ("refeicao", "cardapio", "cardapio_acompanhante", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "internado_mais_6h")
+    campos = ("refeicao", "cardapio", "cardapio_acompanhante", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "tipo_liquido_espessado", "internado_mais_6h")
     extras = {k: v for k, v in dados.items() if k not in {*campos, "andar", "local_entrega", "sexo", "data_nascimento", "matricula", "prontuario"}}
     return {"pedido_id": pedido.id, "unidade_id": pedido.filial_id, "unidade_codigo": codigo, "dieta_id": pedido.dieta_id, "unidade": unidade, "criado_em": data_utc(pedido.criado_em),
         "tipo_solicitacao": pedido.tipo_solicitacao, "status": pedido.status,
@@ -80,6 +91,8 @@ def detalhar(linha):
         "copeira_nome": copeira or "", "recebedor_nome": recebedor or "", "registrado_por_nome": operador or "", "assinatura_registrada": recebedor is not None,
         "outros_campos": texto(extras) if extras else "",
         "solicitante_identificacao": pedido.solicitante_identificacao, "versao_pedido": pedido.versao,
+        "cancelado_por_nome": cancelador or "", "cancelado_por_usuario_id": cancelador_id,
+        "motivo_cancelamento": motivo or "", "cancelado_em": data_utc(cancelado_em),
         "prescricao_referencia": referencia.get("referencia", ""), "prescricao_data_hora": referencia.get("data_hora"),
         "prescritor_nome": referencia.get("prescritor_nome", ""), "prescritor_registro": referencia.get("prescritor_registro", ""),
         "prescricao_situacao": referencia.get("situacao", "Sem referência registrada"),

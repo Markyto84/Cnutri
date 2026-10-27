@@ -44,6 +44,7 @@ async def relatorio_entregas(
         dados = pedido.dados_dinamicos or {}
         itens.append({"pedido_id": pedido.id, "tipo_solicitacao": pedido.tipo_solicitacao,
             "destinatario": pedido.nome_paciente or pedido.solicitante_nome,
+            "solicitante_nome": pedido.solicitante_nome, "solicitante_identificacao": pedido.solicitante_identificacao,
             "leito": pedido.leito, "refeicao": dados.get("refeicao"),
             "local_entrega": dados.get("local_entrega") or dados.get("andar"),
             "copeira_nome": entrega.copeira_nome, "recebedor_nome": recebedor, "registrado_por_nome": operador,

@@ -43,6 +43,7 @@ ROTULOS_PADRAO = {
     "cardapio": "Cardápio",
     "cardapio_acompanhante": "Cardápio do acompanhante",
     "liquido_espessado": "Líquido espessado",
+    "tipo_liquido_espessado": "Líquidos disponíveis",
     "suco": "Suco",
     "sobremesa": "Sobremesa",
     "local_entrega": "Local de entrega",

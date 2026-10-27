@@ -172,7 +172,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
             await db.commit()
 
         with patch("app.api.pedidos.verificar_acesso_filial", entrega_durante_leitura):
-            resposta = await self.client.patch(f"/api/pedidos/{pedido_id}/status", headers=admin, json={"status": "CANCELADO"})
+            resposta = await self.client.patch(f"/api/pedidos/{pedido_id}/status", headers=admin, json={"status": "CANCELADO", "motivo": "Solicitação de teste"})
         self.assertEqual(resposta.status_code, 409, resposta.text)
         async with self.sessoes() as db:
             self.assertEqual((await db.get(Pedido, pedido_id)).status, "ENTREGUE")
@@ -358,7 +358,7 @@ class EntregasTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.patch(rota, headers=self.operador, json={"status": "PRONTO"})).status_code, 200)
         self.assertEqual((await self.client.patch(rota, headers=self.operador, json={"status": "ENTREGUE"})).status_code, 422)
         outro = f"/api/operacao/unidades/{self.b}/pedidos/{pedido_id}/status"
-        self.assertEqual((await self.client.patch(outro, headers=self.operador, json={"status": "CANCELADO"})).status_code, 404)
+        self.assertEqual((await self.client.patch(outro, headers=self.operador, json={"status": "CANCELADO", "motivo": "Solicitação de teste"})).status_code, 404)
         async with self.sessoes() as db:
             filial = await db.get(Filial, self.a)
             filial.ativa = False

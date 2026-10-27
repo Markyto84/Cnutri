@@ -124,7 +124,7 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
     if alterado is None:
         raise HTTPException(409, "Outro painel já atualizou este pedido")
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id))
-    registrar_etapa(db, pedido, usuario, anterior, dados.status)
+    registrar_etapa(db, pedido, usuario, anterior, dados.status, dados.motivo if dados.status == "CANCELADO" else None)
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
