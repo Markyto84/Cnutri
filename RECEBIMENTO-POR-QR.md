@@ -1,10 +1,14 @@
 # Recebimento por QR Code
 
 Nas novas filipetas, o rodapé **ENTREGA À RECEPÇÃO** traz um QR Code no lugar das linhas
-de assinatura e data/hora. O recebedor escaneia o código com o celular, informa seu registro
+de assinatura e data/hora. O recebedor escaneia o código com o celular, informa seu nome e registro
 profissional e toca em **Confirmar recebimento**. A confirmação altera a refeição de
 **Pronto** para **Entregue** e usa a data/hora do servidor. A cozinha e o painel de entregas
-recebem a atualização, e os relatórios e exportações mostram o registro profissional informado.
+recebem a atualização, e os relatórios e exportações mostram o nome e o registro profissional informados.
+
+O campo **Recebedor** solicita o nome completo e é obrigatório, junto ao registro profissional,
+para novas confirmações. O nome aceita acentos, apóstrofos e sobrenomes compostos, até 120 caracteres.
+Recebimentos anteriores sem nome mantêm o registro e o horário originais, sem atribuição retroativa.
 
 O preenchimento identifica o recebedor por declaração. Não equivale a autenticação no AD
 nem a consulta de validade do registro junto a um conselho profissional.
@@ -33,14 +37,14 @@ Não são reimpressos pedidos automaticamente durante a atualização.
 - Cada pedido tem um código aleatório exclusivo; não contém nome, prontuário ou registro.
 - O código fica no fragmento da URL (`/receber#...`), fora do caminho HTTP e do Referer.
   A consulta e a confirmação enviam o código no corpo da requisição.
-- A página exibe apenas unidade, número e situação da refeição. O registro profissional
-  fica disponível nos relatórios autenticados, sem expô-lo em consultas públicas.
-- O botão exige registro preenchido; o servidor só aceita pedidos prontos, de unidade ativa.
+- A página exibe apenas unidade, número e situação da refeição. O nome e o registro profissional
+  ficam disponíveis nos relatórios autenticados, sem expô-los em consultas públicas.
+- O botão exige nome e registro preenchidos; o servidor só aceita pedidos prontos, de unidade ativa.
   Códigos inválidos, substituídos e pedidos cancelados não registram entrega.
 - Confirmações repetidas preservam o primeiro registro e horário. O bloqueio do pedido
   coordena confirmação, cancelamento e impressão. Uma correção dos dados gera outro código.
 - A tabela aditiva `recebimentos_qr` armazena código, versão do pedido, origem do link,
-  registro profissional, horário de confirmação e IP. Entregas e assinaturas anteriores
+  nome do recebedor, registro profissional, horário de confirmação e IP. Entregas e assinaturas anteriores
   permanecem nas tabelas originais, sem alteração de dados históricos.
 - Para pedidos com QR, a API e a interface bloqueiam a finalização manual pela copeira.
   O login das áreas administrativas e os controles de outras operações permanecem vigentes.
@@ -57,8 +61,10 @@ simulado. A homologação inclui confirmação pelo celular simulado, desativaç
 botão conforme preenchimento e atualização automática da cozinha. Esses testes não
 acionam impressoras físicas nem modificam refeições reais.
 
-Na validação desta alteração: suíte completa do backend com 279 casos, 274 aprovados
-e 5 verificações externas omitidas; regressões finais do QR com 16 casos aprovados;
-18 testes do fluxo anterior de entregas aprovados; frontend com 73 casos aprovados.
+Na validação inicial: suíte completa do backend com 279 casos, 274 aprovados
+e 5 verificações externas omitidas. Na inclusão do nome: regressões do QR com 20 casos
+aprovados (SQLite e PostgreSQL, incluindo migração de recebimentos antigos e concorrência),
+9 testes de relatórios, 18 testes do fluxo anterior de entregas e 74 testes do frontend aprovados.
 Build aprovado e lint com somente os dois avisos preexistentes em `Gestao.jsx`.
-Os logs e prévias ficam em `work-recebimento-qr-*.log` e `work/validacao-recebimento-qr/`.
+Os logs e prévias ficam em `work-recebimento-qr-*.log`, `work-recebedor-*.log`
+e `work/validacao-recebimento-qr/`.

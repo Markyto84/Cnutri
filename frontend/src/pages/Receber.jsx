@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { codigoRecebimentoValido, recebimentoApi, registroRecebimentoValido } from '../services/recebimentoQr.js'
+import { codigoRecebimentoValido, nomeRecebedorValido, recebimentoApi, registroRecebimentoValido } from '../services/recebimentoQr.js'
 
 const horario = (valor) => new Date(valor).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const BOTAO = 'min-h-12 w-full rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50'
@@ -12,6 +12,7 @@ export default function Receber() {
 
 function ConfirmarRecebimento({ codigo }) {
   const [dados, setDados] = useState(null)
+  const [recebedor, setRecebedor] = useState('')
   const [registro, setRegistro] = useState('')
   const [erro, setErro] = useState('')
   const [tentativa, setTentativa] = useState(0)
@@ -31,11 +32,11 @@ function ConfirmarRecebimento({ codigo }) {
 
   async function confirmar(evento) {
     evento.preventDefault()
-    if (enviandoRef.current || !dados?.pode_confirmar || !registroRecebimentoValido(registro)) return
+    if (enviandoRef.current || !dados?.pode_confirmar || !nomeRecebedorValido(recebedor) || !registroRecebimentoValido(registro)) return
     enviandoRef.current = true
     setEnviando(true); setErro('')
     try {
-      const { data } = await recebimentoApi.post('/confirmar', { codigo, registro_profissional: registro })
+      const { data } = await recebimentoApi.post('/confirmar', { codigo, recebedor_nome: recebedor, registro_profissional: registro })
       setDados(data)
     } catch (e) {
       const detalhe = e.response?.data?.detail
@@ -58,13 +59,18 @@ function ConfirmarRecebimento({ codigo }) {
           <p className="text-sm">A entrega está registrada. Você pode fechar esta página.</p>
         </div> : dados?.status === 'CANCELADO' ? <p role="status" className="rounded-xl bg-amber-50 p-4 text-amber-950">Esta solicitação foi cancelada. Confira a refeição com a cozinha.</p>
           : dados?.pode_confirmar ? <form onSubmit={confirmar} className="space-y-4">
+            <label className="block text-sm font-semibold">Recebedor
+              <input required autoComplete="name" autoCapitalize="words" minLength={3} maxLength={120} value={recebedor}
+                onChange={(e) => setRecebedor(e.target.value)} disabled={enviando} placeholder="Nome completo de quem recebeu"
+                className="mt-2 min-h-12 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 text-base font-normal" />
+            </label>
             <label className="block text-sm font-semibold">Registro profissional do recebedor
               <input required autoComplete="off" autoCapitalize="characters" minLength={3} maxLength={50} value={registro}
                 onChange={(e) => setRegistro(e.target.value)} disabled={enviando} placeholder="Ex.: COREN-SP 123456"
                 className="mt-2 min-h-12 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 text-base font-normal" />
             </label>
-            <p className="text-sm text-slate-700">Informe o registro profissional de quem recebeu a refeição e confirme o recebimento.</p>
-            <button type="submit" disabled={enviando || !registroRecebimentoValido(registro)} className={BOTAO}>{enviando ? 'Confirmando…' : 'Confirmar recebimento'}</button>
+            <p className="text-sm text-slate-700">Informe o nome e o registro profissional de quem recebeu a refeição e confirme o recebimento.</p>
+            <button type="submit" disabled={enviando || !nomeRecebedorValido(recebedor) || !registroRecebimentoValido(registro)} className={BOTAO}>{enviando ? 'Confirmando…' : 'Confirmar recebimento'}</button>
           </form> : dados && <div className="space-y-3"><p>A refeição ainda não está pronta para recebimento.</p><button onClick={consultarNovamente} className={BOTAO}>Consultar novamente</button></div>}
         {erro && <button onClick={consultarNovamente} disabled={enviando} className="min-h-12 w-full rounded-lg bg-slate-50 px-4 py-3 font-semibold">Consultar novamente</button>}
       </>}

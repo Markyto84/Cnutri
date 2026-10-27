@@ -18,7 +18,7 @@ Os painéis usam WebSocket com reconciliação condicional a cada dois minutos,
 contexto central de unidades/prazos/plantão e recuperação automática de falhas.
 Veja [sincronização e redução de consultas](SINCRONIZACAO-OPERACIONAL.md).
 
-Nas novas filipetas, o recebedor escaneia o **QR Code**, informa o registro profissional
+Nas novas filipetas, o recebedor escaneia o **QR Code**, informa seu nome e registro profissional
 e confirma o recebimento; o servidor registra a entrega e a data/hora. Consulte
 [recebimento por QR Code](RECEBIMENTO-POR-QR.md). A [entrega direta](ENTREGA-DIRETA.md)
 permanece para filipetas anteriores sem QR.
@@ -158,9 +158,10 @@ A fonte da filipeta usa **10 pontos** (28 pixels a 203 dpi), inclusive nos rótu
 Cabeçalhos e alertas mantêm o negrito. A largura útil comporta 31 caracteres por linha nesse tamanho;
 o espaçamento entre linhas e a quebra dos textos são calculados pelas métricas da fonte.
 
-Ao final dos dois tipos de filipeta, o bloco **Entrega à recepção** oferece espaço e linha para
-**Assinatura**, além de **Data e hora** em branco para preenchimento manual no recebimento.
-Esses campos não recebem a data/hora da solicitação automaticamente e também aparecem na reimpressão.
+Ao final dos dois tipos de filipeta, o bloco **Entrega à recepção** exibe o QR Code de recebimento
+quando o endereço público está configurado. O recebedor informa nome e registro profissional no
+celular; o servidor registra a data/hora da confirmação. Instalações sem essa configuração
+mantêm as linhas de assinatura e data/hora para preenchimento manual.
 
 O texto é desenhado no servidor com **Pillow e DejaVu Sans Mono**, incluindo `ã, õ, ç, á`, e enviado
 como imagem monocromática ESC/POS em blocos de até 128 linhas de pixels. Assim, os acentos não dependem
@@ -411,7 +412,7 @@ Links da administração, gestão, entregas e seletor de unidade usam o novo for
 Na cozinha, os pedidos passam por **Pendentes → Em preparo → Prontos**. No celular, botões de etapa
 mostram uma coluna por vez; no computador, as três colunas aparecem juntas. A página de entregas
 mostra somente as refeições prontas. As novas filipetas são finalizadas pelo recebedor,
-via **QR Code**, com registro profissional. A entrega pela copeira permanece nos pedidos
+via **QR Code**, com nome e registro profissional. A entrega pela copeira permanece nos pedidos
 anteriores sem QR. Ambas usam botões de toque
 de pelo menos 44 pixels e a caixa de seleção se ajusta à largura da tela.
 

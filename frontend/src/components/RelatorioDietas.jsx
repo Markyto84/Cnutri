@@ -118,8 +118,8 @@ export default function RelatorioDietas({ filialId, filiais }) {
           </div>}
           <p className="text-slate-700">Solicitação: {horario(item.criado_em)}</p><p className="text-slate-700">Entrega: {horario(item.entregue_em)}{item.copeira_nome && ` · ${item.copeira_nome}`}</p>
           {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
-          {item.recebedor_nome && <p className="text-slate-700">Recebedor: {item.recebedor_nome} · Assinatura registrada</p>}
-          {item.recebedor_registro_profissional && <p className="text-slate-700">Recebedor: {item.recebedor_registro_profissional} · Confirmado por QR Code</p>}
+          {(item.recebedor_nome || item.recebedor_registro_profissional) && <p className="text-slate-700">Recebedor: {item.recebedor_nome || 'Nome não registrado'}{item.recebedor_registro_profissional && ` · ${item.recebedor_registro_profissional}`}
+            {item.origem_entrega === 'QR Code' ? ' · Confirmado por QR Code' : item.assinatura_registrada ? ' · Assinatura registrada' : ''}</p>}
           {item.prescricao_referencia && <div className="rounded-lg bg-white p-3"><p><strong>Prescrição:</strong> {item.prescricao_referencia} · {horario(item.prescricao_data_hora)}</p>
             <p>{item.prescritor_nome} · {item.prescritor_registro}</p><p>Vínculo: {item.prescricao_situacao === 'CONFERIDA' ? `conferido por ${item.conferencia_nome}` : 'informado pelo solicitante'}</p></div>}
         </article>)}</div>

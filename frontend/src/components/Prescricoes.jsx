@@ -104,7 +104,7 @@ function DetalhePedido({ pedidoId, onFechar, onAtualizar }) {
           <ol className="space-y-2">{detalhe.etapas.map((e, i) => <li key={i} className="rounded-lg bg-white p-3 text-sm">
             {e.anterior || 'Início'} → {e.nova} · {horarioBrasilia(e.data_hora)}<br />
             {e.usuario_id ? `${e.nome_atual_usuario || 'Usuário'} · conta #${e.usuario_id} (nome atual do cadastro)`
-              : e.nova === 'ENTREGUE' && detalhe.entrega?.recebedor_registro_profissional ? `Recebedor informado: ${detalhe.entrega.recebedor_registro_profissional} · QR Code` : 'Autor não registrado na época'}</li>)}</ol>
+              : e.nova === 'ENTREGUE' && detalhe.entrega?.recebedor_registro_profissional ? `Recebedor informado: ${[detalhe.entrega.recebedor_nome, detalhe.entrega.recebedor_registro_profissional].filter(Boolean).join(' · ')} · QR Code` : 'Autor não registrado na época'}</li>)}</ol>
         </div>
         {detalhe.entrega && <dl className="grid gap-3 rounded-xl bg-white p-4 sm:grid-cols-2"><Dado titulo="Copeira responsável" valor={detalhe.entrega.copeira_nome} />
           <Dado titulo="Entrega registrada pela conta" valor={detalhe.entrega.registrado_por_usuario_id ? `#${detalhe.entrega.registrado_por_usuario_id}` : ''} />
