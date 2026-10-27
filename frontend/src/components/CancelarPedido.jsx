@@ -38,7 +38,7 @@ export default function CancelarPedido({ pedido, disponivel, onFechar, onConfirm
           onChange={(e) => setMotivo(e.target.value)} aria-describedby="orientacao-cancelamento"
           className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-base font-normal" />
       </label>
-      <p id="orientacao-cancelamento" className="text-xs text-slate-700">Informe de 5 a 1.000 caracteres. O motivo, seu nome e o horário ficarão registrados no relatório.</p>
+      <p id="orientacao-cancelamento" className="text-xs text-slate-700">Informe de 5 a 1.000 caracteres. O motivo e o horário ficarão registrados no relatório com a identificação “Painel da cozinha (sem login)”.</p>
       {!disponivel && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Este pedido não está mais disponível para cancelamento. Volte ao painel para conferir a situação atual.</p>}
       {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">{erro}</p>}
       <div className="flex flex-wrap gap-3">

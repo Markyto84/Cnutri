@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../services/api.js'
 import { BOTAO } from './Operacao.jsx'
 
-export default function EtiquetaPedido({ filialId, pedido, onFechar, onEnfileirada }) {
+export default function EtiquetaPedido({ filialId, pedido, onFechar, onEnfileirada, cliente = api, prefixo = '/operacao' }) {
   const dialogo = useRef(null)
   const [imagens, setImagens] = useState([])
   const [erro, setErro] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [conferida, setConferida] = useState(false)
   const incerto = pedido.etiqueta?.estado === 'INCERTO'
-  const base = `/operacao/unidades/${filialId}/pedidos/${pedido.id}/etiqueta`
+  const base = `${prefixo}/unidades/${filialId}/pedidos/${pedido.id}/etiqueta`
   useEffect(() => {
     const elemento = dialogo.current
     elemento.showModal()
@@ -19,7 +19,7 @@ export default function EtiquetaPedido({ filialId, pedido, onFechar, onEnfileira
       const lote = []
       let quantidade = 1
       for (let indice = 0; indice < quantidade; indice++) {
-        const { data, headers } = await api.get(base, { responseType: 'blob', signal: controle.signal, params: { indice } })
+        const { data, headers } = await cliente.get(base, { responseType: 'blob', signal: controle.signal, params: { indice } })
         if (controle.signal.aborted) return
         if (indice === 0) quantidade = headers['x-quantidade-etiquetas'] === '2' ? 2 : 1
         const url = URL.createObjectURL(data)
@@ -35,11 +35,11 @@ export default function EtiquetaPedido({ filialId, pedido, onFechar, onEnfileira
       setErro(mensagem)
     })
     return () => { controle.abort(); urls.forEach((url) => URL.revokeObjectURL(url)); if (elemento.open) elemento.close() }
-  }, [base])
+  }, [base, cliente])
   async function imprimir() {
     setOcupado(true); setErro('')
     try {
-      const { data } = await api.post(base, { confirmar_risco_duplicidade: conferida })
+      const { data } = await cliente.post(base, { confirmar_risco_duplicidade: conferida })
       onEnfileirada(data.enfileirado ? `${imagens.length === 2 ? 'Duas etiquetas do pedido' : 'Etiqueta do pedido'} #${pedido.id} ${imagens.length === 2 ? 'adicionadas' : 'adicionada'} à fila.` : data.impressao?.erro || 'Não foi possível enviar a etiqueta.')
     } catch (e) { setErro(e.response?.data?.detail || 'Não foi possível enfileirar a etiqueta') }
     finally { setOcupado(false) }

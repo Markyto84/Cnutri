@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../services/api.js'
+import { cozinhaApi } from '../services/cozinhaApi.js'
 import { useAuth } from '../context/auth.js'
 import { atualizarPedidos, criarSincronizacaoOperacao } from '../services/sincronizacaoOperacao.js'
 
@@ -16,26 +17,28 @@ function tocarAlerta() {
   } catch { /* áudio depende das permissões do navegador */ }
 }
 
-export function useOperacao(filialId, som = false, entregas = false) {
+export function useOperacao(filialId, som = false, entregas = false, cozinhaSemLogin = false) {
   const { usuario, carregando: acessoCarregando } = useAuth()
-  const token = localStorage.getItem('token')
-  const escopo = `${filialId}:${usuario?.id || ''}:${token || ''}`
+  const token = cozinhaSemLogin ? null : localStorage.getItem('token')
+  const aguardarAcesso = !cozinhaSemLogin && acessoCarregando
+  const escopo = cozinhaSemLogin ? `cozinha:${filialId}` : `${filialId}:${usuario?.id || ''}:${token || ''}`
   const [consulta, setConsulta] = useState({ ...INICIAL, escopo: '' })
   const estado = consulta.escopo === escopo ? consulta : INICIAL
   const [agora, setAgora] = useState(Date.now)
   const sincronizacao = useRef(null)
 
   useEffect(() => {
-    if (acessoCarregando) return
+    if (aguardarAcesso) return
     const atualizar = (fn) => setConsulta((anterior) => fn(anterior.escopo === escopo ? anterior : { ...INICIAL, escopo }))
     const sync = criarSincronizacaoOperacao({
       filialId, token, entregas,
-      consultar: ({ signal, etag }) => operacao.get(`/unidades/${filialId}/estado`, {
+      consultar: ({ signal, etag }) => (cozinhaSemLogin ? cozinhaApi : operacao).get(`/unidades/${filialId}/estado`, {
         signal, timeout: 10000, headers: etag ? { 'If-None-Match': etag } : {},
         validateStatus: (status) => status === 200 || status === 304,
       }),
       criarSocket: (id, credencial) => {
         const protocolo = window.location.protocol === 'https:' ? 'wss' : 'ws'
+        if (cozinhaSemLogin) return new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha-publica/${id}`)
         return credencial ? new WebSocket(`${protocolo}://${window.location.host}/ws/cozinha/${id}`, ['cnutri', credencial])
           : new WebSocket(`${protocolo}://${window.location.host}/ws/operacao/${id}`)
       },
@@ -55,7 +58,7 @@ export function useOperacao(filialId, som = false, entregas = false) {
     sync.iniciar()
     const relogio = setInterval(() => setAgora(Date.now()), 30000)
     return () => { sync.parar(); clearInterval(relogio); if (sincronizacao.current === sync) sincronizacao.current = null }
-  }, [escopo, filialId, token, som, entregas, acessoCarregando])
+  }, [escopo, filialId, token, som, entregas, aguardarAcesso, cozinhaSemLogin])
 
   const recarregar = useCallback(() => sincronizacao.current?.recarregar(true), [])
   const aplicarPedido = useCallback((pedido) => sincronizacao.current?.aplicarPedido(pedido), [])

@@ -170,9 +170,11 @@ ativas ainda usando a senha inicial antiga. O Compose de produção exige as var
 O backend de produção fica na rede interna do Docker; somente o nginx publica portas e substitui
 os cabeçalhos de origem para a limitação de autenticação por IP.
 
-O dashboard da cozinha e a lista de entregas mostram número e etapa sem login.
-Nomes, dietas, alergias e locais exigem conta autorizada da unidade. Mudar etapas,
-cancelar e reimprimir exige perfil Cozinha, Nutricionista ou Admin TI com acesso à unidade.
+O dashboard da cozinha permite consultar dados de preparo, mudar etapas, cancelar com motivo,
+reimprimir e emitir etiquetas sem login. Usa rotas próprias em `/api/cozinha` e canal
+`/ws/cozinha-publica/{id}`, com resumo operacional dos pedidos da unidade ativa.
+A lista de entregas mostra somente número e etapa sem login; seus dados detalhados exigem
+conta autorizada da unidade.
 Registrar entrega exige Copeira (somente a própria entrega), Nutricionista ou Admin TI.
 A gestão seleciona uma copeira online; o relatório identifica a copeira e quem registrou a ação.
 
@@ -212,7 +214,7 @@ Fechar ou interromper o terminal de desenvolvimento não encerra esses serviços
 inicialização automática após reiniciar o Windows; use `start.ps1` novamente nessa situação.
 
 - Formulário: `http://localhost:5173/unidade-havai`
-- Cozinha: `http://localhost:5173/cozinha/1` (consulta sem login; ações autenticadas)
+- Cozinha: `http://localhost:5173/cozinha/1` (consulta e operação sem login)
 - Entregas: `http://localhost:5173/entregas/1`
 - Login: `http://localhost:5173/login`
 - Pela rede: `http://IP-DESTA-MAQUINA:5173/unidade-havai`
@@ -254,16 +256,17 @@ Cadastros e pedidos antigos são preservados; clientes anteriores que enviam dir
 NÉCTAR, MEL ou PUDIM são convertidos para Sim e o respectivo líquido ao criar/corrigir o pedido.
 
 O botão **Cancelar** da cozinha abre uma caixa com motivo obrigatório de 5 a 1.000 caracteres.
-As duas rotas de alteração de status exigem o motivo e registram o usuário autenticado e o horário
-do servidor no histórico. O relatório distingue **Solicitante** de **Cancelado por**, mostra o
+Todas as rotas de alteração de status exigem o motivo. O painel sem login registra
+**Painel da cozinha (sem login)** e o horário do servidor; rotas autenticadas preservam a conta
+que realizou a ação. O relatório distingue **Solicitante** de **Cancelado por**, mostra o
 motivo e a data/hora, e inclui esses dados em XLSX, ODS e CSV. Cancelamentos antigos sem motivo
 continuam identificados como não registrados na época, sem preencher informações fictícias.
 
-O cabeçalho da cozinha identifica a conta e o perfil conectado. **Iniciar preparo** e
-**Marcar pronto** aparecem nas respectivas etapas; em consulta pública ou perfil Copeira,
-ficam desabilitados com orientação de acesso e atalho para entrar com conta autorizada.
-Contas com senha temporária recebem o atalho para concluir a troca. Cozinha, Nutrição e
-Administração de TI operam o preparo conforme o vínculo com a unidade; Copeira realiza entregas.
+O cabeçalho identifica **Cozinha sem login**. **Iniciar preparo**, **Marcar pronto**, cancelamento,
+filipetas e etiquetas funcionam diretamente, inclusive quando há uma sessão de Copeira ou uma
+credencial expirada no navegador. A cozinha usa conexão independente da sessão pessoal.
+Etapas e unidade continuam validadas pelo servidor; etiquetas exigem status Pronto e envios
+incertos exigem conferência antes de repetir. Veja [COZINHA-SEM-LOGIN.md](COZINHA-SEM-LOGIN.md).
 
 ## Painel de administração
 

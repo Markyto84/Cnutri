@@ -8,13 +8,14 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
   const navegar = useNavigate()
   const { usuario, sair, plantaoOnline } = useAuth()
   const entrega = modo === 'entregas'
-  const minhas = usuario?.perfil === 'COPEIRA' ? painel.filiais.filter((f) => usuario.filiais.some((u) => u.id === f.id)) : painel.filiais
+  const minhas = entrega && usuario?.perfil === 'COPEIRA' ? painel.filiais.filter((f) => usuario.filiais.some((u) => u.id === f.id)) : painel.filiais
   const nestePlantao = usuario?.perfil === 'COPEIRA' && usuario.filiais.some((f) => f.id === Number(filialId))
   return <header className="brand-header mb-5 space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><h1 className="text-xl font-bold text-brand sm:text-2xl">{entrega ? 'Entrega de refeições' : 'Dashboard da cozinha'}</h1>
         <p className="mt-1 text-sm text-slate-700">{painel.filial?.nome || 'Carregando unidade…'}</p></div>
       <div className="flex flex-wrap gap-2">
+        {!entrega && <span className="rounded-full bg-brand-soft px-3 py-1.5 text-xs font-semibold text-brand-ink">Cozinha sem login</span>}
         {usuario && <span className="rounded-full bg-brand-soft px-3 py-1.5 text-xs font-semibold text-brand-ink">{usuario.nome} · {PERFIS[usuario.perfil] || usuario.perfil}</span>}
         <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">{painel.conectado ? '● Atualização ao vivo' : 'Atualização automática'}</span>
       </div>
@@ -28,14 +29,14 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
       <button onClick={() => painel.recarregar()} className={`${BOTAO} bg-slate-50 text-slate-900`}>Atualizar</button>
       {usuario?.perfil === 'ADMIN_TI' && <Link to="/admin" className={`${BOTAO} bg-slate-50 text-center`}>Administração</Link>}
       {usuario?.perfil === 'NUTRICIONISTA' && <Link to={`/gestao?unidade=${filialId}`} className={`${BOTAO} bg-slate-50 text-center`}>Gestão</Link>}
-      {!usuario && <Link to={`/login?retorno=${encodeURIComponent(`/${modo}/${filialId}`)}`} className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>{entrega ? 'Entrar no plantão' : 'Entrar para operar'}</Link>}
+      {!usuario && <Link to={entrega ? `/login?retorno=${encodeURIComponent(`/entregas/${filialId}`)}` : '/login'} className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>{entrega ? 'Entrar no plantão' : 'Entrar na gestão'}</Link>}
       {usuario && <Link to={`/senha?retorno=${encodeURIComponent(`/${modo}/${filialId}`)}`} className={`${BOTAO} bg-slate-50 text-center`}>{usuario.troca_senha_obrigatoria ? 'Definir nova senha' : 'Alterar minha senha'}</Link>}
       {usuario && <button onClick={sair} className={`${BOTAO} col-span-2 bg-slate-50 text-slate-900`}>Sair{usuario.perfil === 'COPEIRA' ? ' do plantão' : ''}</button>}
     </div>
     {usuario?.perfil === 'COPEIRA' && <p role="status" className={`rounded-lg p-3 text-sm ${nestePlantao && plantaoOnline ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
       <strong>{usuario.nome}</strong> · {nestePlantao && plantaoOnline ? 'Você está online neste plantão' : 'Sua presença depende de conexão e vínculo com esta unidade'}
     </p>}
-    {!usuario && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Consulta pública por número e etapa. Entre com uma conta vinculada à unidade para visualizar destinatários, dietas e locais de entrega.</p>}
+    {entrega && !usuario && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Consulta pública por número e etapa. Entre com uma conta vinculada à unidade para visualizar destinatários, dietas e locais de entrega.</p>}
   </header>
 }
 

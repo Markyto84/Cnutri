@@ -11,7 +11,6 @@ export default function Login() {
   const navegar = useNavigate()
   const [parametros] = useSearchParams()
   const { entrar } = useAuth()
-  const acessoCozinha = /^\/cozinha\/[1-9]\d*$/.test(parametros.get('retorno') || '')
 
   async function submeter(e) {
     e.preventDefault()
@@ -34,7 +33,6 @@ export default function Login() {
       <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl border-t-4 border-brand-vibrant bg-panel p-8 shadow-xl">
         <h1 className="text-center text-2xl font-bold text-brand">🏥 Dietas Hospitalares</h1>
         <p className="text-center text-sm text-slate-700">Acesso à gestão, cozinha e plantão das copeiras</p>
-        {acessoCozinha && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Para iniciar o preparo e marcar refeições prontas, entre com uma conta da Cozinha, Nutrição ou Administração de TI vinculada à unidade.</p>}
 
         {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
 

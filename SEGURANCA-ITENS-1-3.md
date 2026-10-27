@@ -1,5 +1,9 @@
 # Cnutri — melhorias 1 a 3 do review
 
+Atualização em 27/10/2026: a operação da cozinha passou a dispensar login por solicitação
+do usuário. A regra vigente está em [COZINHA-SEM-LOGIN.md](COZINHA-SEM-LOGIN.md);
+gestão, administração, relatórios e conclusão da entrega continuam autenticados.
+
 Implementação de 20/10/2026. A atualização preserva pedidos, formulários, impressoras e contas existentes.
 
 ## 1. Credenciais e autenticação

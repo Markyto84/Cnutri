@@ -10,7 +10,7 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 
 - **Kiosk público** (`/unidade-havai`): postos de enfermagem/médico, sem login, rastreabilidade
   por registro profissional (CRM/COREN/Matrícula) + nome do solicitante
-- **Painel da Cozinha** (`/cozinha/1`): consulta pública com ações autenticadas, Kanban em tempo real (WebSocket),
+- **Painel da Cozinha** (`/cozinha/1`): consulta e operação sem login, Kanban em tempo real (WebSocket),
   alerta sonoro, destaque para dietas severas, reimpressão de filipetas; responsivo para celular
 - **Entregas das copeiras** (`/entregas/1`): refeições prontas, copeira identificada pelo login
   e finalização direta com responsável e horário; assinaturas anteriores preservadas; responsivo para celular
@@ -40,15 +40,18 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
-- ✅ **Botões da cozinha e identificação de acesso** ajustados em 27/10/2026:
-  Iniciar preparo / Marcar pronto permanecem visíveis nas etapas correspondentes; em consulta
-  ou perfil Copeira ficam desabilitados com orientação e atalho de login para a unidade.
-  O cabeçalho mostra a conta e o perfil. A troca inicial de senha pendente recebe orientação
-  e atalho próprios. Operações continuam restritas a Cozinha, Nutrição e TI autorizados.
-  Validado visualmente o fluxo Pendente → Em preparo → Pronto com conta Cozinha fictícia,
-  botões ativos para Nutrição/TI, consulta pública, Copeira e senha temporária pendente.
-  54 testes frontend e 3 de autorização/etapas no backend aprovados, build aprovado;
-  dois avisos de lint anteriores. Correção apenas de frontend, sem reiniciar a API.
+- ✅ **Operação da cozinha sem login**, conforme determinação do usuário em 27/10/2026:
+  substitui a exigência anterior de perfil para esta tela. Preparar, marcar pronto, cancelar
+  com motivo, reimprimir filipeta e gerar etiquetas funcionam diretamente na intranet.
+  Rotas `/api/cozinha` e canal `/ws/cozinha-publica/{id}` independem da sessão pessoal;
+  resumo operacional filtrado e reconciliação/ETag/WebSocket preservados. Etapas e unidade
+  continuam validadas; etiquetas somente em Pronto; envio incerto exige conferência.
+  Etapas são auditadas como “Painel da cozinha (sem login)”, sem atribuir conta pessoal.
+  Entregas continuam pelo login da copeira; gestão, relatórios e administração protegidos.
+  Sem migração de banco. Ver [COZINHA-SEM-LOGIN.md](COZINHA-SEM-LOGIN.md).
+  238 testes backend e 56 frontend aprovados; 5 externos omitidos. Build aprovado,
+  dois avisos de lint anteriores. Conferência visual sem login de preparo, conclusão,
+  prévia de etiqueta, cancelamento e sincronização simultânea entre duas telas.
 
 - ✅ **Cozinha, relatório e formulários** ajustados em 26/10/2026:
   Cancelar abre uma caixa de motivo obrigatório (5–1.000 caracteres), também exigido nas

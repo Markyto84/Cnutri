@@ -1,23 +1,26 @@
 # Sincronização dos painéis de Cozinha e Entregas
 
-Implementação de 26/10/2026. Mantém os dados em tempo real com redução de consultas,
+Implementação de 26/10/2026, com cozinha sem login em 27/10/2026. Mantém os dados em tempo real com redução de consultas,
 reconciliação periódica e recuperação de falhas. Não exige migração de tabelas.
 
 ## Funcionamento
 
 - O WebSocket continua transmitindo criação, etapas, correções e estado das impressões.
-- Uma única consulta a `/api/operacao/unidades/{id}/estado` reúne pedidos ativos,
+- Uma única consulta a `/api/operacao/unidades/{id}/estado` (Entregas) ou
+  `/api/cozinha/unidades/{id}/estado` (Cozinha sem login) reúne pedidos ativos,
   unidades, prazos e copeiras online. Substitui as três consultas de 10 segundos e
   a consulta de copeiras de 5 segundos.
 - Com WebSocket conectado, a conferência HTTP acontece aproximadamente a cada
   **dois minutos**, com variação de 10% para distribuir as chamadas entre os aparelhos.
-- O ETag identifica o conteúdo por unidade/usuário. Se nada mudou, a API responde
-  **304 sem corpo**. A autorização e a validade da sessão continuam sendo verificadas.
+- O ETag identifica o conteúdo por unidade/usuário nas entregas e por unidade na cozinha.
+  Se nada mudou, a API responde **304 sem corpo**. Rotas autenticadas continuam verificando a sessão;
+  a cozinha valida a unidade ativa e funciona independentemente da credencial pessoal.
 - Unidades, prazos e plantão são conferidos por um monitor central no servidor,
   a cada **5 segundos**, somente quando há painéis conectados. São três consultas
   compartilhadas por ciclo, independentemente da quantidade de telas.
 - Esse monitor publica apenas mudanças. Nomes de copeiras são enviados somente
-  a canais autenticados; pedidos públicos continuam limitados a número e etapa.
+  a canais autenticados. O canal `/ws/cozinha-publica/{id}` recebe o resumo operacional
+  necessário ao preparo; `/ws/operacao/{id}` mantém a consulta por número e etapa.
 - O heartbeat de presença das copeiras permanece em **30 segundos**, com expiração
   de 3 minutos, preservando a regra atual de disponibilidade para entrega.
 
