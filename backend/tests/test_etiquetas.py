@@ -1,5 +1,6 @@
 """Etiquetas de refeições prontas: dados fictícios, impressoras simuladas e banco isolado."""
 from io import BytesIO
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 import re
 import unittest
@@ -33,6 +34,12 @@ def exemplo_medico():
 
 
 class LayoutEtiquetaTest(unittest.TestCase):
+    def setUp(self):
+        relogio = patch('app.services.etiquetas.datetime', wraps=datetime)
+        self.relogio = relogio.start()
+        self.addCleanup(relogio.stop)
+        self.relogio.now.return_value = datetime(2026, 10, 27, 12, tzinfo=timezone(timedelta(hours=-3)))
+
     def test_unidade_fixa_em_onze_pontos_com_corpo_adaptativo_e_quebra_sem_sobrepor(self):
         casos = [(exemplo(), "Hospital São João", False), (exemplo_medico(), "Hospital São João", False),
             (exemplo(), "Hospital São João", True),
@@ -140,7 +147,7 @@ class LayoutEtiquetaTest(unittest.TestCase):
     def test_sete_campos_na_ordem_com_data_dieta_acento_matricula_e_geometria(self):
         campos = campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João"))
         self.assertEqual(campos, [("Unidade", "Hospital São João"), ("Matrícula", "00000123"),
-            ("Nome", "João da Conceição"), ("Data de nascimento", "09/04/1985"),
+            ("Nome", "João da Conceição"), ("Data de nascimento", "09/04/1985 | 41 anos"),
             ("Dieta", "BRANDA"), ("Andar", "4º ANDAR"), ("Leito", "OBS-12")])
         for dpi in (203, 300):
             imagem = renderizar_etiqueta(campos, dpi)
@@ -155,8 +162,40 @@ class LayoutEtiquetaTest(unittest.TestCase):
         self.assertEqual(len(campos), 7)
         self.assertTrue(all(valor == "Não informado" for _, valor in campos[1:]))
         pedido.dados_dinamicos = {"data_nascimento": "09/04/1985"}
-        self.assertEqual(dict(campos_etiqueta(pedido, SimpleNamespace(nome="Unidade")))["Data de nascimento"], "09/04/1985")
+        self.assertEqual(dict(campos_etiqueta(pedido, SimpleNamespace(nome="Unidade")))["Data de nascimento"], "09/04/1985 | 41 anos")
         renderizar_etiqueta(campos)
+
+    def test_idade_em_anos_completos_aniversario_e_datas_invalidas(self):
+        pedido, filial = exemplo(), SimpleNamespace(nome="Hospital São João")
+        for data, esperado in (("1985-10-28", "28/10/1985 | 40 anos"),
+            ("1985-10-27", "27/10/1985 | 41 anos"), ("1985-10-26", "26/10/1985 | 41 anos"),
+            ("2025-10-27", "27/10/2025 | 1 ano"), ("2026-10-27", "27/10/2026 | 0 anos"),
+            ("2026-10-28", "28/10/2026"), ("31/02/2000", "31/02/2000"), (None, "Não informado")):
+            with self.subTest(data=data):
+                pedido.dados_dinamicos['data_nascimento'] = data
+                self.assertEqual(dict(campos_etiqueta(pedido, filial))['Data de nascimento'], esperado)
+        self.assertEqual(self.relogio.now.call_args.args[0].utcoffset(None), timedelta(hours=-3))
+
+    def test_aniversario_em_ano_bissexto(self):
+        pedido = exemplo()
+        pedido.dados_dinamicos['data_nascimento'] = '2000-02-29'
+        for hoje, idade in ((datetime(2024, 2, 28), 23), (datetime(2024, 2, 29), 24),
+            (datetime(2025, 2, 28), 24), (datetime(2025, 3, 1), 25)):
+            with self.subTest(hoje=hoje):
+                self.relogio.now.return_value = hoje
+                self.assertEqual(dict(campos_etiqueta(pedido, SimpleNamespace(nome='Hospital')))['Data de nascimento'],
+                    f'29/02/2000 | {idade} anos')
+
+    def test_idade_ao_lado_do_nascimento_sem_quebra_na_etiqueta_e_do_acompanhante(self):
+        campos = campos_etiqueta(exemplo(), SimpleNamespace(nome='Hospital São João'))
+        for dpi in (203, 300):
+            for acompanhante in (False, True):
+                original = ImageDraw.ImageDraw.text
+                with patch.object(ImageDraw.ImageDraw, 'text', autospec=True, side_effect=original) as textos:
+                    renderizar_etiqueta(campos, dpi, acompanhante)
+                linha = [c for c in textos.call_args_list if c.args[2].startswith('Data de nascimento:')]
+                self.assertEqual(len(linha), 1)
+                self.assertEqual(linha[0].args[2], 'Data de nascimento: 09/04/1985 | 41 anos')
 
     def test_rodape_reservado_e_marca_dagua_suave_sobrevive_ao_monocromatico(self):
         campos = campos_etiqueta(exemplo(), SimpleNamespace(nome="Hospital São João"))

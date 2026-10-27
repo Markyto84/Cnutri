@@ -1,5 +1,5 @@
 """Etiquetas de 89 × 36 mm, rasterizadas para preservar acentos em ZPL e TSPL."""
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -31,6 +31,22 @@ def destinatarios_etiqueta(pedido):
     return ("Acompanhante",) if destino == ACOMPANHANTE else ("Paciente",)
 
 
+def nascimento_com_idade(valor):
+    try:
+        nascimento = date.fromisoformat(valor)
+    except ValueError:
+        try:
+            nascimento = datetime.strptime(valor, "%d/%m/%Y").date()
+        except ValueError:
+            return valor
+    formatado = nascimento.strftime("%d/%m/%Y")
+    hoje = datetime.now(timezone(timedelta(hours=-3))).date()
+    if nascimento > hoje:
+        return formatado
+    idade = hoje.year - nascimento.year - ((hoje.month, hoje.day) < (nascimento.month, nascimento.day))
+    return f"{formatado} | {idade} {'ano' if idade == 1 else 'anos'}"
+
+
 def campos_etiqueta(pedido, filial, destinatario=None):
     dinamicos = pedido.dados_dinamicos or {}
 
@@ -48,11 +64,7 @@ def campos_etiqueta(pedido, filial, destinatario=None):
             ("Suco / Sobremesa", f"{texto(dinamicos.get('suco'))} | {texto(dinamicos.get('sobremesa'))}"),
             ("Local de entrega", texto(dinamicos.get("local_entrega")))]
 
-    nascimento = texto(dinamicos.get("data_nascimento"))
-    try:
-        nascimento = date.fromisoformat(nascimento).strftime("%d/%m/%Y")
-    except ValueError:
-        pass  # Pedidos antigos podem ter a data já formatada ou não preenchida.
+    nascimento = nascimento_com_idade(texto(dinamicos.get("data_nascimento")))
     dieta = getattr(pedido, "dieta", None)
     destinatario = destinatario or destinatarios_etiqueta(pedido)[0]
     dieta_nome = "GERAL" if destinatario == "Acompanhante" else dieta.nome if dieta else None

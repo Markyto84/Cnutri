@@ -3,7 +3,10 @@
 ## Uso na cozinha
 
 Em **Cozinha → Prontos**, use **Etiqueta** no cartão da refeição. Para pacientes, a prévia contém,
-nesta ordem: **Unidade, Matrícula, Nome, Data de nascimento, Dieta, Andar e Leito**.
+nesta ordem: **Unidade, Matrícula, Nome, Data de nascimento e idade, Dieta, Andar e Leito**.
+A idade aparece ao lado do nascimento (por exemplo, **09/04/1985 | 41 anos**) e é calculada
+em anos completos na data da geração, no horário de Brasília. Datas antigas no formato
+`DD/MM/AAAA` também são aceitas; datas ausentes, inválidas ou futuras não geram idade.
 O rodapé traz **CONSUMO IMEDIATO** e o ícone da aba do navegador aparece como marca
 d'água. Confira a prévia e pressione **Imprimir etiqueta**. Reimpressões usam o mesmo botão.
 Na primeira linha de todos os modelos, aparece somente o nome da unidade em
