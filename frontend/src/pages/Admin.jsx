@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { caminhoCozinha } from '../services/rotasUnidades.js'
+import { criarAtalhoUnidade } from '../services/atalhosUnidades.js'
 import { useAuth } from '../context/auth.js'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
 import CentralImpressoes from '../components/CentralImpressoes.jsx'
@@ -92,16 +93,18 @@ export default function Admin() {
 
 function Unidades({ filiais, onConcluido }) {
   const [editando, setEditando] = useState(null)
+  const [ultimaSalva, setUltimaSalva] = useState(null)
   return <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
     <div className="space-y-3">
       {filiais.map((f) => <article key={f.id} className="space-y-3 rounded-xl bg-panel p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h2 className="font-bold">{f.nome}</h2><p className="mt-1 text-sm text-slate-700">/{f.codigo_slug} · {f.ativa ? 'Ativa' : 'Inativa'}</p></div>
-          <button onClick={() => setEditando(f)} className={SECUNDARIO} aria-label={`Editar unidade ${f.nome}`}>Editar unidade</button>
+          <button onClick={() => { setUltimaSalva(null); setEditando(f) }} className={SECUNDARIO} aria-label={`Editar unidade ${f.nome}`}>Editar unidade</button>
         </div>
         <p className="text-sm text-slate-700">Impressora: {f.ip_impressora || 'Não configurada'}</p>
         <div className="flex flex-wrap gap-2">
           {f.ativa && <a href={`/${f.codigo_slug}`} target="_blank" rel="noreferrer" className={SECUNDARIO}>Abrir formulário</a>}
+          <AtalhoUnidade filial={f} />
           <Link to={`/gestao?unidade=${f.id}`} className={SECUNDARIO}>Gerenciar unidade</Link>
           <Link to={caminhoCozinha(f)} className={SECUNDARIO}>Painel da cozinha</Link>
           <Link to={`/entregas/${f.id}`} className={SECUNDARIO}>Entregas das copeiras</Link>
@@ -109,9 +112,35 @@ function Unidades({ filiais, onConcluido }) {
       </article>)}
       {!filiais.length && <p className="rounded-xl bg-panel p-5">Cadastre a primeira unidade para começar.</p>}
     </div>
-    <FormularioUnidade key={editando?.id || 'nova'} filial={editando} filiais={filiais}
-      onCancelar={() => setEditando(null)} onConcluido={(m) => { setEditando(null); onConcluido(m) }} />
+    <div className="space-y-4">
+      <AtalhoUnidade filial={ultimaSalva} mostrarEndereco />
+      <FormularioUnidade key={editando?.id || 'nova'} filial={editando} filiais={filiais}
+        onCancelar={() => setEditando(null)} onConcluido={(mensagem, salva) => { setUltimaSalva(salva); setEditando(null); onConcluido(mensagem) }} />
+    </div>
   </div>
+}
+
+function AtalhoUnidade({ filial, mostrarEndereco = false }) {
+  const atalho = criarAtalhoUnidade(filial, window.location.origin)
+  if (!atalho) return null
+  function baixar(evento) {
+    evento.preventDefault()
+    const url = URL.createObjectURL(new Blob([atalho.conteudo], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url; link.download = atalho.nomeArquivo
+    document.body.appendChild(link); link.click(); link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  const download = <a href={atalho.href} download={atalho.nomeArquivo} onClick={baixar} className={SECUNDARIO}
+    aria-label={`Baixar atalho de ${filial.nome}`} title={atalho.url}>Baixar atalho (.url)</a>
+  return mostrarEndereco ? <section aria-label="Atalho da unidade salva" className="space-y-3 rounded-xl bg-panel p-5">
+    <h2 className="text-lg font-bold">Atalho da unidade salva</h2>
+    <p className="text-sm font-medium">{filial.nome}</p>
+    <div><p className="mb-1 text-sm font-medium">Endereço do formulário</p>
+      <a href={atalho.url} target="_blank" rel="noreferrer" className="break-all text-sm text-brand underline">{atalho.url}</a></div>
+    <p className="text-sm text-slate-700">Baixe e distribua este atalho nos computadores da unidade.</p>
+    <div className="flex">{download}</div>
+  </section> : download
 }
 
 function FormularioUnidade({ filial, filiais, onCancelar, onConcluido }) {
@@ -126,10 +155,10 @@ function FormularioUnidade({ filial, filiais, onCancelar, onConcluido }) {
     setSalvando(true); setErro(null)
     try {
       const dados = { nome: form.nome, codigo_slug: form.codigo_slug }
-      if (filial) await api.patch(`/admin/filiais/${filial.id}`, { ...dados, ativa: form.ativa })
-      else await api.post('/admin/filiais', { ...dados, origem_filial_id: Number(form.origem_filial_id) || null })
+      const resposta = filial ? await api.patch(`/admin/filiais/${filial.id}`, { ...dados, ativa: form.ativa })
+        : await api.post('/admin/filiais', { ...dados, origem_filial_id: Number(form.origem_filial_id) || null })
       if (!filial) setForm((f) => ({ ...f, nome: '', codigo_slug: '' }))
-      onConcluido(filial ? 'Unidade atualizada.' : 'Unidade criada com formulários e dietas próprios.')
+      onConcluido(filial ? 'Unidade atualizada.' : 'Unidade criada com formulários e dietas próprios.', resposta.data)
     } catch (e) { setErro(mensagemErro(e)) } finally { setSalvando(false) }
   }
 

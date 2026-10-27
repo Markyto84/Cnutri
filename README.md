@@ -104,6 +104,9 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 Distribua um atalho com a URL específica de cada unidade. Os formulários e cozinhas abrem
 diretamente, sem página de seleção de unidade. O endereço principal apenas orienta a usar
 o atalho fornecido pela TI, sem escolher ou redirecionar para uma unidade.
+Em **Administração → Unidades**, use **Baixar atalho (.url)** na unidade desejada.
+Após criar ou editar uma unidade, o painel também mostra o endereço salvo e seu download.
+O arquivo usa o domínio/IP, protocolo e porta do endereço pelo qual a TI acessou o Cnutri.
 Novos endereços de unidade precisam incluir uma letra e não podem usar rotas reservadas,
 como `login` ou `admin`.
 
