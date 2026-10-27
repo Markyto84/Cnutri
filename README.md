@@ -18,8 +18,10 @@ Os painéis usam WebSocket com reconciliação condicional a cada dois minutos,
 contexto central de unidades/prazos/plantão e recuperação automática de falhas.
 Veja [sincronização e redução de consultas](SINCRONIZACAO-OPERACIONAL.md).
 
-A coleta de assinatura está suspensa no fluxo de Entregas. A copeira usa **Realizar entrega**
-para finalizar o atendimento no próprio nome, com data/hora do servidor. Veja [entrega direta](ENTREGA-DIRETA.md).
+Nas novas filipetas, o recebedor escaneia o **QR Code**, informa o registro profissional
+e confirma o recebimento; o servidor registra a entrega e a data/hora. Consulte
+[recebimento por QR Code](RECEBIMENTO-POR-QR.md). A [entrega direta](ENTREGA-DIRETA.md)
+permanece para filipetas anteriores sem QR.
 O [módulo de assinatura](MODULO-ASSINATURA.md) permanece disponível para futura reativação.
 
 ---
@@ -408,7 +410,9 @@ como `/cozinha/1`, continuam funcionando e redirecionam para o nome corresponden
 Links da administração, gestão, entregas e seletor de unidade usam o novo formato.
 Na cozinha, os pedidos passam por **Pendentes → Em preparo → Prontos**. No celular, botões de etapa
 mostram uma coluna por vez; no computador, as três colunas aparecem juntas. A página de entregas
-mostra somente as refeições prontas, em cartões com botão **Entregar** para Copeira/Gestão/TI autorizados. Ambas usam botões de toque
+mostra somente as refeições prontas. As novas filipetas são finalizadas pelo recebedor,
+via **QR Code**, com registro profissional. A entrega pela copeira permanece nos pedidos
+anteriores sem QR. Ambas usam botões de toque
 de pelo menos 44 pixels e a caixa de seleção se ajusta à largura da tela.
 
 Para cadastrar uma copeira, abra **Administração → Credenciais**, escolha o perfil **Copeira** e
@@ -418,7 +422,7 @@ fica disponível na unidade selecionada. A presença é renovada a cada 30 segun
 encerra a sessão imediatamente; fechar o navegador ou perder a conexão remove o nome após até
 três minutos sem renovação. Sessões simultâneas da mesma pessoa não duplicam seu nome.
 
-Ao tocar em **Realizar entrega**, a copeira finaliza o atendimento em um único passo, sem
+No fluxo anterior, para filipetas sem QR, ao tocar em **Realizar entrega**, a copeira finaliza o atendimento em um único passo, sem
 selecionar o próprio nome, preencher recebedor ou assinar. O servidor usa a identidade da sessão,
 verifica o plantão e se a refeição continua pronta, registra a entrega e muda o pedido para
 **ENTREGUE**. Gestão/TI seleciona uma copeira online e confirma em **Finalizar atendimento**.

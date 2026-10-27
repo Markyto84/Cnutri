@@ -30,7 +30,7 @@ function PaginaEntregas({ filialId }) {
   const filtrados = filtrarPedidos(prontos, filtros)
 
   async function escolher(pedido) {
-    if (!autorizado) return
+    if (!autorizado || pedido.recebimento_qr) return
     if (usuario.perfil === 'COPEIRA') { await realizarEntrega(pedido); return }
     painel.setErro(null)
     setSelecionado(pedido)
@@ -38,7 +38,7 @@ function PaginaEntregas({ filialId }) {
   }
 
   async function realizarEntrega(pedido, copeiraId) {
-    if (!autorizado || emAndamento.current.has(pedido.id)) return
+    if (!autorizado || pedido.recebimento_qr || emAndamento.current.has(pedido.id)) return
     emAndamento.current.add(pedido.id)
     setEnviando((ids) => [...ids, pedido.id])
     setAviso(''); painel.setErro(null)
@@ -71,14 +71,15 @@ function PaginaEntregas({ filialId }) {
     {erroPlantao && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-amber-950">{erroPlantao}</p>}
     {!painel.carregando && !painel.indisponivel && <section aria-label="Refeições prontas para entrega">
       <FiltrosOperacao pedidos={prontos} filtros={filtros} onChange={setFiltros} total={filtrados.length} />
-      <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">{usuario?.perfil === 'COPEIRA' ? 'Ao realizar a entrega, o atendimento será finalizado automaticamente no seu nome.' : 'Selecione a refeição e indique a copeira que fará a entrega.'}</p></div>
+      <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">O recebedor finaliza a entrega pelo QR Code da filipeta. Para filipetas anteriores, permanece a entrega pela copeira.</p></div>
       {!prontos.length && <div className="rounded-2xl bg-panel p-8 text-center"><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="mt-2 text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
       {prontos.length > 0 && !filtrados.length && <p className="rounded-xl bg-panel p-6">Nenhuma refeição corresponde aos filtros. Use “Limpar filtros” para ver todas.</p>}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{filtrados.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4 shadow-sm">
         <ResumoPedido pedido={pedido} />
         <AlertaDemora pedido={pedido} limites={painel.alertas} agora={painel.agora} />
         {pedido.concluido_em && <p className="mt-3 text-xs text-slate-700">Pronto às {new Date(pedido.concluido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
-        {autorizado && <div className="mt-auto pt-4"><button disabled={enviando.includes(pedido.id)} onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-brand-vibrant text-base text-brand-ink hover:bg-brand-vibrant-hover`}>{enviando.includes(pedido.id) ? 'Finalizando…' : 'Realizar entrega'}</button></div>}
+        {pedido.recebimento_qr ? <p className="mt-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Aguardando confirmação do recebedor pelo QR Code da filipeta.</p>
+          : autorizado && <div className="mt-auto pt-4"><button disabled={enviando.includes(pedido.id)} onClick={() => escolher(pedido)} className={`${BOTAO} w-full bg-brand-vibrant text-base text-brand-ink hover:bg-brand-vibrant-hover`}>{enviando.includes(pedido.id) ? 'Finalizando…' : 'Realizar entrega'}</button></div>}
       </article>)}</div>
     </section>}
     {painel.carregando && <p className="rounded-xl bg-panel p-6">Carregando refeições…</p>}

@@ -71,7 +71,8 @@ function Comprovante({ item, filialId }) {
     <p className="text-sm font-semibold text-brand-ink">{item.refeicao || 'Refeição não informada'}</p>
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
       <div><dt className="text-slate-700">Solicitante</dt><dd className="font-semibold">{item.solicitante_nome || 'Não registrado'}{item.solicitante_identificacao && ` · ${item.solicitante_identificacao}`}</dd></div>
-      <div><dt className="text-slate-700">Copeira</dt><dd className="font-semibold">{item.copeira_nome}</dd></div>
+      <div><dt className="text-slate-700">Confirmação</dt><dd className="font-semibold">{item.origem_entrega || 'Copeira'}{item.copeira_nome && ` · ${item.copeira_nome}`}</dd></div>
+      {item.recebedor_registro_profissional && <div><dt className="text-slate-700">Registro profissional do recebedor</dt><dd className="font-semibold">{item.recebedor_registro_profissional}</dd></div>}
       <div><dt className="text-slate-700">Registrado por</dt><dd className="font-semibold">{item.registrado_por_nome || 'Não registrado na entrega antiga'}</dd></div>
       {item.recebedor_nome && <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome}</dd></div>}
       <div><dt className="text-slate-700">Data e hora da entrega</dt><dd className="font-semibold">{horario(item.entregue_em)}</dd></div>
@@ -80,7 +81,7 @@ function Comprovante({ item, filialId }) {
     {item.assinatura_disponivel ? <>
       <button onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} className={`${BOTAO} bg-white text-brand-ink`}>{aberto ? 'Ocultar assinatura' : 'Ver assinatura'}</button>
       {aberto && <ImagemAssinatura filialId={filialId} pedidoId={item.pedido_id} recebedor={item.recebedor_nome} />}
-    </> : <p className="text-xs text-slate-700">Entrega finalizada sem assinatura registrada.</p>}
+    </> : <p className="text-xs text-slate-700">{item.recebedor_registro_profissional ? 'Recebimento confirmado pelo QR Code da filipeta.' : 'Entrega finalizada sem assinatura registrada.'}</p>}
   </article>
 }
 

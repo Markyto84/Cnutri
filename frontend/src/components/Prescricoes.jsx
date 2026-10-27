@@ -103,11 +103,14 @@ function DetalhePedido({ pedidoId, onFechar, onAtualizar }) {
           {!detalhe.etapas.length && <p className="text-sm">Sem mudanças de etapa registradas.</p>}
           <ol className="space-y-2">{detalhe.etapas.map((e, i) => <li key={i} className="rounded-lg bg-white p-3 text-sm">
             {e.anterior || 'Início'} → {e.nova} · {horarioBrasilia(e.data_hora)}<br />
-            {e.usuario_id ? `${e.nome_atual_usuario || 'Usuário'} · conta #${e.usuario_id} (nome atual do cadastro)` : 'Autor não registrado na época'}</li>)}</ol>
+            {e.usuario_id ? `${e.nome_atual_usuario || 'Usuário'} · conta #${e.usuario_id} (nome atual do cadastro)`
+              : e.nova === 'ENTREGUE' && detalhe.entrega?.recebedor_registro_profissional ? `Recebedor informado: ${detalhe.entrega.recebedor_registro_profissional} · QR Code` : 'Autor não registrado na época'}</li>)}</ol>
         </div>
         {detalhe.entrega && <dl className="grid gap-3 rounded-xl bg-white p-4 sm:grid-cols-2"><Dado titulo="Copeira responsável" valor={detalhe.entrega.copeira_nome} />
           <Dado titulo="Entrega registrada pela conta" valor={detalhe.entrega.registrado_por_usuario_id ? `#${detalhe.entrega.registrado_por_usuario_id}` : ''} />
           <Dado titulo="Recebedor" valor={detalhe.entrega.recebedor_nome} /><Dado titulo="Entregue em" valor={horarioBrasilia(detalhe.entrega.entregue_em)} />
+          <Dado titulo="Registro profissional do recebedor" valor={detalhe.entrega.recebedor_registro_profissional} />
+          <Dado titulo="Confirmação da entrega" valor={detalhe.entrega.origem_entrega} />
           <Dado titulo="Assinatura de recebimento" valor={detalhe.entrega.assinatura_registrada ? 'Registrada' : 'Não registrada'} /></dl>}
       </div>}
       {aba === 'corrigir' && ativa && detalhe.formulario && <Correcao key={`${pedido.id}:${pedido.versao}`} detalhe={detalhe} dietas={dietas} salvando={salvando}

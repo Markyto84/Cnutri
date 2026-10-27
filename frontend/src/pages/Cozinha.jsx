@@ -69,7 +69,7 @@ function Dashboard({ unidade }) {
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
     <CabecalhoOperacao modo="cozinha" painel={painel} filialId={filialId} />
-    <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Preparo, cancelamento e impressão disponíveis sem login. As etapas são registradas como “Painel da cozinha (sem login)”. A entrega é finalizada pela copeira no painel de entregas.</p>
+    <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Preparo, cancelamento e impressão disponíveis sem login. As etapas são registradas como “Painel da cozinha (sem login)”. O recebedor finaliza a entrega pelo QR Code da filipeta; filipetas anteriores continuam com a entrega pela copeira.</p>
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-brand-soft p-3 text-brand-ink">{aviso}</p>}
     {falhas > 0 && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{falhas} pedido(s) com falha ou envio de filipeta incerto. Confira os avisos de impressão nos cartões.</p>}
