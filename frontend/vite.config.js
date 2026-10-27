@@ -16,6 +16,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true, // aceita acesso de outras máquinas na rede
+    allowedHosts: ['cnutri.preventsenior.com.br'],
     fs: { allow: [fileURLToPath(new URL('.', import.meta.url))] },
     proxy: {
       '^/api(?:/|\\?|$)': { target: 'http://127.0.0.1:8000', changeOrigin: true, xfwd: true, configure: protegerProtocolo },

@@ -5,6 +5,38 @@ servidor Linux em Docker. **Preparar os arquivos não ativa HTTPS.** É necessá
 informar o endereço da aplicação e o certificado de servidor com sua chave privada.
 O domínio do AD, sozinho, não define o endereço HTTPS do Cnutri.
 
+## Endereço solicitado: cnutri.preventsenior.com.br
+
+O destino solicitado para a intranet é `https://cnutri.preventsenior.com.br`.
+Na verificação de 27/10/2026, a instalação em uso responde em
+`http://10.1.140.15:5173`. Os dois DNS consultados da rede retornaram nome inexistente,
+e nenhum certificado correspondente foi localizado nos arquivos da instalação
+ou nos repositórios pessoais de certificados do Windows consultados.
+
+Para concluir:
+
+1. A TI deve cadastrar o registro **A** `cnutri.preventsenior.com.br` no DNS interno
+   apontando para **10.1.140.15**, com o IP fixo ou reservado para esta instalação.
+2. Disponibilizar certificado/cadeia e chave válidos para esse nome, ou um PFX.
+   Informe somente os caminhos dos arquivos; senhas e chaves ficam fora do chat/Git.
+3. Executar o configurador abaixo com `-Dominio 'cnutri.preventsenior.com.br'`
+   e os arquivos reais. O configurador valida DNS, certificado e conexão antes da troca.
+4. Após confirmar o novo HTTPS, atualizar `URL_RECEBIMENTO_PUBLICA` no ambiente privado
+   do backend para `https://cnutri.preventsenior.com.br` e reiniciar somente a API,
+   conferindo antes que não haja trabalhos de impressão em processamento.
+5. Conferir os formulários de cada unidade, login, cozinha, entregas e atualizações
+   em tempo real pelo novo domínio. Os caminhos das páginas permanecem os mesmos.
+
+O servidor atual já aceita explicitamente esse nome no Vite, conforme
+[allowedHosts](https://vite.dev/config/server-options.html#server-allowedhosts).
+Após o cadastro DNS, o acesso HTTP atual também poderá usar o nome na porta 5173;
+o HTTPS sem porta depende da ativação acima. A configuração dos novos QR Codes
+permanece no endereço atual até a validação do novo acesso. O proxy HTTPS redireciona
+as portas HTTP 80 e 5173 para o domínio escolhido.
+
+O cadastro é feito no DNS que atende os dispositivos da intranet. Consulte a
+[documentação da Microsoft sobre registros DNS](https://learn.microsoft.com/en-us/windows-server/networking/dns/manage-resource-records).
+
 ## Dados necessários da TI
 
 - Nome DNS reservado ao Cnutri, por exemplo `cnutri.empresa.local`, resolvendo para
