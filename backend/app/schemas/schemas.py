@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from ..core.login_usuarios import PADRAO_USUARIO, normalizar_usuario
 from ..core.politica_senha import MIN_SENHA, MAX_SENHA, validar_senha
+from ..core.codigos_unidades import validar_codigo_unidade
 from ..modules.assinatura import AssinaturaCreate, PontoAssinatura  # compatibilidade com integrações existentes
 
 TipoPublico = Literal["MEDICO", "ENFERMAGEM"]
@@ -23,7 +24,7 @@ class FilialBase(BaseModel):
     @field_validator("nome", "codigo_slug", mode="before")
     @classmethod
     def remover_espacos(cls, valor: str) -> str:
-        return valor.strip()
+        return valor.strip() if isinstance(valor, str) else valor
 
     @field_validator("ip_impressora", mode="before")
     @classmethod
@@ -36,11 +37,16 @@ class FilialBase(BaseModel):
             raise ValueError("Informe um endereço IP válido para a impressora")
 
 
-class FilialCreate(FilialBase):
+class FilialEntrada(FilialBase):
+    # A restrição vale na gravação. FilialOut ainda permite consultar cadastros antigos.
+    _validar_codigo = field_validator("codigo_slug")(validar_codigo_unidade)
+
+
+class FilialCreate(FilialEntrada):
     origem_filial_id: int | None = Field(default=None, gt=0)
 
 
-class FilialUpdate(FilialBase):
+class FilialUpdate(FilialEntrada):
     ativa: bool = True
 
 
