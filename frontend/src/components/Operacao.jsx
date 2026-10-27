@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/auth.js'
+import { caminhoCozinha } from '../services/rotasUnidades.js'
 
 export const BOTAO = 'min-h-11 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50'
 const PERFIS = { ADMIN_TI: 'Administração de TI', NUTRICIONISTA: 'Nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
@@ -8,6 +9,8 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
   const navegar = useNavigate()
   const { usuario, sair, plantaoOnline } = useAuth()
   const entrega = modo === 'entregas'
+  const caminhoAtual = entrega ? `/entregas/${filialId}` : caminhoCozinha(painel.filial)
+  const outroPainel = entrega ? caminhoCozinha(painel.filial) : filialId ? `/entregas/${filialId}` : null
   const minhas = entrega && usuario?.perfil === 'COPEIRA' ? painel.filiais.filter((f) => usuario.filiais.some((u) => u.id === f.id)) : painel.filiais
   const nestePlantao = usuario?.perfil === 'COPEIRA' && usuario.filiais.some((f) => f.id === Number(filialId))
   return <header className="brand-header mb-5 space-y-4">
@@ -21,16 +24,19 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
       </div>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-      <select aria-label="Unidade do painel" className="col-span-2 min-h-11 min-w-0 rounded-lg border border-slate-300 bg-slate-50 px-3 text-base sm:max-w-xs sm:text-sm" value={filialId} onChange={(e) => navegar(`/${modo}/${e.target.value}`)}>
-        {!minhas.some((f) => f.id === Number(filialId)) && <option value={filialId}>{painel.filial?.nome || 'Unidade'}</option>}
+      <select aria-label="Unidade do painel" className="col-span-2 min-h-11 min-w-0 rounded-lg border border-slate-300 bg-slate-50 px-3 text-base sm:max-w-xs sm:text-sm" value={filialId ?? ''} onChange={(e) => {
+        const unidade = painel.filiais.find((f) => f.id === Number(e.target.value))
+        if (unidade) navegar(entrega ? `/entregas/${unidade.id}` : caminhoCozinha(unidade))
+      }}>
+        {!minhas.some((f) => f.id === Number(filialId)) && <option value={filialId ?? ''}>{painel.filial?.nome || 'Unidade'}</option>}
         {minhas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
       </select>
-      <Link to={`/${entrega ? 'cozinha' : 'entregas'}/${filialId}`} className={`${BOTAO} text-center ${entrega ? 'bg-slate-50 text-slate-900' : 'bg-brand-vibrant text-brand-ink hover:bg-brand-vibrant-hover'}`}>{entrega ? 'Dashboard da cozinha' : 'Entregas das copeiras'}</Link>
+      {outroPainel && <Link to={outroPainel} className={`${BOTAO} text-center ${entrega ? 'bg-slate-50 text-slate-900' : 'bg-brand-vibrant text-brand-ink hover:bg-brand-vibrant-hover'}`}>{entrega ? 'Dashboard da cozinha' : 'Entregas das copeiras'}</Link>}
       <button onClick={() => painel.recarregar()} className={`${BOTAO} bg-slate-50 text-slate-900`}>Atualizar</button>
       {usuario?.perfil === 'ADMIN_TI' && <Link to="/admin" className={`${BOTAO} bg-slate-50 text-center`}>Administração</Link>}
-      {usuario?.perfil === 'NUTRICIONISTA' && <Link to={`/gestao?unidade=${filialId}`} className={`${BOTAO} bg-slate-50 text-center`}>Gestão</Link>}
+      {usuario?.perfil === 'NUTRICIONISTA' && <Link to={filialId ? `/gestao?unidade=${filialId}` : '/gestao'} className={`${BOTAO} bg-slate-50 text-center`}>Gestão</Link>}
       {!usuario && <Link to={entrega ? `/login?retorno=${encodeURIComponent(`/entregas/${filialId}`)}` : '/login'} className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>{entrega ? 'Entrar no plantão' : 'Entrar na gestão'}</Link>}
-      {usuario && <Link to={`/senha?retorno=${encodeURIComponent(`/${modo}/${filialId}`)}`} className={`${BOTAO} bg-slate-50 text-center`}>{usuario.troca_senha_obrigatoria ? 'Definir nova senha' : 'Alterar minha senha'}</Link>}
+      {usuario && <Link to={caminhoAtual ? `/senha?retorno=${encodeURIComponent(caminhoAtual)}` : '/senha'} className={`${BOTAO} bg-slate-50 text-center`}>{usuario.troca_senha_obrigatoria ? 'Definir nova senha' : 'Alterar minha senha'}</Link>}
       {usuario && <button onClick={sair} className={`${BOTAO} col-span-2 bg-slate-50 text-slate-900`}>Sair{usuario.perfil === 'COPEIRA' ? ' do plantão' : ''}</button>}
     </div>
     {usuario?.perfil === 'COPEIRA' && <p role="status" className={`rounded-lg p-3 text-sm ${nestePlantao && plantaoOnline ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>

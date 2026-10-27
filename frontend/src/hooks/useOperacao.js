@@ -63,5 +63,8 @@ export function useOperacao(filialId, som = false, entregas = false, cozinhaSemL
   const recarregar = useCallback(() => sincronizacao.current?.recarregar(true), [])
   const aplicarPedido = useCallback((pedido) => sincronizacao.current?.aplicarPedido(pedido), [])
   const setErro = useCallback((erro) => setConsulta((s) => ({ ...s, erro })), [])
-  return { ...estado, filial: estado.filiais.find((f) => f.id === Number(filialId)), agora, recarregar, aplicarPedido, setErro }
+  const filial = estado.filiais.find((f) => cozinhaSemLogin
+    ? estado.filial_id != null ? f.id === estado.filial_id : f.codigo_slug === String(filialId) || f.id === Number(filialId)
+    : f.id === Number(filialId))
+  return { ...estado, filial, agora, recarregar, aplicarPedido, setErro }
 }

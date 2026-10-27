@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
+import { caminhoCozinha } from '../services/rotasUnidades.js'
 import RelatorioEntregas from '../components/RelatorioEntregas.jsx'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
 import { SemUnidades } from '../context/AuthContext.jsx'
@@ -36,7 +37,7 @@ export default function Gestao() {
             ))}
           </select>
           {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Administração</Link>}
-          <Link to={`/cozinha/${filialId}`} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Cozinha</Link>
+          <Link to={caminhoCozinha(filial)} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Cozinha</Link>
           <Link to={`/entregas/${filialId}`} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Entregas</Link>
           <Link to="/senha" className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Alterar minha senha</Link>
           <button onClick={sair} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">

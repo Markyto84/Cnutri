@@ -2,15 +2,13 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { AuthContext, inicioDoUsuario, useAuth } from './auth.js'
+import { filialDoPlantao } from '../services/rotasUnidades.js'
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
   const [plantaoOnline, setPlantaoOnline] = useState(false)
   const { pathname } = useLocation()
-  const unidadeNaPagina = pathname.match(/^\/(?:entregas|cozinha)\/(\d+)/)?.[1]
-  const filialPresenca = unidadeNaPagina
-    ? usuario?.filiais?.find((f) => f.id === Number(unidadeNaPagina) && f.ativa)?.id
-    : usuario?.filiais?.find((f) => f.ativa)?.id
+  const filialPresenca = filialDoPlantao(pathname, usuario?.filiais || [])
   const [carregando, setCarregando] = useState(() => Boolean(localStorage.getItem('token')))
 
   useEffect(() => {

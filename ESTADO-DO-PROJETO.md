@@ -10,7 +10,7 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
 
 - **Kiosk público** (`/unidade-havai`): postos de enfermagem/médico, sem login, rastreabilidade
   por registro profissional (CRM/COREN/Matrícula) + nome do solicitante
-- **Painel da Cozinha** (`/cozinha/1`): consulta e operação sem login, Kanban em tempo real (WebSocket),
+- **Painel da Cozinha** (`/cozinha/unidade-havai`): consulta e operação sem login, Kanban em tempo real (WebSocket),
   alerta sonoro, destaque para dietas severas, reimpressão de filipetas; responsivo para celular
 - **Entregas das copeiras** (`/entregas/1`): refeições prontas, copeira identificada pelo login
   e finalização direta com responsável e horário; assinaturas anteriores preservadas; responsivo para celular
@@ -39,6 +39,16 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 ```
 
 ## 4. Estado atual (o que já funciona)
+
+- ✅ **URLs das cozinhas por nome da unidade**, em 27/10/2026:
+  `/cozinha/unidade-havai`, `/cozinha/unidade-colorado` e `/cozinha/unidade-dubai`.
+  Usa `codigo_slug` existente, preservando nomes, IDs e dados. Endereços antigos por número
+  redirecionam para o nome; seletor, gestão, administração, entregas e retorno de login/senha
+  geram o novo formato. Presença de copeiras resolve o nome para a unidade vinculada correta.
+  Snapshot e WebSocket da cozinha aceitam nome ou ID, com inscrição no ID real da unidade.
+  Operação sem login e permissões dos demais painéis mantidas. Validados 17 testes backend
+  em SQLite/PostgreSQL e 60 frontend, build e navegação visual isolada entre duas unidades,
+  redirecionamento numérico, links de entregas e sincronização ao vivo. Dois avisos de lint anteriores.
 
 - ✅ **Operação da cozinha sem login**, conforme determinação do usuário em 27/10/2026:
   substitui a exigência anterior de perfil para esta tela. Preparar, marcar pronto, cancelar

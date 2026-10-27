@@ -1,8 +1,18 @@
 # Cozinha sem login — 27/10/2026
 
 A operação da cozinha na intranet dispensa credenciais, conforme solicitado pelo usuário.
-Em `/cozinha/{id}` é possível consultar dados de preparo, iniciar preparo, marcar pronto,
+Em `/cozinha/{nome-da-unidade}` é possível consultar dados de preparo, iniciar preparo, marcar pronto,
 cancelar com motivo, reimprimir filipeta e visualizar/imprimir etiquetas.
+
+## Endereços por unidade
+
+As URLs usam o identificador já cadastrado (`codigo_slug`): `/cozinha/unidade-havai`,
+`/cozinha/unidade-colorado` e `/cozinha/unidade-dubai`. Links anteriores como `/cozinha/1`
+redirecionam para o nome da unidade. Gestão, administração, entregas e seletor geram os nomes.
+O snapshot `/api/cozinha/unidades/{referencia}/estado` e o canal
+`/ws/cozinha-publica/{referencia}` resolvem tanto o nome quanto IDs anteriores. As ações
+continuam usando internamente o ID real, preservando a associação entre unidade e pedido.
+IDs, nomes cadastrados, dados e regras de acesso são preservados.
 
 ## Acesso e dados
 

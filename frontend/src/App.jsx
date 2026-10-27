@@ -12,7 +12,7 @@ export default function App() {
   return (
     <AuthProvider><Routes>
       <Route path="/:slug" element={<Kiosk />} />
-      <Route path="/cozinha/:filialId" element={<Cozinha />} />
+      <Route path="/cozinha/:unidade" element={<Cozinha />} />
       <Route path="/entregas/:filialId" element={<Entregas />} />
       <Route path="/login" element={<Login />} />
       <Route path="/senha" element={<RotaProtegida permitirTrocaSenha><Senha /></RotaProtegida>} />

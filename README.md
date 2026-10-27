@@ -96,7 +96,7 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 | Tela | URL |
 |---|---|
 | Kiosk (enfermagem/médico) | `http://IP-DO-SERVIDOR/unidade-havai` |
-| Cozinha (Kanban) | `http://IP-DO-SERVIDOR/cozinha/1` |
+| Cozinha (Kanban) | `http://IP-DO-SERVIDOR/cozinha/unidade-havai` |
 | Entregas das copeiras | `http://IP-DO-SERVIDOR/entregas/1` |
 | Administração | `http://IP-DO-SERVIDOR/admin` |
 | Login | `http://IP-DO-SERVIDOR/login` |
@@ -214,7 +214,7 @@ Fechar ou interromper o terminal de desenvolvimento não encerra esses serviços
 inicialização automática após reiniciar o Windows; use `start.ps1` novamente nessa situação.
 
 - Formulário: `http://localhost:5173/unidade-havai`
-- Cozinha: `http://localhost:5173/cozinha/1` (consulta e operação sem login)
+- Cozinha: `http://localhost:5173/cozinha/unidade-havai` (consulta e operação sem login)
 - Entregas: `http://localhost:5173/entregas/1`
 - Login: `http://localhost:5173/login`
 - Pela rede: `http://IP-DESTA-MAQUINA:5173/unidade-havai`
@@ -392,7 +392,11 @@ de reenvio e compatibilidade da API em [ESTABILIZACAO-ITENS-4-9.md](ESTABILIZACA
 
 ## Cozinha, plantão e entregas no computador e no celular
 
-O dashboard `/cozinha/{id}` e a página `/entregas/{id}` abrem sem login para unidades ativas.
+O dashboard `/cozinha/{nome-da-unidade}` e a página `/entregas/{id}` abrem sem login para unidades ativas.
+As cozinhas usam o identificador já cadastrado na unidade, como `/cozinha/unidade-havai`,
+`/cozinha/unidade-colorado` e `/cozinha/unidade-dubai`. Endereços numéricos anteriores,
+como `/cozinha/1`, continuam funcionando e redirecionam para o nome correspondente.
+Links da administração, gestão, entregas e seletor de unidade usam o novo formato.
 Na cozinha, os pedidos passam por **Pendentes → Em preparo → Prontos**. No celular, botões de etapa
 mostram uma coluna por vez; no computador, as três colunas aparecem juntas. A página de entregas
 mostra somente as refeições prontas, em cartões com botão **Entregar** para Copeira/Gestão/TI autorizados. Ambas usam botões de toque

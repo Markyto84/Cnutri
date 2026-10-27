@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
+import { caminhoCozinha } from '../services/rotasUnidades.js'
 import { useAuth } from '../context/auth.js'
 import RelatorioDietas from '../components/RelatorioDietas.jsx'
 import CentralImpressoes from '../components/CentralImpressoes.jsx'
@@ -102,7 +103,7 @@ function Unidades({ filiais, onConcluido }) {
         <div className="flex flex-wrap gap-2">
           {f.ativa && <a href={`/${f.codigo_slug}`} target="_blank" rel="noreferrer" className={SECUNDARIO}>Abrir formulário</a>}
           <Link to={`/gestao?unidade=${f.id}`} className={SECUNDARIO}>Gerenciar unidade</Link>
-          <Link to={`/cozinha/${f.id}`} className={SECUNDARIO}>Painel da cozinha</Link>
+          <Link to={caminhoCozinha(f)} className={SECUNDARIO}>Painel da cozinha</Link>
           <Link to={`/entregas/${f.id}`} className={SECUNDARIO}>Entregas das copeiras</Link>
         </div>
       </article>)}

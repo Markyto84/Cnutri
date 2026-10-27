@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { useOperacao } from '../hooks/useOperacao.js'
 import { cozinhaApi } from '../services/cozinhaApi.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
@@ -9,6 +9,7 @@ import FiltrosOperacao from '../components/FiltrosOperacao.jsx'
 import AlertaDemora from '../components/AlertaDemora.jsx'
 import CancelarPedido from '../components/CancelarPedido.jsx'
 import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
+import { caminhoCozinha } from '../services/rotasUnidades.js'
 
 const COLUNAS = [
   { status: 'PENDENTE', titulo: 'Pendentes', cor: 'border-t-amber-500' },
@@ -17,12 +18,14 @@ const COLUNAS = [
 ]
 
 export default function Cozinha() {
-  const { filialId } = useParams()
-  return <Dashboard key={filialId} filialId={filialId} />
+  const { unidade } = useParams()
+  return <Dashboard key={unidade} unidade={unidade} />
 }
 
-function Dashboard({ filialId }) {
-  const painel = useOperacao(filialId, true, false, true)
+function Dashboard({ unidade }) {
+  const painel = useOperacao(unidade, true, false, true)
+  const filialId = painel.filial?.id
+  const localizacao = useLocation()
   const [filtro, setFiltro] = useState('PENDENTE')
   const [ocupados, setOcupados] = useState([])
   const [aviso, setAviso] = useState('')
@@ -58,6 +61,10 @@ function Dashboard({ filialId }) {
     const { data } = await cozinhaApi.patch(`/unidades/${filialId}/pedidos/${cancelar.id}/status`, { status: 'CANCELADO', motivo })
     painel.aplicarPedido(data)
     setAviso(`Pedido #${cancelar.id} cancelado. Motivo registrado no relatório.`)
+  }
+
+  if (painel.filial && unidade !== painel.filial.codigo_slug) {
+    return <Navigate replace to={{ pathname: caminhoCozinha(painel.filial), search: localizacao.search, hash: localizacao.hash }} />
   }
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
