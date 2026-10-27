@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../services/api.js'
+import { kioskApi } from '../services/kioskApi.js'
 import FormDinamico from '../components/FormDinamico.jsx'
 import { chaveSalva, concluirTentativa, obterChaveEnvio, textoImpressao } from '../services/solicitacoes.js'
 
@@ -20,12 +20,12 @@ export default function Kiosk({ slugPadrao }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    api
-      .get(`/public/${slugFinal}/config`, { signal: controller.signal })
+    kioskApi
+      .get(`/${slugFinal}/config`, { signal: controller.signal })
       .then((r) => setConfig(r.data))
       .catch((e) => { if (!controller.signal.aborted) setErro(e.response?.data?.detail || 'Erro ao contactar o servidor') })
     const chave = chaveSalva(slugFinal)
-    if (chave) api.get(`/public/${slugFinal}/solicitacoes/${chave}`, { signal: controller.signal })
+    if (chave) kioskApi.get(`/${slugFinal}/solicitacoes/${chave}`, { signal: controller.signal })
       .then(({ data }) => { setResultado(data); setTela('sucesso') })
       .catch(() => { /* mantém a chave para repetir o envio após uma falha de rede */ })
     return () => controller.abort()
@@ -75,7 +75,7 @@ export default function Kiosk({ slugPadrao }) {
     setEnviando(true)
     setErroEnvio(null)
     try {
-      const resposta = await api.post(`/public/${slugFinal}/pedidos`, {
+      const resposta = await kioskApi.post(`/${slugFinal}/pedidos`, {
         ...Object.fromEntries(Object.entries(dados).filter(([k]) => fixos.includes(k))),
         dados_dinamicos: dinamicos,
         solicitante_nome: solicitanteNome.trim(),
@@ -177,7 +177,7 @@ function Sucesso({ resultado, slug, onVoltar }) {
     const chave = chaveSalva(slug)
     if (!chave) return
     const controller = new AbortController()
-    const intervalo = setInterval(() => api.get(`/public/${slug}/solicitacoes/${chave}`, { signal: controller.signal })
+    const intervalo = setInterval(() => kioskApi.get(`/${slug}/solicitacoes/${chave}`, { signal: controller.signal })
       .then(({ data }) => setImpressao(data.impressao)).catch(() => {}), 2000)
     return () => { clearInterval(intervalo); controller.abort() }
   }, [slug])
