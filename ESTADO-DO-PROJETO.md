@@ -40,6 +40,16 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 
 ## 4. Estado atual (o que já funciona)
 
+- ✅ **Botões da cozinha e identificação de acesso** ajustados em 27/10/2026:
+  Iniciar preparo / Marcar pronto permanecem visíveis nas etapas correspondentes; em consulta
+  ou perfil Copeira ficam desabilitados com orientação e atalho de login para a unidade.
+  O cabeçalho mostra a conta e o perfil. A troca inicial de senha pendente recebe orientação
+  e atalho próprios. Operações continuam restritas a Cozinha, Nutrição e TI autorizados.
+  Validado visualmente o fluxo Pendente → Em preparo → Pronto com conta Cozinha fictícia,
+  botões ativos para Nutrição/TI, consulta pública, Copeira e senha temporária pendente.
+  54 testes frontend e 3 de autorização/etapas no backend aprovados, build aprovado;
+  dois avisos de lint anteriores. Correção apenas de frontend, sem reiniciar a API.
+
 - ✅ **Cozinha, relatório e formulários** ajustados em 26/10/2026:
   Cancelar abre uma caixa de motivo obrigatório (5–1.000 caracteres), também exigido nas
   duas rotas da API. Eventos preservam motivo, conta autenticada e horário do servidor;

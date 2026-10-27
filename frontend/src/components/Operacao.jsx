@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/auth.js'
 
 export const BOTAO = 'min-h-11 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50'
+const PERFIS = { ADMIN_TI: 'Administração de TI', NUTRICIONISTA: 'Nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
 
 export function CabecalhoOperacao({ modo, painel, filialId }) {
   const navegar = useNavigate()
@@ -13,7 +14,10 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><h1 className="text-xl font-bold text-brand sm:text-2xl">{entrega ? 'Entrega de refeições' : 'Dashboard da cozinha'}</h1>
         <p className="mt-1 text-sm text-slate-700">{painel.filial?.nome || 'Carregando unidade…'}</p></div>
-      <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">{painel.conectado ? '● Atualização ao vivo' : 'Atualização automática'}</span>
+      <div className="flex flex-wrap gap-2">
+        {usuario && <span className="rounded-full bg-brand-soft px-3 py-1.5 text-xs font-semibold text-brand-ink">{usuario.nome} · {PERFIS[usuario.perfil] || usuario.perfil}</span>}
+        <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">{painel.conectado ? '● Atualização ao vivo' : 'Atualização automática'}</span>
+      </div>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
       <select aria-label="Unidade do painel" className="col-span-2 min-h-11 min-w-0 rounded-lg border border-slate-300 bg-slate-50 px-3 text-base sm:max-w-xs sm:text-sm" value={filialId} onChange={(e) => navegar(`/${modo}/${e.target.value}`)}>

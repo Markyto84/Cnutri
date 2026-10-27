@@ -259,6 +259,12 @@ do servidor no histórico. O relatório distingue **Solicitante** de **Cancelado
 motivo e a data/hora, e inclui esses dados em XLSX, ODS e CSV. Cancelamentos antigos sem motivo
 continuam identificados como não registrados na época, sem preencher informações fictícias.
 
+O cabeçalho da cozinha identifica a conta e o perfil conectado. **Iniciar preparo** e
+**Marcar pronto** aparecem nas respectivas etapas; em consulta pública ou perfil Copeira,
+ficam desabilitados com orientação de acesso e atalho para entrar com conta autorizada.
+Contas com senha temporária recebem o atalho para concluir a troca. Cozinha, Nutrição e
+Administração de TI operam o preparo conforme o vínculo com a unidade; Copeira realiza entregas.
+
 ## Painel de administração
 
 O perfil **Administrador** entra diretamente em `/admin` após o login e tem acesso a todas as unidades.

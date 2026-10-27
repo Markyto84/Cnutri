@@ -25,8 +25,14 @@ export default function Cozinha() {
 
 function Dashboard({ filialId }) {
   const painel = useOperacao(filialId, true)
-  const { usuario } = useAuth()
+  const { usuario, carregando: acessoCarregando } = useAuth()
   const autorizado = podeOperar(usuario, filialId, ['COZINHA', 'NUTRICIONISTA', 'ADMIN_TI'])
+  const retorno = encodeURIComponent(`/cozinha/${filialId}`)
+  const motivoBloqueio = acessoCarregando ? 'Conferindo o acesso à cozinha…'
+    : !usuario ? 'Entre com uma conta da Cozinha, Nutrição ou Administração de TI para iniciar o preparo e marcar refeições como prontas.'
+      : usuario.troca_senha_obrigatoria ? 'Conclua a troca da senha temporária para liberar as ações da cozinha.'
+        : usuario.perfil === 'COPEIRA' ? 'Você está conectado como Copeira. Este perfil realiza entregas; o preparo é operado por Cozinha, Nutrição ou Administração de TI.'
+          : 'Sua conta não possui permissão para operar a cozinha desta unidade. Selecione uma unidade vinculada à sua conta ou entre com outra conta autorizada.'
   const [filtro, setFiltro] = useState('PENDENTE')
   const [ocupados, setOcupados] = useState([])
   const [aviso, setAviso] = useState('')
@@ -66,7 +72,16 @@ function Dashboard({ filialId }) {
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
     <CabecalhoOperacao modo="cozinha" painel={painel} filialId={filialId} />
-    {!autorizado && <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Painel em modo de consulta. Entre com um perfil de cozinha ou gestão autorizado nesta unidade para operar os pedidos.</p>}
+    {!autorizado && <div id="acesso-cozinha" role="status" className="mb-4 space-y-3 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">
+      <p>{motivoBloqueio}</p>
+      {!acessoCarregando && <div className="flex flex-wrap gap-2">
+        <Link to={usuario?.troca_senha_obrigatoria ? `/senha?retorno=${retorno}` : `/login?retorno=${retorno}`}
+          className={`${BOTAO} bg-brand text-white hover:bg-brand-hover`}>
+          {usuario?.troca_senha_obrigatoria ? 'Definir nova senha' : usuario ? 'Entrar com conta da cozinha' : 'Entrar para operar a cozinha'}
+        </Link>
+        {usuario?.perfil === 'COPEIRA' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} bg-white`}>Realizar entregas</Link>}
+      </div>}
+    </div>}
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-brand-soft p-3 text-brand-ink">{aviso}</p>}
     {falhas > 0 && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{falhas} pedido(s) com falha ou envio de filipeta incerto. Confira os avisos de impressão nos cartões.</p>}
@@ -91,7 +106,9 @@ function Dashboard({ filialId }) {
               <EstadoImpressao impressao={pedido.impressao} />
               <EstadoImpressao impressao={pedido.etiqueta} etiqueta />
               <div className="mt-4 flex flex-wrap gap-2">
-                {autorizado && col.status !== 'PRONTO' && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, col.status === 'PENDENTE' ? 'EM_PREPARO' : 'PRONTO')}
+                {col.status !== 'PRONTO' && <button disabled={!autorizado || acessoCarregando || ocupados.includes(pedido.id)}
+                  aria-describedby={!autorizado ? 'acesso-cozinha' : undefined} title={!autorizado ? motivoBloqueio : undefined}
+                  onClick={() => agir(pedido, col.status === 'PENDENTE' ? 'EM_PREPARO' : 'PRONTO')}
                   className={`${BOTAO} flex-1 bg-brand text-white hover:bg-brand-hover`}>{col.status === 'PENDENTE' ? 'Iniciar preparo' : 'Marcar pronto'}</button>}
                 {col.status === 'PRONTO' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} flex-1 bg-brand-vibrant text-center text-brand-ink hover:bg-brand-vibrant-hover`}>Abrir entregas</Link>}
                 {autorizado && <button disabled={ocupados.includes(pedido.id) || ['PENDENTE', 'PROCESSANDO'].includes(pedido.impressao?.estado)} onClick={() => agir(pedido)} className={`${BOTAO} bg-slate-100`} aria-label={`Reimprimir pedido ${pedido.id}`}>{['PENDENTE', 'PROCESSANDO'].includes(pedido.impressao?.estado) ? 'Na fila de impressão' : pedido.impressao?.estado === 'FALHA' ? 'Reenviar filipeta' : 'Reimprimir'}</button>}
