@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { kioskApi } from '../services/kioskApi.js'
 import FormDinamico from '../components/FormDinamico.jsx'
 import NaoEncontrado from './NaoEncontrado.jsx'
@@ -39,7 +39,6 @@ export default function Kiosk() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-app-background p-6 text-center text-slate-950">
         <p role="alert">{erro.mensagem}</p>
         <button onClick={() => { setErro(null); setConfig(null); setTentativa((t) => t + 1) }} className="rounded-lg bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-hover">Tentar novamente</button>
-        <Link to="/" className="text-brand underline">Ir para o início</Link>
       </div>
     )
   if (!config)

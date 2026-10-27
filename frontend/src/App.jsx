@@ -6,8 +6,7 @@ import Login from './pages/Login.jsx'
 import Senha from './pages/Senha.jsx'
 import Gestao from './pages/Gestao.jsx'
 import Admin from './pages/Admin.jsx'
-import Inicio from './pages/Inicio.jsx'
-import NaoEncontrado from './pages/NaoEncontrado.jsx'
+import NaoEncontrado, { AcessoPorUnidade } from './pages/NaoEncontrado.jsx'
 import { AuthProvider, RotaProtegida, SemUnidades } from './context/AuthContext.jsx'
 
 function FormularioPublico() {
@@ -18,7 +17,7 @@ function FormularioPublico() {
 export default function App() {
   return (
     <AuthProvider><Routes>
-      <Route path="/" element={<Inicio />} />
+      <Route path="/" element={<AcessoPorUnidade />} />
       <Route path="/:slug" element={<FormularioPublico />} />
       <Route path="/cozinha/:unidade" element={<Cozinha />} />
       <Route path="/entregas/:filialId" element={<Entregas />} />

@@ -17,23 +17,30 @@ As evidências originais abaixo descrevem a versão anterior às correções.
 - **Compatibilidade do proxy:** os prefixos `/api` e `/ws` só encaminham suas próprias rotas.
   Nomes válidos como `api-hospital` e `ws-sul` podem abrir o formulário normalmente. Os
   cabeçalhos de protocolo e as conexões WebSocket mantêm suas proteções anteriores.
-- **Página inicial:** `/` consulta as unidades ativas sem anexar a sessão pessoal. Com várias
-  unidades, apresenta os nomes e os botões de solicitação/cozinha; com uma, redireciona ao
-  formulário correspondente; com nenhuma, informa a indisponibilidade e mantém acesso ao login.
-- **Endereços inválidos e falhas:** caminhos desconhecidos e unidades inexistentes têm página
-  própria com retorno ao início. Falhas de conexão oferecem nova tentativa. A troca entre
+- **Acesso por unidade (ajustado após orientação do usuário):** distribuem-se atalhos com
+  as URLs específicas dos formulários e cozinhas. A página de seleção foi removida, junto
+  da consulta de unidades e do redirecionamento automático. `/` apenas orienta a usar o
+  atalho fornecido pela TI. Os endereços atuais de cada unidade foram preservados.
+- **Endereços inválidos e falhas:** caminhos desconhecidos e unidades inexistentes orientam
+  a conferir o endereço do atalho com o suporte. Falhas de conexão oferecem nova tentativa. A troca entre
   unidades reinicia o formulário, evitando mostrar dados do endereço anterior.
 
-Conferência no navegador com dados fictícios: seleção com três unidades, redirecionamento
+Conferência da versão intermediária no navegador com dados fictícios: seleção com três unidades, redirecionamento
 com uma, estado sem unidades, código numérico bloqueado pelo navegador, mensagem do backend
 para `login`, formulário/cozinha por nome, caminhos inexistentes e recuperação após interromper
 e reiniciar somente a API de homologação. A página inicial foi conferida em desktop e celular
 de 390 px. Evidências locais em `work/validacao-4-5/`.
 
-Validação do lote 4–5: **260 testes de backend e 68 de frontend aprovados (328 no total)**;
+Validação da versão intermediária do lote 4–5: **260 testes de backend e 68 de frontend aprovados (328 no total)**;
 5 verificações externas de Caddy/restauração omitidas. Build aprovado; lint com somente
 os dois avisos preexistentes em `Gestao.jsx`. Logs: `work-revisao-4-5-completo.log`,
 `work-revisao-4-5-direcionados.log` e `work-revisao-4-5-frontend.log`.
+
+Ajuste final solicitado pelo usuário: validação dos códigos e compatibilidade dos links
+mantidas; seleção de unidades removida. A mudança é somente no frontend e na documentação.
+Os 67 testes restantes do frontend e o build passaram; lint com os dois avisos anteriores.
+No navegador de homologação, o endereço principal permanece neutro mesmo com uma unidade
+ativa; os links específicos abrem diretamente o formulário e a cozinha sem login.
 
 ## Atualização — correções dos itens 1–3
 
