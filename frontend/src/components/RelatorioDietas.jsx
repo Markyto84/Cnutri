@@ -107,8 +107,15 @@ export default function RelatorioDietas({ filialId, filiais }) {
           <div className="flex flex-wrap justify-between gap-2"><strong>Pedido #{item.pedido_id}</strong><span className="rounded bg-slate-200 px-2 py-1">{SITUACOES[item.status] || item.status}</span></div>
           <p className="text-xs text-slate-700">{item.unidade} ({item.unidade_codigo}) · {item.tipo_solicitacao === 'MEDICO' ? 'Médico' : 'Enfermagem'}</p>
           <p className="font-bold">{item.destinatario || 'Destinatário não informado'}</p>
+          <p><strong>Solicitante:</strong> {item.solicitante_nome || 'Não registrado'}{item.solicitante_identificacao && ` · ${item.solicitante_identificacao}`}</p>
           <p><strong>Dieta:</strong> {item.dieta}</p>{item.refeicao && <p><strong>Refeição:</strong> {item.refeicao}</p>}
           {item.cardapio_acompanhante && <p><strong>Cardápio do acompanhante (GERAL):</strong> {item.cardapio_acompanhante}</p>}
+          {item.liquido_espessado && <p><strong>Líquido espessado:</strong> {item.liquido_espessado}{item.tipo_liquido_espessado && ` · ${item.tipo_liquido_espessado}`}</p>}
+          {item.status === 'CANCELADO' && <div className="space-y-1 rounded-lg bg-red-50 p-3 text-red-950">
+            <p><strong>Cancelado por:</strong> {item.cancelado_por_nome || 'Não registrado na época'}</p>
+            <p><strong>Cancelamento:</strong> {horario(item.cancelado_em)}</p>
+            <p className="whitespace-pre-wrap"><strong>Motivo:</strong> {item.motivo_cancelamento || 'Não registrado na época'}</p>
+          </div>}
           <p className="text-slate-700">Solicitação: {horario(item.criado_em)}</p><p className="text-slate-700">Entrega: {horario(item.entregue_em)}{item.copeira_nome && ` · ${item.copeira_nome}`}</p>
           {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
           {item.recebedor_nome && <p className="text-slate-700">Recebedor: {item.recebedor_nome} · Assinatura registrada</p>}

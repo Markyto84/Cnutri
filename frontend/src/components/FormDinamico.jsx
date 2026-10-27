@@ -1,10 +1,10 @@
 /** Renderiza o formulário dinâmico definido pela Nutrição (motor de formulários). */
 import { useState } from 'react'
-import { ajustarValores, campoVisivel, dietasDisponiveis, erroAcompanhante, opcoesCardapio } from '../services/formularioPaciente.js'
+import { ajustarValores, campoVisivel, dietasDisponiveis, erroAcompanhante, erroLiquidos, opcoesCardapio } from '../services/formularioPaciente.js'
 
 export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, campos, dietas, enviando, erro, onCancelar, onEnviar,
   valoresIniciais = {}, complemento, textoBotao = 'Enviar Solicitação' }) {
-  const [valores, setValores] = useState(valoresIniciais)
+  const [valores, setValores] = useState(() => ajustarValores(campos, dietas, valoresIniciais))
 
   const setValor = (id, v) => setValores((a) => ajustarValores(campos, dietas, { ...a, [id]: v }))
 
@@ -12,10 +12,11 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
   const dietaNome = dietas.find((d) => d.id === Number(valores.dieta_id))?.nome || ''
 
   const avisoAcompanhante = erroAcompanhante(campos, dietas, valores)
+  const avisoLiquidos = erroLiquidos(campos, valores)
 
   function submeter(e) {
     e.preventDefault()
-    if (!avisoAcompanhante) onEnviar(ajustarValores(campos, dietas, valores))
+    if (!avisoAcompanhante && !avisoLiquidos) onEnviar(ajustarValores(campos, dietas, valores))
   }
 
   return (
@@ -167,6 +168,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
             </select>
           )}
           {campo.id === 'dieta_id' && avisoAcompanhante && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{avisoAcompanhante}</p>}
+          {campo.id === 'tipo_liquido_espessado' && avisoLiquidos && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{avisoLiquidos}</p>}
         </div>
       ))}
 
@@ -181,7 +183,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
         </button>
         <button
           type="submit"
-          disabled={enviando || !!avisoAcompanhante}
+          disabled={enviando || !!avisoAcompanhante || !!avisoLiquidos}
           className="flex-1 rounded-lg bg-brand px-6 py-3 text-lg font-bold text-white hover:bg-brand-hover disabled:opacity-50"
         >
           {enviando ? 'A enviar…' : textoBotao}

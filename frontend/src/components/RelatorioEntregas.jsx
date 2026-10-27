@@ -70,6 +70,7 @@ function Comprovante({ item, filialId }) {
     <div><p className="text-xs text-slate-700">Pedido #{item.pedido_id} · {item.tipo_solicitacao === 'MEDICO' ? 'Profissional' : 'Paciente'}</p><h4 className="mt-1 font-bold">{item.destinatario || 'Destinatário não informado'}</h4></div>
     <p className="text-sm font-semibold text-brand-ink">{item.refeicao || 'Refeição não informada'}</p>
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+      <div><dt className="text-slate-700">Solicitante</dt><dd className="font-semibold">{item.solicitante_nome || 'Não registrado'}{item.solicitante_identificacao && ` · ${item.solicitante_identificacao}`}</dd></div>
       <div><dt className="text-slate-700">Copeira</dt><dd className="font-semibold">{item.copeira_nome}</dd></div>
       <div><dt className="text-slate-700">Registrado por</dt><dd className="font-semibold">{item.registrado_por_nome || 'Não registrado na entrega antiga'}</dd></div>
       {item.recebedor_nome && <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome}</dd></div>}

@@ -215,6 +215,8 @@ function montarPayload(cfg) {
 }
 
 function AbaFormularios({ filialId }) {
+  const { usuario } = useAuth()
+  const estruturaEditavel = usuario?.perfil === 'ADMIN_TI'
   const [tipo, setTipo] = useState('ENFERMAGEM')
   const [config, setConfig] = useState(null)
 
@@ -287,7 +289,7 @@ function AbaFormularios({ filialId }) {
               className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
-          {config.campos.map((campo, i) => (
+          {estruturaEditavel && config.campos.map((campo, i) => (
             <fieldset key={campo.id} className="min-w-0 rounded-lg border border-slate-300 bg-panel p-3">
               <legend className="break-words px-1 text-sm font-semibold text-brand-ink">{campo.rotulo.trim() || 'Novo campo'}</legend>
               <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto_auto]">
@@ -380,7 +382,7 @@ function AbaFormularios({ filialId }) {
             <div className="space-y-4 rounded bg-panel p-3 text-sm">
               <p className="text-slate-700">Opções das listas (uma por linha):</p>
               {config.campos.map((c, i) =>
-                temOpcoes(c) ? (
+                temOpcoes(c) && c.id !== 'liquido_espessado' ? (
                   <label key={c.id} className="block">
                     <span className="mb-1 block break-words font-semibold text-brand-ink">{c.rotulo.trim() || 'Novo campo'}</span>
                     <textarea
@@ -395,8 +397,8 @@ function AbaFormularios({ filialId }) {
             </div>
           )}
           <div className="flex flex-wrap gap-2 pt-2">
-            <button onClick={adicionarCampo} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">+ Adicionar campo</button>
-            <button onClick={resetar} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">↺ Restaurar padrão</button>
+            {estruturaEditavel && <button onClick={adicionarCampo} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">+ Adicionar campo</button>}
+            {estruturaEditavel && <button onClick={resetar} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">↺ Restaurar padrão</button>}
             <button onClick={salvar} className="rounded bg-brand px-6 py-2 font-bold hover:bg-brand-hover text-white">💾 Publicar</button>
           </div>
         </div>

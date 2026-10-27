@@ -8,6 +8,7 @@ import { ConfirmarReenvio, EstadoImpressao } from '../components/ImpressaoPedido
 import EtiquetaPedido from '../components/EtiquetaPedido.jsx'
 import FiltrosOperacao from '../components/FiltrosOperacao.jsx'
 import AlertaDemora from '../components/AlertaDemora.jsx'
+import CancelarPedido from '../components/CancelarPedido.jsx'
 import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
 
 const COLUNAS = [
@@ -31,6 +32,7 @@ function Dashboard({ filialId }) {
   const [aviso, setAviso] = useState('')
   const [confirmar, setConfirmar] = useState(null)
   const [etiquetar, setEtiquetar] = useState(null)
+  const [cancelar, setCancelar] = useState(null)
   const [filtros, setFiltros] = useState({ ...FILTROS_VAZIOS })
   const filtrados = filtrarPedidos(painel.pedidos, filtros)
   const falhas = filtrados.filter((p) => ['FALHA', 'INCERTO'].includes(p.impressao?.estado)).length
@@ -53,6 +55,13 @@ function Dashboard({ filialId }) {
     } catch (e) {
       painel.setErro(e.response?.data?.detail || 'Não foi possível atualizar o pedido')
     } finally { setOcupados((atuais) => atuais.filter((id) => id !== pedido.id)) }
+  }
+
+  async function cancelarPedido(motivo) {
+    if (!autorizado || !cancelar) throw new Error('Cancelamento indisponível')
+    const { data } = await api.patch(`/operacao/unidades/${filialId}/pedidos/${cancelar.id}/status`, { status: 'CANCELADO', motivo })
+    painel.aplicarPedido(data)
+    setAviso(`Pedido #${cancelar.id} cancelado. Motivo registrado no relatório.`)
   }
 
   return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
@@ -87,7 +96,7 @@ function Dashboard({ filialId }) {
                 {col.status === 'PRONTO' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} flex-1 bg-brand-vibrant text-center text-brand-ink hover:bg-brand-vibrant-hover`}>Abrir entregas</Link>}
                 {autorizado && <button disabled={ocupados.includes(pedido.id) || ['PENDENTE', 'PROCESSANDO'].includes(pedido.impressao?.estado)} onClick={() => agir(pedido)} className={`${BOTAO} bg-slate-100`} aria-label={`Reimprimir pedido ${pedido.id}`}>{['PENDENTE', 'PROCESSANDO'].includes(pedido.impressao?.estado) ? 'Na fila de impressão' : pedido.impressao?.estado === 'FALHA' ? 'Reenviar filipeta' : 'Reimprimir'}</button>}
                 {autorizado && col.status === 'PRONTO' && (pedido.tipo_solicitacao === 'MEDICO' ? pedido.solicitante_nome : pedido.nome_paciente)?.trim() && <button disabled={['PENDENTE', 'PROCESSANDO'].includes(pedido.etiqueta?.estado)} onClick={() => setEtiquetar(pedido)} className={`${BOTAO} bg-brand-soft text-brand-ink`} aria-label={`Etiqueta do pedido ${pedido.id}`}>{['PENDENTE', 'PROCESSANDO'].includes(pedido.etiqueta?.estado) ? 'Etiqueta na fila' : 'Etiqueta'}</button>}
-                {autorizado && <button disabled={ocupados.includes(pedido.id)} onClick={() => agir(pedido, 'CANCELADO')} className={`${BOTAO} bg-red-50 text-red-800`} aria-label={`Cancelar pedido ${pedido.id}`}>Cancelar</button>}
+                {autorizado && <button disabled={ocupados.includes(pedido.id)} onClick={() => setCancelar(pedido)} className={`${BOTAO} bg-red-50 text-red-800`} aria-label={`Cancelar pedido ${pedido.id}`}>Cancelar</button>}
               </div>
             </article>)}</div>
           </section>
@@ -96,5 +105,8 @@ function Dashboard({ filialId }) {
     </>}
     {confirmar && <ConfirmarReenvio pedido={confirmar} onCancelar={() => setConfirmar(null)} onConfirmar={() => { setConfirmar(null); agir(confirmar, null, true) }} />}
     {autorizado && etiquetar && <EtiquetaPedido filialId={filialId} pedido={etiquetar} onFechar={() => setEtiquetar(null)} onEnfileirada={(mensagem) => { setEtiquetar(null); setAviso(mensagem); painel.recarregar() }} />}
+    {autorizado && cancelar && <CancelarPedido key={cancelar.id} pedido={cancelar}
+      disponivel={painel.pedidos.some((p) => p.id === cancelar.id && COLUNAS.some((c) => c.status === p.status)) && !painel.indisponivel}
+      onFechar={() => setCancelar(null)} onConfirmar={cancelarPedido} />}
   </main>
 }

@@ -54,7 +54,7 @@ export function ResumoPedido({ pedido }) {
     {pedido.dieta && <p className="text-sm"><strong>Dieta:</strong> {pedido.dieta.nome}</p>}
     {dados.cardapio && <p className="text-sm"><strong>Cardápio:</strong> {dados.cardapio}</p>}
     {dados.cardapio_acompanhante && <p className="text-sm"><strong>Cardápio do acompanhante (GERAL):</strong> {dados.cardapio_acompanhante}</p>}
-    <div className="flex flex-wrap gap-2 text-xs text-slate-700">{[dados.equipe, dados.para, dados.suco, dados.sobremesa, dados.liquido_espessado && `Espessado: ${dados.liquido_espessado}`].filter(Boolean).map((item, i) => <span key={i} className="rounded bg-slate-50 px-2 py-1">{item}</span>)}</div>
+    <div className="flex flex-wrap gap-2 text-xs text-slate-700">{[dados.equipe, dados.para, dados.suco, dados.sobremesa, dados.liquido_espessado && `Líquido espessado: ${dados.liquido_espessado}${dados.tipo_liquido_espessado ? ` · ${dados.tipo_liquido_espessado}` : ''}`].filter(Boolean).map((item, i) => <span key={i} className="rounded bg-slate-50 px-2 py-1">{item}</span>)}</div>
     {pedido.observacoes_alergias && <p className="whitespace-pre-line rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{pedido.observacoes_alergias}</p>}
   </div>
 }

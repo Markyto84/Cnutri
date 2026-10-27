@@ -12,8 +12,8 @@ preparo, entrega e auditoria de refeições/dietas hospitalares.
   por registro profissional (CRM/COREN/Matrícula) + nome do solicitante
 - **Painel da Cozinha** (`/cozinha/1`): consulta pública com ações autenticadas, Kanban em tempo real (WebSocket),
   alerta sonoro, destaque para dietas severas, reimpressão de filipetas; responsivo para celular
-- **Entregas das copeiras** (`/entregas/1`): refeições prontas, seleção de copeira online por login
-  e recebimento com nome/assinatura, responsável e horário; responsivo para celular
+- **Entregas das copeiras** (`/entregas/1`): refeições prontas, copeira identificada pelo login
+  e finalização direta com responsável e horário; assinaturas anteriores preservadas; responsivo para celular
 - **Gestão de Nutrição** (`/gestao`): catálogo de dietas, motor de formulários dinâmicos, relatórios
 - **Admin TI** (`/admin`): filiais, IPs de impressoras, usuários/perfis (RBAC) e relatórios de todas as unidades
 
@@ -39,6 +39,20 @@ Set-Location 'C:\Users\Suporte\Documents\Projeto Cnutri'
 ```
 
 ## 4. Estado atual (o que já funciona)
+
+- ✅ **Cozinha, relatório e formulários** ajustados em 26/10/2026:
+  Cancelar abre uma caixa de motivo obrigatório (5–1.000 caracteres), também exigido nas
+  duas rotas da API. Eventos preservam motivo, conta autenticada e horário do servidor;
+  o relatório distingue solicitante de cancelador e exporta esses dados em XLSX/ODS/CSV.
+  A Nutrição mantém textos, cardápios e opções das listas; a edição da estrutura dos campos
+  entre o aviso e o cardápio, inclusão/remoção e restauração ficam disponíveis à TI,
+  com proteção na API. Líquido espessado usa Sim/Não e lista condicional obrigatória em Sim;
+  Não limpa a seleção. A lista anterior continua configurável pela Nutrição e os valores
+  anteriores permanecem legíveis. Sem migração ou alteração de pedidos já registrados.
+  Validados 225 testes de backend e 54 de frontend, com 5 testes externos omitidos;
+  impressão revalidada em 13 testes após atualizar a expectativa para Sim + líquido.
+  Build aprovado, dois avisos de lint preexistentes. Conferência visual isolada de
+  cancelamento, relatório, publicação pela Nutrição e seleção condicional.
 
 - ✅ **Histórico de alterações** restrito ao perfil **ADMIN_TI** em 26/10/2026:
   aba e conteúdo ocultos para gestores de Nutrição; consulta da API recusa todos

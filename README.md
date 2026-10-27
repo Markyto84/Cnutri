@@ -242,6 +242,23 @@ No painel **Gestão de Nutrição → Formulários → Médico**, edite as lista
 Essas listas alimentam o formulário médico, preservando a ordem e a obrigatoriedade dos campos.
 As opções são salvas no banco de dados, sem alterar as dietas ou o formulário de Enfermagem.
 
+A Nutrição edita títulos, avisos, cardápios e opções das listas. Os controles de nome,
+tipo, obrigatoriedade, inclusão, remoção e restauração dos campos ficam disponíveis somente
+ao perfil `ADMIN_TI` na gestão. A API também impõe essa separação de permissões.
+
+**Líquido espessado** usa as opções **Sim / Não**. Em Sim, **Líquidos disponíveis** aparece
+e exige uma opção da lista configurada pela Nutrição. Em Não, a escolha anterior é descartada.
+A lista continua editável em **Formulários → Enfermagem / Paciente → Opções das listas**.
+O líquido escolhido acompanha o pedido nos painéis, na filipeta e nos relatórios/exportações.
+Cadastros e pedidos antigos são preservados; clientes anteriores que enviam diretamente
+NÉCTAR, MEL ou PUDIM são convertidos para Sim e o respectivo líquido ao criar/corrigir o pedido.
+
+O botão **Cancelar** da cozinha abre uma caixa com motivo obrigatório de 5 a 1.000 caracteres.
+As duas rotas de alteração de status exigem o motivo e registram o usuário autenticado e o horário
+do servidor no histórico. O relatório distingue **Solicitante** de **Cancelado por**, mostra o
+motivo e a data/hora, e inclui esses dados em XLSX, ODS e CSV. Cancelamentos antigos sem motivo
+continuam identificados como não registrados na época, sem preencher informações fictícias.
+
 ## Painel de administração
 
 O perfil **Administrador** entra diretamente em `/admin` após o login e tem acesso a todas as unidades.

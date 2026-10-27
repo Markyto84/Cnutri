@@ -21,6 +21,22 @@ export function dietasDisponiveis(campos, dietas, valores) {
 
 export function ajustarValores(campos, dietas, valores) {
   const novos = { ...valores }
+  const liquidos = campos.find((c) => c.id === 'tipo_liquido_espessado')
+  if (liquidos) {
+    const resposta = normalizarNome(novos.liquido_espessado)
+    if (['NÃO', 'NAO'].includes(resposta)) {
+      novos.liquido_espessado = 'Não'
+      delete novos.tipo_liquido_espessado
+    } else {
+      const anterior = (liquidos.opcoes || []).find((o) => normalizarNome(o) === resposta)
+      if (anterior) {
+        novos.liquido_espessado = 'Sim'
+        novos.tipo_liquido_espessado = anterior
+      }
+      if (resposta === 'SIM') novos.liquido_espessado = 'Sim'
+      if (novos.tipo_liquido_espessado && !(liquidos.opcoes || []).includes(novos.tipo_liquido_espessado)) novos.tipo_liquido_espessado = ''
+    }
+  }
   if (temRegra(campos) && normalizarNome(novos.para) === 'ACOMPANHANTE') {
     novos.dieta_id = dietasDisponiveis(campos, dietas, novos)[0]?.id ?? ''
   }
@@ -37,4 +53,10 @@ export function erroAcompanhante(campos, dietas, valores) {
   if (!dietas.some((d) => normalizarNome(d.nome) === 'GERAL')) return 'A dieta GERAL precisa estar ativa nesta unidade. Solicite o cadastro à Nutrição.'
   const campo = campos.find((c) => c.id === 'cardapio_acompanhante')
   return opcoesCardapio(campo, 'GERAL').length ? '' : 'O cardápio da dieta GERAL precisa ser configurado pela Nutrição para o acompanhante.'
+}
+
+export function erroLiquidos(campos, valores) {
+  const campo = campos.find((c) => c.id === 'tipo_liquido_espessado')
+  return campo && normalizarNome(valores.liquido_espessado) === 'SIM' && !campo.opcoes?.length
+    ? 'Os líquidos disponíveis precisam ser configurados pela Nutrição antes de solicitar líquido espessado.' : ''
 }
