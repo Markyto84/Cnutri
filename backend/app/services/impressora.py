@@ -152,7 +152,7 @@ def compor_linhas_filipeta(
     if url_recebimento:
         adicionar('Escaneie para confirmar o recebimento', centralizada=True)
         linhas.append(LinhaImpressao('', url_qr=url_recebimento))
-        adicionar('Informe seu registro profissional', centralizada=True)
+        adicionar('Informe nome e registro profissional', centralizada=True)
         adicionar('e toque em Confirmar recebimento.', centralizada=True)
     else:
         adicionar("Assinatura:")

@@ -21,7 +21,17 @@ class ConsultaRecebimento(BaseModel):
 
 
 class ConfirmacaoRecebimento(ConsultaRecebimento):
+    recebedor_nome: str = Field(min_length=3, max_length=120)
     registro_profissional: str = Field(min_length=3, max_length=50)
+
+    @field_validator('recebedor_nome')
+    @classmethod
+    def validar_nome(cls, valor):
+        valor = ' '.join(p for p in unicodedata.normalize('NFKC', valor).strip().split(' ') if p)
+        if (not 3 <= len(valor) <= 120 or not valor[0].isalpha() or sum(c.isalpha() for c in valor) < 2
+            or not all(c.isalpha() or unicodedata.category(c).startswith('M') or c in " '’.-" for c in valor)):
+            raise ValueError('Informe o nome completo do recebedor')
+        return valor
 
     @field_validator('registro_profissional')
     @classmethod
@@ -85,11 +95,11 @@ async def confirmar_recebimento(db, dados, ip):
         .values(status='ENTREGUE').returning(Pedido.id).execution_options(synchronize_session=False))
     if alterado is None:
         raise HTTPException(409, 'A refeição já foi atualizada. Consulte novamente a filipeta')
-    codigo.registro_profissional = dados.registro_profissional
+    codigo.recebedor_nome, codigo.registro_profissional = dados.recebedor_nome, dados.registro_profissional
     codigo.confirmado_em, codigo.ip_origem = func.now(), ip
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior='PRONTO', status_novo='ENTREGUE', alterado_por_usuario_id=None))
     registrar_evento(db, pedido, 'ENTREGA_CONFIRMADA_QR', depois={'status': 'ENTREGUE',
-        'registro_profissional': dados.registro_profissional}, origem='RECEBEDOR_QR')
+        'recebedor_nome': dados.recebedor_nome, 'registro_profissional': dados.registro_profissional}, origem='RECEBEDOR_QR')
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=['dieta', 'trabalhos_impressao'])

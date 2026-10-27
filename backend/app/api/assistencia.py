@@ -81,7 +81,7 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
             "recebedor_nome": recebimento.recebedor_nome if recebimento else None,
             "assinatura_registrada": recebimento is not None, "origem_entrega": 'Copeira'} if entrega else {
                 "copeira_id": None, "copeira_nome": None, "registrado_por_usuario_id": None,
-                "recebedor_nome": None, "recebedor_registro_profissional": qr.registro_profissional,
+                "recebedor_nome": qr.recebedor_nome, "recebedor_registro_profissional": qr.registro_profissional,
                 "entregue_em": data_utc(qr.confirmado_em), "assinatura_registrada": False,
                 "origem_entrega": 'QR Code'} if qr and qr.confirmado_em else None}
 

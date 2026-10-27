@@ -49,7 +49,8 @@ async def relatorio_entregas(
             "solicitante_nome": pedido.solicitante_nome, "solicitante_identificacao": pedido.solicitante_identificacao,
             "leito": pedido.leito, "refeicao": dados.get("refeicao"),
             "local_entrega": dados.get("local_entrega") or dados.get("andar"),
-            "copeira_nome": entrega.copeira_nome if entrega else None, "recebedor_nome": recebedor, "registrado_por_nome": operador,
+            "copeira_nome": entrega.copeira_nome if entrega else None,
+            "recebedor_nome": qr.recebedor_nome if qr and qr.confirmado_em else recebedor, "registrado_por_nome": operador,
             "recebedor_registro_profissional": qr.registro_profissional if qr and qr.confirmado_em else None,
             "origem_entrega": 'QR Code' if qr and qr.confirmado_em else 'Copeira',
             "entregue_em": data_utc(qr.confirmado_em if qr and qr.confirmado_em else entrega.entregue_em), "assinatura_disponivel": recebedor is not None})

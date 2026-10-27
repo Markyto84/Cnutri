@@ -143,6 +143,7 @@ class RecebimentoQR(Base):
     versao: Mapped[int] = mapped_column(Integer, nullable=False)
     url_base: Mapped[str] = mapped_column(String(300), nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    recebedor_nome: Mapped[str | None] = mapped_column(String(120))
     registro_profissional: Mapped[str | None] = mapped_column(String(50))
     confirmado_em: Mapped[datetime | None] = mapped_column(DateTime)
     ip_origem: Mapped[str | None] = mapped_column(String(45))

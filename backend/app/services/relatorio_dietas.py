@@ -28,7 +28,7 @@ def data_entrega():
 def consulta_base(consulta: ConsultaDietas, incluir_cancelamento=True):
     base = (select(Pedido, Filial.nome, Dieta.nome, data_entrega(),
         EntregaPedido.copeira_nome, RecebimentoEntrega.recebedor_nome, Usuario.nome, Filial.codigo_slug,
-        RecebimentoQR.registro_profissional, RecebimentoQR.confirmado_em)
+        RecebimentoQR.registro_profissional, RecebimentoQR.confirmado_em, RecebimentoQR.recebedor_nome)
         .join(Filial, Filial.id == Pedido.filial_id)
         .outerjoin(Dieta, Dieta.id == Pedido.dieta_id)
         .outerjoin(EntregaPedido, EntregaPedido.pedido_id == Pedido.id)
@@ -81,7 +81,7 @@ def texto(valor):
 
 
 def detalhar(linha):
-    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo, registro, confirmado_qr, cancelador, cancelador_id, motivo, cancelado_em = linha
+    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo, registro, confirmado_qr, nome_qr, cancelador, cancelador_id, motivo, cancelado_em = linha
     dados = pedido.dados_dinamicos or {}
     referencia = pedido.prescricao or {}
     campos = ("refeicao", "cardapio", "cardapio_acompanhante", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "tipo_liquido_espessado", "internado_mais_6h")
@@ -94,7 +94,7 @@ def detalhar(linha):
         **{campo: texto(dados.get(campo)) for campo in campos},
         "observacoes_alergias": pedido.observacoes_alergias or "", "solicitante_nome": pedido.solicitante_nome or "",
         "concluido_em": data_utc(pedido.concluido_em), "entregue_em": data_utc(entregue_em),
-        "copeira_nome": copeira or "", "recebedor_nome": recebedor or "", "registrado_por_nome": operador or "", "assinatura_registrada": recebedor is not None,
+        "copeira_nome": copeira or "", "recebedor_nome": (nome_qr if confirmado_qr else recebedor) or "", "registrado_por_nome": operador or "", "assinatura_registrada": recebedor is not None,
         "recebedor_registro_profissional": registro or '', "origem_entrega": 'QR Code' if confirmado_qr else 'Copeira' if entregue_em else '',
         "outros_campos": texto(extras) if extras else "",
         "solicitante_identificacao": pedido.solicitante_identificacao, "versao_pedido": pedido.versao,
