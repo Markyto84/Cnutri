@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.ws import gerenciador_ws
-from ..models.models import EntregaPedido, EventoAssistencial, FormularioConfig, HistoricoPedido, Pedido, RecebimentoEntrega, TrabalhoImpressao, Usuario
+from ..models.models import EntregaPedido, EventoAssistencial, FormularioConfig, HistoricoPedido, Pedido, RecebimentoEntrega, RecebimentoQR, TrabalhoImpressao, Usuario
 from ..schemas.schemas import ConferenciaPrescricao, PedidoAssistencialUpdate, PedidoOut
 from ..services.assistencia import CAMPOS_PEDIDO, referencia_informada, registrar_evento, retrato, validar_referencia
 from ..services.fila_impressao import enfileirar
@@ -62,6 +62,7 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
         .order_by(HistoricoPedido.data_hora, HistoricoPedido.id))).all()
     entrega = await db.get(EntregaPedido, pedido.id)
     recebimento = await db.get(RecebimentoEntrega, pedido.id) if entrega else None
+    qr = await db.get(RecebimentoQR, pedido.id)
     config = await db.scalar(select(FormularioConfig).where(FormularioConfig.filial_id == pedido.filial_id,
         FormularioConfig.tipo_publico == "ENFERMAGEM"))
     emitidos = await db.scalar(select(TrabalhoImpressao.id).where(TrabalhoImpressao.pedido_id == pedido.id,
@@ -78,7 +79,11 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
         "entrega": {"copeira_id": entrega.copeira_id, "copeira_nome": entrega.copeira_nome,
             "registrado_por_usuario_id": entrega.registrado_por_usuario_id, "entregue_em": data_utc(entrega.entregue_em),
             "recebedor_nome": recebimento.recebedor_nome if recebimento else None,
-            "assinatura_registrada": recebimento is not None} if entrega else None}
+            "assinatura_registrada": recebimento is not None, "origem_entrega": 'Copeira'} if entrega else {
+                "copeira_id": None, "copeira_nome": None, "registrado_por_usuario_id": None,
+                "recebedor_nome": None, "recebedor_registro_profissional": qr.registro_profissional,
+                "entregue_em": data_utc(qr.confirmado_em), "assinatura_registrada": False,
+                "origem_entrega": 'QR Code'} if qr and qr.confirmado_em else None}
 
 
 @router.put("/pedidos/{pedido_id}")
@@ -125,7 +130,7 @@ async def corrigir(pedido_id: int, dados: PedidoAssistencialUpdate, db: AsyncSes
         db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=antes["status"], status_novo="PENDENTE", alterado_por_usuario_id=usuario.id))
     await enfileirar(db, pedido, pedido.filial, usuario.id, confirmar=dados.confirmar_substituicao)
     await db.commit()
-    await db.refresh(pedido, attribute_names=["trabalhos_impressao"])
+    await db.refresh(pedido, attribute_names=["trabalhos_impressao", "recebimento_qr"])
     await gerenciador_ws.transmitir(pedido.filial_id, {"evento": "pedido_corrigido", "pedido": PedidoOut.model_validate(pedido).model_dump(mode="json")})
     return {"id": pedido.id, "versao": pedido.versao, "mensagem": "Correção registrada. Pedido devolvido a Pendentes; substitua os documentos anteriores com a cozinha."}
 
@@ -146,5 +151,8 @@ async def conferir(pedido_id: int, dados: ConferenciaPrescricao, db: AsyncSessio
         "conferida_por_nome": usuario.nome, "conferida_em": datetime.now(timezone.utc).isoformat()}
     pedido.versao += 1
     registrar_evento(db, pedido, "VINCULO_CONFERIDO", usuario, antes, retrato(pedido))
+    codigo_qr = await db.get(RecebimentoQR, pedido.id)
+    if codigo_qr:
+        codigo_qr.versao = pedido.versao
     await db.commit()
     return {"id": pedido.id, "versao": pedido.versao}

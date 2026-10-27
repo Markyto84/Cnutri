@@ -193,9 +193,13 @@ async def entregar(filial_id: int, pedido_id: int, request: Request, dados: Entr
         copeira_id = dados.copeira_id
         if copeira_id is None:
             raise HTTPException(422, "Selecione a copeira do plantão responsável pela entrega")
+    # Coordena a transição de filipetas antigas para QR antes de reler o modo de entrega.
+    await db.scalar(select(Pedido.id).where(Pedido.id == pedido_id, Pedido.filial_id == filial_id).with_for_update())
     pedido = await obter_pedido(filial_id, pedido_id, db)
     if pedido.status != "PRONTO":
         raise HTTPException(409, "Somente refeições prontas podem ser entregues")
+    if pedido.recebimento_qr:
+        raise HTTPException(409, 'Confirme o recebimento pelo QR Code da filipeta')
     sessao = (await db.execute(sessoes_online(filial_id).where(
         SessaoCopeira.usuario_id == copeira_id,
     ).limit(1).with_for_update(of=SessaoCopeira))).scalar_one_or_none()

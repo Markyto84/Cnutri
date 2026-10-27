@@ -15,6 +15,7 @@ from ..models.models import Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido,
 from ..schemas.schemas import PedidoOut
 from .impressora import ErroEnvioImpressora, enviar_filipeta, montar_filipeta_configurada
 from .etiquetas import montar_etiqueta, nome_etiqueta
+from .recebimento_qr import preparar_codigo
 
 logger = logging.getLogger("cnutri.impressao")
 ATIVOS = ("PENDENTE", "PROCESSANDO")
@@ -41,6 +42,8 @@ async def enfileirar(db, pedido, filial, usuario_id=None, confirmar=False, tipo=
         if not impressora or not impressora.ip:
             raise HTTPException(400, "Cadastre a impressora de etiquetas desta unidade no painel de TI")
         configuracao = {chave: getattr(impressora, chave) for chave in ("ip", "porta", "protocolo", "resolucao", "intervalo_mm")}
+    if tipo == 'FILIPETA':
+        await preparar_codigo(db, pedido)
     job = TrabalhoImpressao(pedido_id=pedido.id, solicitado_por_usuario_id=usuario_id, tipo_documento=tipo, configuracao=configuracao,
         estado="PENDENTE" if filial.ip_impressora else "FALHA",
         erro=None if filial.ip_impressora else "Impressora não configurada para esta unidade", tentativas=0, proxima_tentativa_em=agora_utc())

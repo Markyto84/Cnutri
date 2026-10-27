@@ -24,6 +24,7 @@ from .seed import executar_seed
 from .services.fila_impressao import executar_fila
 from .services.monitoramento import EstadoMonitoramento
 from .services.contexto_operacao import executar_contexto
+from .api import recebimento_qr
 
 logging.basicConfig(level=logging.INFO)
 INTERVALO_VALIDACAO_WS = 30
@@ -83,6 +84,7 @@ app.include_router(cozinha.router)
 app.include_router(melhorias.router)
 app.include_router(monitoramento.router)
 app.include_router(assistencia.router)
+app.include_router(recebimento_qr.router)
 
 
 @app.middleware("http")

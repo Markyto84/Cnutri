@@ -1,9 +1,9 @@
 """Modelos SQLAlchemy — espelham o DDL da especificação técnica."""
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint, func, select
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from ..core.database import Base
 
@@ -135,6 +135,19 @@ class FormularioConfig(Base):
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class RecebimentoQR(Base):
+    __tablename__ = "recebimentos_qr"
+
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(43), unique=True, nullable=False)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False)
+    url_base: Mapped[str] = mapped_column(String(300), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    registro_profissional: Mapped[str | None] = mapped_column(String(50))
+    confirmado_em: Mapped[datetime | None] = mapped_column(DateTime)
+    ip_origem: Mapped[str | None] = mapped_column(String(45))
+
+
 class Pedido(Base):
     __tablename__ = "pedidos"
 
@@ -158,6 +171,8 @@ class Pedido(Base):
     # Referência ao prontuário externo; não representa prescrição emitida pelo Cnutri.
     prescricao: Mapped[dict | None] = mapped_column(JSONType)
     versao: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    recebimento_qr: Mapped[bool] = column_property(select(RecebimentoQR.pedido_id).where(
+        RecebimentoQR.pedido_id == id, RecebimentoQR.versao == versao).correlate_except(RecebimentoQR).exists())
     __table_args__ = (UniqueConstraint("filial_id", "chave_envio", name="uq_pedido_chave_envio"),)
 
     filial: Mapped[Filial] = relationship()

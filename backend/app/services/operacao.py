@@ -58,4 +58,5 @@ def pedido_operacional(dados: dict, autenticado=False) -> dict:
         "impressao": dados.get("impressao"),
         "etiqueta": dados.get("etiqueta"),
         "versao": dados.get("versao", 1),
+        "recebimento_qr": dados.get("recebimento_qr", False),
     }

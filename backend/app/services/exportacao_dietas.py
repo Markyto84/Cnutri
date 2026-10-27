@@ -28,6 +28,7 @@ COLUNAS = [
     ("internado_mais_6h", "Internado há mais de 6h", 24), ("observacoes_alergias", "Restrições / observações", 52),
     ("solicitante_nome", "Solicitante", 32), ("concluido_em", "Preparo concluído (Brasília)", 26),
     ("entregue_em", "Entrega (Brasília)", 24), ("copeira_nome", "Copeira", 30), ("recebedor_nome", "Recebedor", 30),
+    ("recebedor_registro_profissional", "Registro profissional do recebedor", 32), ("origem_entrega", "Confirmação da entrega", 24),
     ("assinatura_registrada", "Assinatura registrada", 23), ("outros_campos", "Outros campos informados", 52),
     ("registrado_por_nome", "Entrega registrada por", 32),
     ("unidade_codigo", "Código da unidade", 26), ("unidade_id", "ID da unidade", 16), ("dieta_id", "ID da dieta", 14),

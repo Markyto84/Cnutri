@@ -3,7 +3,7 @@
 # Atualizar ao adicionar uma rota fixa no App.jsx ou um prefixo público de infraestrutura.
 CODIGOS_RESERVADOS = frozenset({
     "admin", "api", "assets", "cozinha", "entregas", "gestao", "login",
-    "sem-unidades", "senha", "src", "ws",
+    "sem-unidades", "senha", "src", "ws", "receber",
 })
 
 

@@ -20,7 +20,7 @@ class EnderecosUnidadesTest(unittest.IsolatedAsyncioTestCase):
         await self.f.asyncTearDown()
 
     async def test_codigos_conflitantes_sao_recusados_na_criacao_e_edicao_sem_gravar(self):
-        reservados = ('login', 'admin', 'gestao', 'senha', 'sem-unidades', 'cozinha', 'entregas', 'api', 'ws', 'src', 'assets')
+        reservados = ('login', 'admin', 'gestao', 'senha', 'sem-unidades', 'cozinha', 'entregas', 'api', 'ws', 'src', 'assets', 'receber')
         invalidos = ('2', '0001', '12-34', '', '  ', 'unidade/invalida', 'unidade?', 'Maiuscula', None, 123, 'a' * 51)
         for codigo in (*reservados, *invalidos):
             for criar in (True, False):

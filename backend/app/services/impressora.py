@@ -15,7 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.concurrency import run_in_threadpool
 
-from ..models.models import Dieta, Filial, FormularioConfig, Pedido
+from ..models.models import Dieta, Filial, FormularioConfig, Pedido, RecebimentoQR
+from .recebimento_qr import endereco_recebimento
 from .impressao_raster import LinhaImpressao, colunas_por_linha, rasterizar_filipeta
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,7 @@ def compor_linhas_filipeta(
     esquema_json: dict | None = None,
     dieta_nome: str | None = None,
     severa: bool = False,
+    url_recebimento: str | None = None,
 ) -> list[LinhaImpressao]:
     """Dados operacionais e comprovante de recebimento, sem truncar os textos."""
     linhas = []
@@ -147,13 +149,19 @@ def compor_linhas_filipeta(
         adicionar(f"{rotulo}: {valor}")
     adicionar("=" * LARGURA_LINHA, centralizada=True)
     adicionar("ENTREGA À RECEPÇÃO", centralizada=True, destaque=True)
-    adicionar("Assinatura:")
-    adicionar("\n\n")  # espaço para assinar à mão antes da linha
-    adicionar("_" * LARGURA_LINHA)
-    adicionar("")
-    adicionar("Data e hora:")
-    adicionar("")
-    adicionar("____/____/________  ____:____")
+    if url_recebimento:
+        adicionar('Escaneie para confirmar o recebimento', centralizada=True)
+        linhas.append(LinhaImpressao('', url_qr=url_recebimento))
+        adicionar('Informe seu registro profissional', centralizada=True)
+        adicionar('e toque em Confirmar recebimento.', centralizada=True)
+    else:
+        adicionar("Assinatura:")
+        adicionar("\n\n")
+        adicionar("_" * LARGURA_LINHA)
+        adicionar("")
+        adicionar("Data e hora:")
+        adicionar("")
+        adicionar("____/____/________  ____:____")
     adicionar("")
     adicionar("=" * LARGURA_LINHA, centralizada=True)
     return linhas
@@ -165,9 +173,10 @@ def montar_filipeta(
     esquema_json: dict | None = None,
     dieta_nome: str | None = None,
     severa: bool = False,
+    url_recebimento: str | None = None,
 ) -> bytes:
     """Envia letras já desenhadas, preservando acentos sem usar code pages."""
-    return rasterizar_filipeta(compor_linhas_filipeta(pedido, filial_nome, esquema_json, dieta_nome, severa))
+    return rasterizar_filipeta(compor_linhas_filipeta(pedido, filial_nome, esquema_json, dieta_nome, severa, url_recebimento))
 
 
 async def montar_filipeta_configurada(
@@ -179,12 +188,14 @@ async def montar_filipeta_configurada(
         FormularioConfig.filial_id == pedido.filial_id,
         FormularioConfig.tipo_publico == tipo_publico,
     ))).scalar_one_or_none()
+    codigo = await db.get(RecebimentoQR, pedido.id)
     return await run_in_threadpool(montar_filipeta,
         pedido=pedido,
         filial_nome=filial.nome,
         esquema_json=config.esquema_json if config else None,
         dieta_nome=dieta.nome if dieta else None,
         severa=bool(dieta.severa) if dieta else False,
+        url_recebimento=endereco_recebimento(codigo) if codigo and codigo.versao == pedido.versao else None,
     )
 
 

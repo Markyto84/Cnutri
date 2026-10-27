@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     JWT_EXPIRA_MINUTOS: int = 720
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    URL_RECEBIMENTO_PUBLICA: str | None = Field(default=None, max_length=300)
     BACKUP_RELATORIO_ARQUIVO: Path = Field(default=BACKEND.parent / "work/recuperacao/ultimo_resultado.json", repr=False)
     AD_HABILITADO: bool = False
     AD_DOMINIO: str = ""
@@ -31,6 +33,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def impedir_segredos_padrao(self):
+        if self.URL_RECEBIMENTO_PUBLICA:
+            valor = self.URL_RECEBIMENTO_PUBLICA.strip().rstrip('/')
+            partes = urlsplit(valor)
+            if partes.port is not None and not 1 <= partes.port <= 65535:
+                raise ValueError('Informe uma porta válida em URL_RECEBIMENTO_PUBLICA')
+            if any(c.isspace() for c in valor) or partes.scheme not in ('http', 'https') or not partes.hostname or partes.username or partes.password or partes.path or partes.query or partes.fragment:
+                raise ValueError('URL_RECEBIMENTO_PUBLICA deve conter somente protocolo, domínio/IP e porta do Cnutri')
+            self.URL_RECEBIMENTO_PUBLICA = valor
         dns = r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
         for nome in ("AD_DOMINIO", "AD_SERVIDOR"):
             valor = getattr(self, nome).strip().lower()

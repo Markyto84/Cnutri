@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.security import exigir_perfis, filiais_permitidas, verificar_acesso_filial
 from ..models.models import EntregaPedido, Pedido, Usuario
-from ..services.relatorio_dietas import BRASILIA, STATUS, TIPOS, ConsultaDietas, agrupar, consulta_base, detalhar, resumir
+from ..services.relatorio_dietas import BRASILIA, STATUS, TIPOS, ConsultaDietas, agrupar, consulta_base, detalhar, resumir, data_entrega
 from ..services.exportacao_dietas import exportar_dietas
 
 router = APIRouter(prefix="/api/relatorios/dietas-periodo", tags=["Relatórios de dietas"])
@@ -35,7 +35,7 @@ async def preparar_consulta(
         filiais = [await verificar_acesso_filial(filial_id, usuario, db)]
     else:
         filiais = await filiais_permitidas(usuario, db)
-    data = EntregaPedido.entregue_em if data_base == "entrega" else Pedido.criado_em
+    data = data_entrega() if data_base == "entrega" else Pedido.criado_em
     filtros = [Pedido.filial_id.in_([f.id for f in filiais]), data >= inicio_utc, data <= fim_utc]
     if tipo_solicitacao:
         filtros.append(Pedido.tipo_solicitacao == tipo_solicitacao)

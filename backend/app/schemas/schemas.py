@@ -306,6 +306,7 @@ class PedidoOut(BaseModel):
     etiqueta: ImpressaoOut | None = None
     prescricao: dict[str, Any] | None = None
     versao: int = 1
+    recebimento_qr: bool = False
 
 
 class PedidoAssistencialUpdate(BaseModel):

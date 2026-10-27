@@ -7,6 +7,7 @@ from struct import pack
 import textwrap
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+import qrcode
 
 LARGURA_PONTOS = 576  # área de impressão de 72 mm em papel de 80 mm, 203 dpi
 RESOLUCAO_DPI = 203
@@ -22,6 +23,7 @@ class LinhaImpressao:
     texto: str
     centralizada: bool = False
     destaque: bool = False
+    url_qr: str | None = None
 
 
 @lru_cache(maxsize=2)
@@ -39,18 +41,36 @@ def _altura_linha(destaque: bool) -> int:
     return ascendente + descendente + 8
 
 
+def imagem_qr(url: str) -> Image.Image:
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4, box_size=1)
+    qr.add_data(url)
+    qr.make(fit=True)
+    lado = len(qr.get_matrix())
+    escala = min(6, (LARGURA_PONTOS - 2 * MARGEM_HORIZONTAL) // lado)
+    if escala < 3:
+        raise ValueError('O endereço do QR Code excede a área da filipeta')
+    imagem = qr.make_image(fill_color='black', back_color='white').convert('L')
+    return imagem.resize((lado * escala, lado * escala), Image.Resampling.NEAREST)
+
+
 def renderizar_filipeta(linhas: Sequence[LinhaImpressao]) -> Image.Image:
-    diagramadas = [
-        LinhaImpressao(texto, linha.centralizada, linha.destaque)
-        for linha in linhas
-        for paragrafo in linha.texto.split("\n")
-        for texto in (textwrap.wrap(paragrafo, colunas_por_linha(linha.destaque), break_on_hyphens=False) or [""])
-    ]
-    altura = 16 + sum(_altura_linha(linha.destaque) for linha in diagramadas)
+    diagramadas = []
+    for linha in linhas:
+        if linha.url_qr:
+            diagramadas.append((linha, imagem_qr(linha.url_qr)))
+        else:
+            for paragrafo in linha.texto.split('\n'):
+                for texto in textwrap.wrap(paragrafo, colunas_por_linha(linha.destaque), break_on_hyphens=False) or ['']:
+                    diagramadas.append((LinhaImpressao(texto, linha.centralizada, linha.destaque), None))
+    altura = 16 + sum(qr.height + 8 if qr else _altura_linha(linha.destaque) for linha, qr in diagramadas)
     imagem = Image.new("L", (LARGURA_PONTOS, altura), 255)
     desenho = ImageDraw.Draw(imagem)
     y = 8
-    for linha in diagramadas:
+    for linha, qr in diagramadas:
+        if qr is not None:
+            imagem.paste(qr, ((LARGURA_PONTOS - qr.width) // 2, y))
+            y += qr.height + 8
+            continue
         fonte = _fonte(linha.destaque)
         largura = desenho.textlength(linha.texto, font=fonte)
         x = (LARGURA_PONTOS - largura) / 2 if linha.centralizada else MARGEM_HORIZONTAL
