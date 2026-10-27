@@ -102,10 +102,11 @@ async def corrigir(pedido_id: int, dados: PedidoAssistencialUpdate, db: AsyncSes
     if any(t.estado in ("ENVIADO", "INCERTO") for t in trabalhos) and not dados.confirmar_substituicao:
         raise HTTPException(409, "Confirme a substituição das filipetas e etiquetas anteriores com a cozinha")
     antes = retrato(pedido)
-    nova_referencia = referencia_informada(dados.pedido)
+    # O formulário atual omite este campo. Sua ausência preserva o dado anterior.
+    nova_referencia = referencia_informada(dados.pedido) if "prescricao" in dados.pedido.model_fields_set else pedido.prescricao
     proposto = {c: getattr(dados.pedido, c) for c in CAMPOS_PEDIDO}
     referencia_atual = {k: (pedido.prescricao or {}).get(k) for k in ("referencia", "data_hora", "prescritor_nome", "prescritor_registro")} if pedido.prescricao else None
-    referencia_nova = {k: nova_referencia[k] for k in referencia_atual} if referencia_atual and nova_referencia else nova_referencia
+    referencia_nova = {k: nova_referencia.get(k) for k in ("referencia", "data_hora", "prescritor_nome", "prescritor_registro")} if nova_referencia else None
     if all(antes[c] == v for c, v in proposto.items()) and referencia_atual == referencia_nova:
         raise HTTPException(422, "Nenhuma informação foi alterada")
     for campo, valor in proposto.items():

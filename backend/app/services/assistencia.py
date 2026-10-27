@@ -8,14 +8,13 @@ CAMPOS_PEDIDO = ("tipo_solicitacao", "solicitante_identificacao", "solicitante_n
     "nome_paciente", "dieta_id", "observacoes_alergias", "dados_dinamicos")
 
 
-def exige_prescricao(dados):
+def aceita_referencia_anterior(dados):
     return dados.tipo_solicitacao == "PACIENTE" and normalizar_nome((dados.dados_dinamicos or {}).get("para")) != ACOMPANHANTE
 
 
 def validar_referencia(dados):
-    if exige_prescricao(dados) and dados.prescricao is None:
-        raise HTTPException(422, "Informe a referência, data e hora e o profissional da prescrição vigente do paciente")
-    if not exige_prescricao(dados) and dados.prescricao is not None:
+    # A referência saiu dos formulários; somente clientes anteriores ainda a enviam.
+    if not aceita_referencia_anterior(dados) and dados.prescricao is not None:
         raise HTTPException(422, "A referência clínica é destinada somente às refeições de pacientes")
 
 

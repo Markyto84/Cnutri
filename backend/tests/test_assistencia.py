@@ -95,9 +95,9 @@ class AssistenciaTest(unittest.IsolatedAsyncioTestCase):
         return await self.client.put(f"/api/assistencia/pedidos/{pedido}", headers=self.gestor,
             json={"versao": versao, "motivo": "Correção conforme prontuário fictício", "pedido": dados, "confirmar_substituicao": confirmar})
 
-    async def test_referencia_obrigatoria_exclusiva_paciente_e_sem_atestado_forjado(self):
+    async def test_referencia_anterior_opcional_continua_validada_e_sem_atestado_forjado(self):
         dados = self.dados()
-        for referencia in (None, {**REFERENCIA, "situacao": "CONFERIDA"}, {**REFERENCIA, "data_hora": "2026-01-01T12:00:00"},
+        for referencia in ({**REFERENCIA, "situacao": "CONFERIDA"}, {**REFERENCIA, "data_hora": "2026-01-01T12:00:00"},
             {**REFERENCIA, "data_hora": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()},
             {**REFERENCIA, "prescritor_registro": "  "}):
             r = await self.client.post("/api/public/teste-a/pedidos", json={**dados, "prescricao": referencia})
@@ -108,6 +108,44 @@ class AssistenciaTest(unittest.IsolatedAsyncioTestCase):
         medico = {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "MATRÍCULA FICTÍCIA", "solicitante_nome": "Profissional Teste"}
         self.assertEqual((await self.client.post("/api/public/teste-a/pedidos", json=medico)).status_code, 201)
         self.assertEqual((await self.client.post("/api/public/teste-a/pedidos", json={**medico, "prescricao": REFERENCIA})).status_code, 422)
+
+    async def test_formularios_enviam_e_corrigem_pedidos_sem_prescricao(self):
+        primeiro = None
+        for destino in ("Paciente", "Paciente e Acompanhante", "Acompanhante"):
+            for explicito in (False, True):
+                dados = self.dados()
+                dados["dados_dinamicos"]["para"] = destino
+                if explicito:
+                    dados["prescricao"] = None
+                else:
+                    dados.pop("prescricao")
+                r = await self.client.post("/api/public/teste-a/pedidos", json=dados)
+                self.assertEqual(r.status_code, 201, r.text)
+                primeiro = primeiro or r.json()["id"]
+                self.assertIsNone((await self.detalhe(r.json()["id"]))["pedido"]["prescricao"])
+        dados = self.dados()
+        dados.pop("prescricao")
+        dados["leito"] = "102"
+        r = await self.client.put(f"/api/assistencia/pedidos/{primeiro}", headers=self.gestor,
+            json={"versao": 1, "motivo": "Ajuste operacional do leito", "pedido": dados})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIsNone((await self.detalhe(primeiro))["pedido"]["prescricao"])
+
+    async def test_correcao_sem_campo_preserva_referencia_e_conferencia_anteriores(self):
+        pedido = await self.criar()
+        r = await self.client.post(f"/api/assistencia/pedidos/{pedido}/conferencia", headers=self.gestor, json={"versao": 1})
+        self.assertEqual(r.status_code, 200, r.text)
+        anterior = (await self.detalhe(pedido))["pedido"]["prescricao"]
+        dados = self.dados()
+        dados.pop("prescricao")
+        dados["leito"] = "102"
+        r = await self.client.put(f"/api/assistencia/pedidos/{pedido}", headers=self.gestor,
+            json={"versao": 2, "motivo": "Ajuste operacional do leito", "pedido": dados})
+        self.assertEqual(r.status_code, 200, r.text)
+        detalhe = await self.detalhe(pedido)
+        self.assertEqual(detalhe["pedido"]["prescricao"], anterior)
+        self.assertEqual(detalhe["eventos"][-1]["antes"]["prescricao"], anterior)
+        self.assertEqual(detalhe["eventos"][-1]["depois"]["prescricao"], anterior)
 
     async def test_repeticao_nao_duplica_evento_e_distingue_informado_de_autenticado(self):
         headers = {**self.gestor, "Idempotency-Key": str(uuid4())}
