@@ -46,7 +46,7 @@ export default function Gestao() {
       </header>
 
       <nav className="mb-6 flex flex-wrap gap-2">
-        {[['dietas', '📋 Dietas'], ['prescricoes', 'Prescrições e rastreabilidade'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].filter(([id]) => id !== 'historico' || usuario.perfil === 'ADMIN_TI').map(([id, rotulo]) => (
+        {[['dietas', '📋 Dietas'], ['prescricoes', 'Pedidos e rastreabilidade'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].filter(([id]) => id !== 'historico' || usuario.perfil === 'ADMIN_TI').map(([id, rotulo]) => (
           <button
             key={id}
             onClick={() => setAba(id)}

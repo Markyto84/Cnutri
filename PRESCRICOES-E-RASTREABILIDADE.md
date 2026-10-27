@@ -1,27 +1,34 @@
-# Prescrições e rastreabilidade — 26/10/2026
+# Pedidos e rastreabilidade — 26/10/2026
 
-## Formulário e conferência
+## Formulários de solicitação
 
-O formulário do paciente solicita referência da prescrição/atendimento no prontuário
-de origem, data/hora de Brasília, nome do prescritor e conselho, região/UF e registro.
-Obrigatório para Paciente e Paciente e Acompanhante. Acompanhante e refeições da
-equipe médica/administrativa mantêm o fluxo próprio, sem referência clínica.
+**Prescrição vigente do paciente** foi retirada dos formulários de solicitação e
+de correção, por não integrar o fluxo operacional solicitado. Paciente, acompanhante
+e paciente/acompanhante podem ser enviados sem referência, horário ou identificação
+de prescritor. Permanecem os dados operacionais e a identificação do solicitante.
 
-A referência começa como **Informada**. Os nomes digitados são declarações do
-solicitante. Se houver sessão autenticada vinculada à unidade, a conta que enviou
+Os nomes digitados são declarações do solicitante. Se houver sessão autenticada vinculada à unidade, a conta que enviou
 também é registrada separadamente. O comprovante público devolve somente número
 do pedido e estado da filipeta.
 
-Gestão/Administração → **Prescrições e rastreabilidade** permite buscar por número,
-paciente ou prontuário, abrir dados e registrar a conferência do vínculo com a
-prescrição consultada. O servidor registra usuário, nome e horário. Gestores acessam
+Gestão/Administração → **Pedidos e rastreabilidade** permite buscar por número,
+paciente ou prontuário, abrir dados, corrigir solicitações e consultar o histórico.
+Referências e conferências anteriores são mostradas somente para consulta,
+sem exigir esse preenchimento nem uma nova conferência no formulário atual.
+O servidor registra usuário, nome e horário. Gestores acessam
 as unidades ativas vinculadas à conta; a TI pode consultar qualquer unidade.
 
 ## Correções e histórico
 
 **Corrigir pedido** usa o formulário vigente, exige motivo e preserva o solicitante
-original. Armazena versão anterior/nova, autor, perfil e horário. Requer nova
-conferência e devolve a Pendentes para a cozinha preparar a versão atual.
+original. Armazena versão anterior/nova, autor, perfil e horário e devolve a
+Pendentes para a cozinha preparar a versão atual.
+
+O formulário atual omite `prescricao` no envio. Na correção, essa ausência preserva
+o dado anterior, inclusive a conferência histórica, em vez de apagá-lo. Não há
+migração nem exclusão de referências existentes. A API conserva a compatibilidade
+com clientes anteriores que ainda enviem uma referência válida; a ausência deixa
+de ser um erro de validação para refeições de pacientes.
 
 Trabalhos de impressão pendentes ou falhos são cancelados e uma nova filipeta
 entra na fila normal. Etiquetas continuam permitidas somente em Pronto. Se já

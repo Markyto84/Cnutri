@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import FormDinamico from '../components/FormDinamico.jsx'
-import ReferenciaPrescricao from '../components/ReferenciaPrescricao.jsx'
-import { exigeReferencia, referenciaPayload } from '../services/prescricao.js'
 import { chaveSalva, concluirTentativa, obterChaveEnvio, textoImpressao } from '../services/solicitacoes.js'
 
 export default function Kiosk({ slugPadrao }) {
@@ -19,7 +17,6 @@ export default function Kiosk({ slugPadrao }) {
   const [resultado, setResultado] = useState(null)
   const [registro, setRegistro] = useState('') // CRM, COREN ou Matrícula — rastreabilidade obrigatória
   const [solicitanteNome, setSolicitanteNome] = useState('') // nome do profissional que solicita
-  const [prescricao, setPrescricao] = useState({})
 
   useEffect(() => {
     const controller = new AbortController()
@@ -85,7 +82,6 @@ export default function Kiosk({ slugPadrao }) {
         solicitante_identificacao: registro.trim(),
         tipo_solicitacao: fluxo === 'MEDICO' ? 'MEDICO' : 'PACIENTE',
         dieta_id: dados.dieta_id ? Number(dados.dieta_id) : null,
-        prescricao: exigeReferencia(fluxo, dados) ? referenciaPayload(prescricao) : null,
       }, { headers: { 'Idempotency-Key': obterChaveEnvio(slugFinal) } })
       setResultado(resposta.data)
       setTela('sucesso')
@@ -101,7 +97,7 @@ export default function Kiosk({ slugPadrao }) {
   }
 
   if (tela === 'sucesso')
-    return <Sucesso resultado={resultado} slug={slugFinal} onVoltar={() => { concluirTentativa(slugFinal); setResultado(null); setTela('perfil'); setFluxo(null); setPrescricao({}); setRegistro(''); setSolicitanteNome('') }} />
+    return <Sucesso resultado={resultado} slug={slugFinal} onVoltar={() => { concluirTentativa(slugFinal); setResultado(null); setTela('perfil'); setFluxo(null); setRegistro(''); setSolicitanteNome('') }} />
 
   return (
     <div className="min-h-screen bg-app-background text-slate-900 p-8">
@@ -162,9 +158,8 @@ export default function Kiosk({ slugPadrao }) {
           dietaSelecionada={dietaSelecionada}
           enviando={enviando}
           erro={erroEnvio}
-          onCancelar={() => { setTela('perfil'); setPrescricao({}) }}
+          onCancelar={() => setTela('perfil')}
           onEnviar={enviar}
-          complemento={(valores) => exigeReferencia(fluxo, valores) && <ReferenciaPrescricao valor={prescricao} onChange={setPrescricao} />}
         />
         </div>
       )}

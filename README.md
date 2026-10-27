@@ -8,8 +8,9 @@ Administração → **Monitoramento** mostra API, banco, fila de impressão e o 
 teste de recuperação. O teste completo de backup em banco temporário e o roteiro
 de manutenção estão em [Monitoramento e recuperação](MONITORAMENTO-E-RECUPERACAO.md).
 
-Gestão e Administração → **Prescrições e rastreabilidade** oferece referência da
-prescrição vigente, conferência, correções com motivo e histórico por pedido.
+Gestão e Administração → **Pedidos e rastreabilidade** oferece correções com motivo
+e histórico por pedido. A seção de prescrição foi removida dos formulários;
+informações anteriores permanecem disponíveis para consulta.
 Os dashboards públicos mostram número/etapa; dados de pacientes exigem sessão da
 unidade. Veja [fluxo e permissões](PRESCRICOES-E-RASTREABILIDADE.md).
 

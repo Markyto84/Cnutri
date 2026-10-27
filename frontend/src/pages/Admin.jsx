@@ -71,7 +71,7 @@ export default function Admin() {
       ].map(([rotulo, total]) => <div key={rotulo} className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">{rotulo}</p><p className="mt-1 text-3xl font-bold">{total}</p></div>)}
     </div>}
     <nav className="flex flex-wrap gap-2" aria-label="Administração">
-      {[['monitoramento', 'Monitoramento'], ['prescricoes', 'Prescrições e rastreabilidade'], ['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
+      {[['monitoramento', 'Monitoramento'], ['prescricoes', 'Pedidos e rastreabilidade'], ['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
         <button key={id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}>{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />

@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../services/api.js'
 import { useConsultaGestao } from '../hooks/useConsultaGestao.js'
 import { horarioBrasilia, mensagemErro } from '../services/painelOperacional.js'
-import { corpoPedido, exigeReferencia, horarioLocalPrescricao } from '../services/prescricao.js'
+import { corpoPedido } from '../services/prescricao.js'
 import { CAMPO, FiltroUnidade, Paginacao, PRIMARIO, SECUNDARIO } from './ConsultaGestao.jsx'
 import FormDinamico from './FormDinamico.jsx'
-import ReferenciaPrescricao from './ReferenciaPrescricao.jsx'
 
 const ACOES = { SOLICITADO: 'Solicitação registrada', PEDIDO_CORRIGIDO: 'Pedido corrigido', VINCULO_CONFERIDO: 'Vínculo com prescrição conferido',
   ETAPA_ALTERADA: 'Etapa alterada', ENTREGA_REGISTRADA: 'Entrega registrada' }
@@ -24,9 +23,9 @@ export default function Prescricoes({ filialId, filiais = [] }) {
   const [pagina, setPagina] = useState(1)
   const [selecionado, setSelecionado] = useState(null)
   const consulta = useConsultaGestao('/assistencia/pedidos', { filial_id: unidade, busca, pagina })
-  return <section className="space-y-4" aria-label="Prescrições e rastreabilidade">
-    <div><h2 className="text-xl font-bold">Prescrições e rastreabilidade</h2>
-      <p className="mt-1 text-sm text-slate-700">Vínculo com o prontuário, conferência, correções e responsáveis pelas etapas das refeições dos pacientes.</p></div>
+  return <section className="space-y-4" aria-label="Pedidos e rastreabilidade">
+    <div><h2 className="text-xl font-bold">Pedidos e rastreabilidade</h2>
+      <p className="mt-1 text-sm text-slate-700">Solicitações, correções e responsáveis pelas etapas das refeições dos pacientes.</p></div>
     <div className="grid gap-3 rounded-xl bg-panel p-4 sm:grid-cols-2">
       {filiais.length > 0 && <FiltroUnidade filiais={filiais} valor={unidade} todas={false} onChange={(v) => { setUnidade(v); setPagina(1); setSelecionado(null) }} />}
       <label className="text-sm font-semibold">Buscar por pedido, paciente ou prontuário
@@ -37,7 +36,7 @@ export default function Prescricoes({ filialId, filiais = [] }) {
     <div className="grid gap-3 lg:grid-cols-2">{consulta.dados?.itens.map((p) => <article key={p.id} className="min-w-0 rounded-xl bg-panel p-4">
       <div className="flex flex-wrap justify-between gap-2"><h3 className="break-words font-bold">#{p.id} · {p.nome_paciente}</h3><span className="text-sm">{p.status.replaceAll('_', ' ')}</span></div>
       <p className="mt-2 text-sm">{p.dieta?.nome || 'Dieta não informada'} · Leito {p.leito || 'não informado'} · Versão {p.versao}</p>
-      <p className="mt-2 text-sm">{p.prescricao?.situacao === 'CONFERIDA' ? 'Vínculo conferido pela gestão' : p.prescricao ? 'Referência informada · aguardando conferência' : 'Sem referência registrada'}</p>
+      {p.prescricao && <p className="mt-2 text-sm">Informações anteriores de prescrição disponíveis no histórico.</p>}
       <button className={`${PRIMARIO} mt-3`} onClick={() => setSelecionado(p.id)}>Abrir pedido e histórico</button>
     </article>)}</div>
     {consulta.dados && <><Paginacao pagina={pagina} total={consulta.dados.total} tamanho={25} onChange={setPagina} />
@@ -68,13 +67,6 @@ function DetalhePedido({ pedidoId, onFechar, onAtualizar }) {
   const pedido = detalhe?.pedido
   const ativa = ['PENDENTE', 'EM_PREPARO', 'PRONTO'].includes(pedido?.status)
   function atualizar(mensagem) { setAviso(mensagem); setAba('dados'); setDetalhe(null); setRevisao((v) => v + 1); onAtualizar() }
-  async function conferir() {
-    setSalvando(true); setErro('')
-    try {
-      await api.post(`/assistencia/pedidos/${pedidoId}/conferencia`, { versao: pedido.versao })
-      atualizar('Conferência do vínculo registrada com seu usuário, data e hora.')
-    } catch (e) { setErro(mensagemErro(e)) } finally { setSalvando(false) }
-  }
   function exportarHistorico() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(detalhe, null, 2)], { type: 'application/json;charset=utf-8' }))
     const link = document.createElement('a'); link.href = url; link.download = `cnutri-historico-pedido-${pedidoId}.json`; link.click()
@@ -95,16 +87,18 @@ function DetalhePedido({ pedidoId, onFechar, onAtualizar }) {
           <Dado titulo="Prontuário" valor={pedido.prontuario} /><Dado titulo="Dieta" valor={pedido.dieta?.nome} />
           <Dado titulo="Solicitante informado no formulário" valor={`${pedido.solicitante_nome || 'Não registrado'} · ${pedido.solicitante_identificacao}`} />
           <Dado titulo="Solicitado em" valor={horarioBrasilia(/(?:Z|[+-]\d{2}:\d{2})$/.test(pedido.criado_em) ? pedido.criado_em : `${pedido.criado_em}Z`)} />
-          <Dado titulo="Referência da prescrição" valor={pedido.prescricao?.referencia} />
-          <Dado titulo="Data e hora da prescrição" valor={horarioBrasilia(pedido.prescricao?.data_hora)} />
-          <Dado titulo="Prescritor informado" valor={pedido.prescricao?.prescritor_nome} /><Dado titulo="Registro do prescritor" valor={pedido.prescricao?.prescritor_registro} />
         </dl>
-        {!pedido.prescricao ? <p className="rounded-lg bg-amber-50 p-3 text-sm">Este pedido não possui vínculo registrado. Pedidos antigos permanecem com a informação disponível na época; acompanhante e refeição de profissional não exigem referência clínica.</p>
-          : <div className="space-y-3 rounded-xl bg-brand-soft p-4"><p className="text-sm">{pedido.prescricao.situacao === 'CONFERIDA'
-            ? `Conferência registrada por ${pedido.prescricao.conferida_por_nome} em ${horarioBrasilia(pedido.prescricao.conferida_em)}.`
-            : 'Referência informada pelo solicitante; aguardando conferência da gestão.'}</p>
-            <p className="text-sm">Conferir confirma a correspondência do pedido com a prescrição consultada no prontuário. A prescrição e sua assinatura profissional permanecem no prontuário de origem.</p>
-            {ativa && pedido.prescricao.situacao !== 'CONFERIDA' && <button disabled={salvando} onClick={conferir} className={PRIMARIO}>Conferi o pedido com a prescrição vigente</button>}</div>}
+        {pedido.prescricao && <section className="space-y-3 rounded-xl bg-brand-soft p-4">
+          <h3 className="font-bold">Informações anteriores de prescrição</h3>
+          <p className="text-sm">Dados preservados para consulta. A prescrição não integra o formulário atual de solicitação.</p>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <Dado titulo="Referência registrada" valor={pedido.prescricao.referencia} />
+            <Dado titulo="Data e hora registradas" valor={horarioBrasilia(pedido.prescricao.data_hora)} />
+            <Dado titulo="Prescritor informado" valor={pedido.prescricao.prescritor_nome} />
+            <Dado titulo="Registro do prescritor" valor={pedido.prescricao.prescritor_registro} />
+          </dl>
+          {pedido.prescricao.situacao === 'CONFERIDA' && <p className="text-sm">Conferência anterior registrada por {pedido.prescricao.conferida_por_nome} em {horarioBrasilia(pedido.prescricao.conferida_em)}.</p>}
+        </section>}
         <div><h3 className="mb-2 font-bold">Etapas e responsáveis registrados</h3>
           {!detalhe.etapas.length && <p className="text-sm">Sem mudanças de etapa registradas.</p>}
           <ol className="space-y-2">{detalhe.etapas.map((e, i) => <li key={i} className="rounded-lg bg-white p-3 text-sm">
@@ -148,7 +142,6 @@ function Dado({ titulo, valor }) { return <div className="min-w-0"><dt className
 
 function Correcao({ detalhe, dietas, salvando, setSalvando, onErro, onSalvo, onCancelar }) {
   const pedido = detalhe.pedido
-  const [prescricao, setPrescricao] = useState({ ...pedido.prescricao, data_hora: horarioLocalPrescricao(pedido.prescricao?.data_hora) })
   const [motivo, setMotivo] = useState('')
   const [substituir, setSubstituir] = useState(false)
   const valores = { ...pedido.dados_dinamicos, leito: pedido.leito || '', prontuario: pedido.prontuario || '', nome_paciente: pedido.nome_paciente,
@@ -161,16 +154,15 @@ function Correcao({ detalhe, dietas, salvando, setSalvando, onErro, onSalvo, onC
     setSalvando(true); onErro('')
     try {
       const { data } = await api.put(`/assistencia/pedidos/${pedido.id}`, { versao: pedido.versao, motivo,
-        confirmar_substituicao: substituir, pedido: corpoPedido(dados, pedido, prescricao) })
+        confirmar_substituicao: substituir, pedido: corpoPedido(dados, pedido) })
       onSalvo(data.mensagem)
     } catch (e) { onErro(mensagemErro(e)) } finally { setSalvando(false) }
   }
   return <FormDinamico titulo="Corrigir solicitação do paciente" campos={campos} dietas={dietas} valoresIniciais={iniciais} enviando={salvando}
     onEnviar={salvar} onCancelar={onCancelar} textoBotao="Salvar correção e retornar a Pendentes"
-    complemento={(dados) => <div className="space-y-4">
-      {exigeReferencia('PACIENTE', dados) && <ReferenciaPrescricao valor={prescricao} onChange={setPrescricao} />}
+    complemento={() => <div className="space-y-4">
       <label className="block text-sm font-semibold">Motivo da correção *<textarea className={CAMPO} required minLength={5} maxLength={1000} rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} /></label>
-      <p className="text-sm">A versão anterior será preservada. A conferência do vínculo precisará ser refeita e o pedido voltará a Pendentes para a cozinha preparar a versão atual.</p>
+      <p className="text-sm">A versão anterior será preservada e o pedido voltará a Pendentes para a cozinha preparar a versão atual.</p>
       {detalhe.documentos_emitidos && <label className="flex items-start gap-3 rounded-lg bg-amber-50 p-3 text-sm"><input type="checkbox" required checked={substituir} onChange={(e) => setSubstituir(e.target.checked)} className="mt-1 h-5 w-5 shrink-0" />
         Confirmo que substituirei com a cozinha as filipetas e etiquetas anteriores, inclusive documentos cujo envio ficou incerto.</label>}
     </div>} />
