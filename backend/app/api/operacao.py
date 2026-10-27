@@ -105,8 +105,9 @@ async def estado_painel(filial_id: int, request: Request, db: AsyncSession = Dep
 
 
 @router.patch("/unidades/{filial_id}/pedidos/{pedido_id}/status")
-async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
-    await verificar_acesso_filial(filial_id, usuario, db)
+async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db: AsyncSession = Depends(get_db), usuario: Usuario | None = Depends(OPERADORES)):
+    if usuario:
+        await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     anterior = pedido.status
     if anterior not in STATUS_ATIVOS:
@@ -123,7 +124,7 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
         .values(**valores).returning(Pedido.id).execution_options(synchronize_session=False))
     if alterado is None:
         raise HTTPException(409, "Outro painel já atualizou este pedido")
-    db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id))
+    db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id if usuario else None))
     registrar_etapa(db, pedido, usuario, anterior, dados.status, dados.motivo if dados.status == "CANCELADO" else None)
     await db.commit()
     await db.refresh(pedido)
@@ -133,11 +134,12 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/reimprimir", status_code=202)
-async def reimprimir(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | None = None, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
-    await verificar_acesso_filial(filial_id, usuario, db)
+async def reimprimir(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | None = None, db: AsyncSession = Depends(get_db), usuario: Usuario | None = Depends(OPERADORES)):
+    if usuario:
+        await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     filial = await unidade_ativa(filial_id, db)
-    job = await enfileirar(db, pedido, filial, usuario.id, dados.confirmar_risco_duplicidade if dados else False)
+    job = await enfileirar(db, pedido, filial, usuario.id if usuario else None, dados.confirmar_risco_duplicidade if dados else False)
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
@@ -147,8 +149,8 @@ async def reimprimir(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | 
 
 @router.get("/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta")
 async def previa_etiqueta(filial_id: int, pedido_id: int, indice: int = Query(0, ge=0, le=1),
-    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
-    filial = await verificar_acesso_filial(filial_id, usuario, db)
+    db: AsyncSession = Depends(get_db), usuario: Usuario | None = Depends(OPERADORES)):
+    filial = await verificar_acesso_filial(filial_id, usuario, db) if usuario else await unidade_ativa(filial_id, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     if pedido.status != "PRONTO":
         raise HTTPException(409, "A etiqueta só está disponível para refeições prontas")
@@ -170,11 +172,12 @@ async def previa_etiqueta(filial_id: int, pedido_id: int, indice: int = Query(0,
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/etiqueta", status_code=202)
 async def imprimir_etiqueta(filial_id: int, pedido_id: int, dados: ReimpressaoCreate | None = None,
-    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(OPERADORES)):
-    await verificar_acesso_filial(filial_id, usuario, db)
+    db: AsyncSession = Depends(get_db), usuario: Usuario | None = Depends(OPERADORES)):
+    if usuario:
+        await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     filial = await unidade_ativa(filial_id, db)
-    job = await enfileirar(db, pedido, filial, usuario.id, dados.confirmar_risco_duplicidade if dados else False, tipo="ETIQUETA")
+    job = await enfileirar(db, pedido, filial, usuario.id if usuario else None, dados.confirmar_risco_duplicidade if dados else False, tipo="ETIQUETA")
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])

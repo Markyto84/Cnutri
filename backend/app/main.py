@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, assistencia, auth, gestao, melhorias, monitoramento, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
+from .api import admin, assistencia, auth, cozinha, gestao, melhorias, monitoramento, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
 from .core.database import SessionLocal, engine
 from .core.login_usuarios import migrar_login_usuarios
@@ -79,6 +79,7 @@ app.include_router(admin.router)
 app.include_router(relatorios.router)
 app.include_router(relatorio_dietas.router)
 app.include_router(operacao.router)
+app.include_router(cozinha.router)
 app.include_router(melhorias.router)
 app.include_router(monitoramento.router)
 app.include_router(assistencia.router)
@@ -155,6 +156,25 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
                 pass
     except HTTPException:
         await websocket.close(code=1008)
+    except Exception:
+        pass
+    finally:
+        gerenciador_ws.desconectar(filial_id, websocket)
+
+
+@app.websocket("/ws/cozinha-publica/{filial_id}")
+async def ws_cozinha_publica(websocket: WebSocket, filial_id: int):
+    async with SessionLocal() as db:
+        try:
+            await operacao.unidade_ativa(filial_id, db)
+        except HTTPException:
+            await websocket.close(code=1008)
+            return
+    await gerenciador_ws.conectar_cozinha(filial_id, websocket)
+    try:
+        while True:
+            if await websocket.receive_text() == "ping":
+                await websocket.send_json({"evento": "pong"})
     except Exception:
         pass
     finally:

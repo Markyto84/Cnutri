@@ -12,6 +12,11 @@ class ConnectionManager:
         self.ativos: dict[int, list[WebSocket]] = defaultdict(list)
         self.usuarios: dict[WebSocket, int] = {}
         self.publicos: dict[int, list[WebSocket]] = defaultdict(list)
+        self.cozinhas: dict[int, list[WebSocket]] = defaultdict(list)
+
+    async def conectar_cozinha(self, filial_id: int, ws: WebSocket) -> None:
+        await ws.accept()
+        self.cozinhas[filial_id].append(ws)
 
     async def conectar_publico(self, filial_id: int, ws: WebSocket) -> None:
         await ws.accept()
@@ -28,9 +33,11 @@ class ConnectionManager:
         self.usuarios.pop(ws, None)
         if ws in self.publicos[filial_id]:
             self.publicos[filial_id].remove(ws)
+        if ws in self.cozinhas[filial_id]:
+            self.cozinhas[filial_id].remove(ws)
 
     async def encerrar_unidade(self, filial_id: int) -> None:
-        for ws in [*self.ativos.get(filial_id, []), *self.publicos.get(filial_id, [])]:
+        for ws in [*self.ativos.get(filial_id, []), *self.publicos.get(filial_id, []), *self.cozinhas.get(filial_id, [])]:
             self.desconectar(filial_id, ws)
             try:
                 await ws.close(code=1008)
@@ -49,7 +56,7 @@ class ConnectionManager:
 
     async def transmitir(self, filial_id: int, mensagem: dict) -> None:
         mortos: list[WebSocket] = []
-        for ws in list(self.ativos[filial_id]):
+        for ws in [*self.ativos[filial_id], *self.cozinhas[filial_id]]:
             try:
                 interna = {"evento": mensagem.get("evento")}
                 if mensagem.get("pedido"):
@@ -85,7 +92,7 @@ class ConnectionManager:
 
         envios = [enviar(ws, interna) for ws in list(self.ativos[filial_id])] if interna else []
         if publica:
-            envios.extend(enviar(ws, publica) for ws in list(self.publicos[filial_id]))
+            envios.extend(enviar(ws, publica) for ws in [*self.publicos[filial_id], *self.cozinhas[filial_id]])
         await asyncio.gather(*envios)
 
 

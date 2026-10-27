@@ -33,7 +33,7 @@ class MonitorContexto:
         self.anteriores = {}
 
     async def atualizar(self, sessoes, canais):
-        filiais = {f for f, sockets in (*canais.ativos.items(), *canais.publicos.items()) if sockets}
+        filiais = {f for f, sockets in (*canais.ativos.items(), *canais.publicos.items(), *canais.cozinhas.items()) if sockets}
         self.anteriores = {f: c for f, c in self.anteriores.items() if f in filiais}
         if not filiais:
             return

@@ -29,12 +29,14 @@ def retrato(pedido):
         "dieta_nome": dieta.nome if dieta else None}
 
 
-def registrar_evento(db, pedido, acao, usuario=None, antes=None, depois=None, motivo=None):
+def registrar_evento(db, pedido, acao, usuario=None, antes=None, depois=None, motivo=None, origem=None):
     db.add(EventoAssistencial(pedido_id=pedido.id, acao=acao,
-        autor_usuario_id=usuario.id if usuario else None, autor_nome=usuario.nome if usuario else None,
-        autor_perfil=usuario.perfil.nome if usuario else None,
+        autor_usuario_id=usuario.id if usuario else None,
+        autor_nome=usuario.nome if usuario else "Painel da cozinha (sem login)" if origem == "COZINHA_PUBLICA" else None,
+        autor_perfil=usuario.perfil.nome if usuario else origem,
         motivo=motivo, antes=antes, depois=depois))
 
 
 def registrar_etapa(db, pedido, usuario, anterior, novo, motivo=None):
-    registrar_evento(db, pedido, "ETAPA_ALTERADA", usuario, {"status": anterior}, {"status": novo}, motivo)
+    registrar_evento(db, pedido, "ETAPA_ALTERADA", usuario, {"status": anterior}, {"status": novo}, motivo,
+        origem="COZINHA_PUBLICA" if usuario is None else None)
