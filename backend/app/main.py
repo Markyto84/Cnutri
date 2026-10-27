@@ -163,10 +163,11 @@ async def ws_cozinha(websocket: WebSocket, filial_id: int):
 
 
 @app.websocket("/ws/cozinha-publica/{filial_id}")
-async def ws_cozinha_publica(websocket: WebSocket, filial_id: int):
+async def ws_cozinha_publica(websocket: WebSocket, filial_id: str):
     async with SessionLocal() as db:
         try:
-            await operacao.unidade_ativa(filial_id, db)
+            filial = await cozinha.resolver_unidade(filial_id, db)
+            filial_id = filial.id
         except HTTPException:
             await websocket.close(code=1008)
             return

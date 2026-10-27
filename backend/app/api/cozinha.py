@@ -1,7 +1,7 @@
 """Operação da cozinha da intranet, independente de credenciais pessoais."""
 from hashlib import sha256
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,23 +9,36 @@ from sqlalchemy.orm import selectinload
 
 from . import operacao
 from ..core.database import get_db
-from ..models.models import Pedido
+from ..models.models import Filial, Pedido
 from ..schemas.schemas import ReimpressaoCreate, StatusUpdate
 from ..services.contexto_operacao import carregar_contexto
 
 router = APIRouter(prefix="/api/cozinha", tags=["Cozinha sem login"])
 
 
+async def resolver_unidade(referencia: str | int, db: AsyncSession) -> Filial:
+    referencia = str(referencia)
+    if referencia.isdecimal():
+        if len(referencia) > 10 or int(referencia) > 2147483647:
+            raise HTTPException(404, "Unidade indisponível")
+        return await operacao.unidade_ativa(int(referencia), db)
+    filial = await db.scalar(select(Filial).where(Filial.codigo_slug == referencia, Filial.ativa.is_(True)))
+    if filial is None:
+        raise HTTPException(404, "Unidade indisponível")
+    return filial
+
+
 @router.get("/unidades/{filial_id}/estado")
-async def estado(filial_id: int, request: Request, db: AsyncSession = Depends(get_db)):
-    await operacao.unidade_ativa(filial_id, db)
+async def estado(filial_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    filial = await resolver_unidade(filial_id, db)
+    filial_id = filial.id
     unidades, contexto = await carregar_contexto(db, {filial_id})
     pedidos = (await db.scalars(select(Pedido).options(selectinload(Pedido.dieta)).where(
         Pedido.filial_id == filial_id, Pedido.status.in_(operacao.STATUS_ATIVOS),
     ).order_by(Pedido.criado_em, Pedido.id))).all()
     # A cozinha recebe apenas o resumo operacional; prontuário, matrícula, prescrição
     # e histórico de recebimento permanecem fora do snapshot e do WebSocket.
-    resposta = JSONResponse({"unidades": unidades, "alertas": contexto[filial_id]["alertas"],
+    resposta = JSONResponse({"filial_id": filial_id, "unidades": unidades, "alertas": contexto[filial_id]["alertas"],
         "pedidos": [operacao.serializar(p) for p in pedidos], "copeiras": []})
     etag = '"' + sha256(f"cozinha:{filial_id}:".encode() + resposta.body).hexdigest() + '"'
     cabecalhos = {"ETag": etag, "Cache-Control": "private, no-store"}

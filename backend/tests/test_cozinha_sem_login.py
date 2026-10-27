@@ -102,6 +102,40 @@ class CozinhaSemLoginTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('Paciente fictício', restrito.text)
         self.assertNotEqual(restrito.headers['etag'], r.headers['etag'])
 
+    async def test_nome_da_unidade_resolve_mesmo_painel_sem_alterar_ids_ou_misturar_pedidos(self):
+        numero = await self.cliente.get(self.base + '/estado')
+        nome = await self.cliente.get('/api/cozinha/unidades/a/estado')
+        self.assertEqual(nome.status_code, 200, nome.text)
+        self.assertEqual(nome.json(), numero.json())
+        self.assertEqual(nome.json()['filial_id'], self.a)
+        igual = await self.cliente.get('/api/cozinha/unidades/a/estado', headers={'If-None-Match': numero.headers['etag']})
+        self.assertEqual(igual.status_code, 304)
+        outra = await self.cliente.get('/api/cozinha/unidades/b/estado')
+        self.assertEqual(outra.status_code, 200)
+        self.assertEqual(outra.json()['filial_id'], self.b)
+        self.assertEqual(outra.json()['pedidos'], [])
+        for referencia in ('inexistente', '999999999999999999999999999', '-1'):
+            r = await self.cliente.get(f'/api/cozinha/unidades/{referencia}/estado')
+            self.assertEqual(r.status_code, 404, r.text)
+        async with self.sessoes() as db:
+            filial = await db.get(Filial, self.a)
+            self.assertEqual(filial.codigo_slug, 'a')
+            filial.ativa = False; await db.commit()
+        inativa = await self.cliente.get('/api/cozinha/unidades/a/estado', headers={'If-None-Match': numero.headers['etag']})
+        self.assertEqual(inativa.status_code, 404)
+
+    async def test_websocket_por_nome_se_inscreve_no_id_correto(self):
+        canais = ConnectionManager()
+        with patch('app.main.SessionLocal', self.sessoes), patch('app.main.gerenciador_ws', canais), \
+                patch.object(canais, 'conectar_cozinha', wraps=canais.conectar_cozinha) as conectar:
+            socket = Socket(); await ws_cozinha_publica(socket, 'a')
+            self.assertTrue(socket.aceito)
+            conectar.assert_awaited_once_with(self.a, socket)
+            self.assertEqual(socket.mensagens, [{'evento': 'pong'}])
+        with patch('app.main.SessionLocal', self.sessoes):
+            desconhecida = Socket(); await ws_cozinha_publica(desconhecida, 'inexistente')
+            self.assertEqual(desconhecida.fechado, 1008)
+
     async def test_fluxo_completo_sem_login_e_sem_pular_etapa(self):
         rota = self.rota('PENDENTE')
         self.assertEqual((await self.cliente.patch(rota, json={'status': 'PRONTO'})).status_code, 409)
