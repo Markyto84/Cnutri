@@ -18,8 +18,8 @@ export default defineConfig({
     host: true, // aceita acesso de outras máquinas na rede
     fs: { allow: [fileURLToPath(new URL('.', import.meta.url))] },
     proxy: {
-      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true, xfwd: true, configure: protegerProtocolo },
-      '/ws': { target: 'ws://127.0.0.1:8000', ws: true, xfwd: true, configure: protegerProtocolo },
+      '^/api(?:/|\\?|$)': { target: 'http://127.0.0.1:8000', changeOrigin: true, xfwd: true, configure: protegerProtocolo },
+      '^/ws(?:/|\\?|$)': { target: 'ws://127.0.0.1:8000', ws: true, xfwd: true, configure: protegerProtocolo },
     },
   },
 })

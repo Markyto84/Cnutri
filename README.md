@@ -95,11 +95,16 @@ Na primeira inicialização, o sistema cria as tabelas e o **seed inicial**:
 
 | Tela | URL |
 |---|---|
+| Página inicial (seleção de unidade) | `http://IP-DO-SERVIDOR/` |
 | Kiosk (enfermagem/médico) | `http://IP-DO-SERVIDOR/unidade-havai` |
 | Cozinha (Kanban) | `http://IP-DO-SERVIDOR/cozinha/unidade-havai` |
 | Entregas das copeiras | `http://IP-DO-SERVIDOR/entregas/1` |
 | Administração | `http://IP-DO-SERVIDOR/admin` |
 | Login | `http://IP-DO-SERVIDOR/login` |
+
+A página inicial lista as unidades ativas e seus acessos aos formulários e à cozinha.
+Com uma única unidade ativa, abre seu formulário automaticamente. Novos endereços de
+unidade precisam incluir uma letra e não podem usar rotas reservadas, como `login` ou `admin`.
 
 Em banco vazio, é criada somente a conta **admin**, com a senha temporária definida em
 `ADMIN_INICIAL_SENHA`. Consulte essa variável no arquivo privado local; seu valor não é exibido nos logs.

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { kioskApi } from '../services/kioskApi.js'
 import FormDinamico from '../components/FormDinamico.jsx'
+import NaoEncontrado from './NaoEncontrado.jsx'
 import { chaveSalva, concluirTentativa, obterChaveEnvio, textoImpressao } from '../services/solicitacoes.js'
 
-export default function Kiosk({ slugPadrao }) {
-  const { slug } = useParams()
-  const slugFinal = slug || slugPadrao
+export default function Kiosk() {
+  const { slug: slugFinal } = useParams()
 
   const [config, setConfig] = useState(null)
   const [erro, setErro] = useState(null)
+  const [tentativa, setTentativa] = useState(0)
   const [tela, setTela] = useState('perfil') // perfil | form | sucesso
   const [fluxo, setFluxo] = useState(null) // MEDICO | ENFERMAGEM
   const [enviando, setEnviando] = useState(false)
@@ -22,19 +23,23 @@ export default function Kiosk({ slugPadrao }) {
     const controller = new AbortController()
     kioskApi
       .get(`/${slugFinal}/config`, { signal: controller.signal })
-      .then((r) => setConfig(r.data))
-      .catch((e) => { if (!controller.signal.aborted) setErro(e.response?.data?.detail || 'Erro ao contactar o servidor') })
+      .then((r) => { if (!controller.signal.aborted) setConfig(r.data) })
+      .catch((e) => { if (!controller.signal.aborted) setErro({ status: e.response?.status,
+        mensagem: typeof e.response?.data?.detail === 'string' ? e.response.data.detail : 'Não foi possível carregar o formulário. Verifique a conexão e tente novamente.' }) })
     const chave = chaveSalva(slugFinal)
     if (chave) kioskApi.get(`/${slugFinal}/solicitacoes/${chave}`, { signal: controller.signal })
-      .then(({ data }) => { setResultado(data); setTela('sucesso') })
+      .then(({ data }) => { if (!controller.signal.aborted) { setResultado(data); setTela('sucesso') } })
       .catch(() => { /* mantém a chave para repetir o envio após uma falha de rede */ })
     return () => controller.abort()
-  }, [slugFinal])
+  }, [slugFinal, tentativa])
 
+  if (erro?.status === 404) return <NaoEncontrado />
   if (erro)
     return (
-      <div className="flex h-screen items-center justify-center bg-app-background text-slate-950 text-xl">
-        {erro}
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-app-background p-6 text-center text-slate-950">
+        <p role="alert">{erro.mensagem}</p>
+        <button onClick={() => { setErro(null); setConfig(null); setTentativa((t) => t + 1) }} className="rounded-lg bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-hover">Tentar novamente</button>
+        <Link to="/" className="text-brand underline">Ir para o início</Link>
       </div>
     )
   if (!config)

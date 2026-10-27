@@ -19,7 +19,7 @@ const PERFIS = { ADMIN_TI: 'Administrador', NUTRICIONISTA: 'Gestor de nutrição
 function mensagemErro(e) {
   const detalhe = e.response?.data?.detail
   return typeof detalhe === 'string' ? detalhe : Array.isArray(detalhe)
-    ? detalhe.map((d) => d.msg).join('; ') : 'Não foi possível concluir a operação. Tente novamente.'
+    ? detalhe.map((d) => d.msg.replace(/^Value error, /, '')).join('; ') : 'Não foi possível concluir a operação. Tente novamente.'
 }
 
 function Campo({ titulo, children }) {
@@ -137,8 +137,10 @@ function FormularioUnidade({ filial, filiais, onCancelar, onConcluido }) {
     <h2 className="text-lg font-bold">{filial ? 'Editar unidade' : 'Nova unidade'}</h2>
     <Aviso erro={erro} />
     <Campo titulo="Nome da unidade"><input required maxLength={100} className={CAMPO} value={form.nome} onChange={(e) => alterar('nome', e.target.value)} /></Campo>
-    <Campo titulo="Endereço do formulário"><input required maxLength={50} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="Ex.: unidade-sul" className={CAMPO} value={form.codigo_slug}
-      onChange={(e) => alterar('codigo_slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} /></Campo>
+    <Campo titulo="Endereço do formulário"><input required maxLength={50} pattern="(?=.*[a-z])[a-z0-9]+(-[a-z0-9]+)*" placeholder="Ex.: unidade-sul" className={CAMPO} value={form.codigo_slug}
+      title="Use letras minúsculas, números e hífens, incluindo pelo menos uma letra." aria-describedby="ajuda-endereco-unidade"
+      onChange={(e) => alterar('codigo_slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} />
+      <span id="ajuda-endereco-unidade" className="mt-1 block text-xs font-normal text-slate-700">Inclua pelo menos uma letra. Endereços do sistema, como login, admin e cozinha, são reservados.</span></Campo>
     {!filial && filiais.length > 0 && <><Campo titulo="Copiar configurações de"><select required className={CAMPO} value={form.origem_filial_id} onChange={(e) => alterar('origem_filial_id', e.target.value)}>
       {filiais.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></Campo>
       <p className="text-xs text-slate-700">Copia formulários e dietas. A nova unidade poderá editar suas próprias opções.</p></>}

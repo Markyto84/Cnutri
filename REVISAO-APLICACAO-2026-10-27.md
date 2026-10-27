@@ -4,10 +4,41 @@ Versão examinada: `1b9a834`. Revisão de código, testes automatizados e sondag
 fictícios em PostgreSQL temporário. Na aplicação em uso, foram realizadas somente leituras.
 Nenhuma correção funcional foi aplicada nesta revisão.
 
+## Atualização — correções dos itens 4–5
+
+Os itens **1–5 estão corrigidos**. Os itens **6–7 continuam pendentes**.
+As evidências originais abaixo descrevem a versão anterior às correções.
+
+- **Códigos das unidades:** criação e edição recusam endereços sem letras e nomes reservados
+  pela aplicação/proxy, como `login`, `admin`, `cozinha`, `api` e `ws`. A TI recebe uma mensagem
+  clara sem perder o formulário preenchido. O backend também rejeita chamadas diretas inválidas
+  antes de gravar unidade, formulários ou histórico. Cadastros antigos continuam consultáveis
+  pela TI para correção; não há alteração automática de códigos, nomes, IDs ou pedidos.
+- **Compatibilidade do proxy:** os prefixos `/api` e `/ws` só encaminham suas próprias rotas.
+  Nomes válidos como `api-hospital` e `ws-sul` podem abrir o formulário normalmente. Os
+  cabeçalhos de protocolo e as conexões WebSocket mantêm suas proteções anteriores.
+- **Página inicial:** `/` consulta as unidades ativas sem anexar a sessão pessoal. Com várias
+  unidades, apresenta os nomes e os botões de solicitação/cozinha; com uma, redireciona ao
+  formulário correspondente; com nenhuma, informa a indisponibilidade e mantém acesso ao login.
+- **Endereços inválidos e falhas:** caminhos desconhecidos e unidades inexistentes têm página
+  própria com retorno ao início. Falhas de conexão oferecem nova tentativa. A troca entre
+  unidades reinicia o formulário, evitando mostrar dados do endereço anterior.
+
+Conferência no navegador com dados fictícios: seleção com três unidades, redirecionamento
+com uma, estado sem unidades, código numérico bloqueado pelo navegador, mensagem do backend
+para `login`, formulário/cozinha por nome, caminhos inexistentes e recuperação após interromper
+e reiniciar somente a API de homologação. A página inicial foi conferida em desktop e celular
+de 390 px. Evidências locais em `work/validacao-4-5/`.
+
+Validação do lote 4–5: **260 testes de backend e 68 de frontend aprovados (328 no total)**;
+5 verificações externas de Caddy/restauração omitidas. Build aprovado; lint com somente
+os dois avisos preexistentes em `Gestao.jsx`. Logs: `work-revisao-4-5-completo.log`,
+`work-revisao-4-5-direcionados.log` e `work-revisao-4-5-frontend.log`.
+
 ## Atualização — correções dos itens 1–3
 
 Os itens **1–3 foram corrigidos** após a revisão. As evidências originais abaixo se referem
-à versão `1b9a834`, anterior a essas correções. Os itens **4–7 continuam pendentes**.
+à versão `1b9a834`, anterior a essas correções. O lote seguinte dos itens 4–5 está descrito acima.
 
 - **Formulários públicos:** configuração, envio e consulta do comprovante usam um cliente HTTP
   próprio, sem anexar a sessão pessoal ou redirecionar ao login. A identificação do solicitante,
