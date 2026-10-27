@@ -84,7 +84,7 @@ class MelhoriasTest(unittest.IsolatedAsyncioTestCase):
             r = await self.client.patch(url, headers=self.cozinha, json={"status": "CANCELADO", "motivo": motivo})
             self.assertEqual(r.status_code, 200, r.text)
             repetido = await self.client.patch(url, headers=self.admin, json={"status": "CANCELADO", "motivo": "Não sobrescrever o motivo"})
-            self.assertEqual(repetido.status_code, 200 if legado else 409)
+            self.assertEqual(repetido.status_code, 409)
             async with self.sessoes() as db:
                 eventos = (await db.scalars(select(EventoAssistencial).where(EventoAssistencial.pedido_id == pedido))).all()
                 self.assertEqual(len(eventos), 1)

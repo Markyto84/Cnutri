@@ -1,5 +1,20 @@
-"""Dados usados pelos dashboards operacionais sem sessão administrativa."""
+"""Dados dos dashboards e regras compartilhadas das etapas da cozinha."""
 from datetime import date, datetime, timedelta, timezone
+from fastapi import HTTPException
+
+STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
+
+
+def validar_transicao_cozinha(anterior: str, novo: str) -> None:
+    """Mesma sequência nas rotas públicas, autenticadas e de clientes anteriores."""
+    if anterior not in STATUS_ATIVOS:
+        raise HTTPException(409, "Este pedido já foi entregue ou cancelado")
+    if anterior == novo:
+        return
+    seguinte = {"PENDENTE": "EM_PREPARO", "EM_PREPARO": "PRONTO"}.get(anterior)
+    if novo not in (seguinte, "CANCELADO"):
+        raise HTTPException(409, "A etapa do pedido mudou. Atualize o painel")
+
 
 CAMPOS_OPERACIONAIS = frozenset({
     "andar", "internado_mais_6h", "refeicao", "para", "cardapio", "cardapio_acompanhante", "liquido_espessado", "tipo_liquido_espessado",

@@ -14,14 +14,13 @@ from ..core.ws import gerenciador_ws
 from ..models.models import EntregaPedido, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
 from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
-from ..services.operacao import data_utc, pedido_operacional
+from ..services.operacao import STATUS_ATIVOS, data_utc, pedido_operacional, validar_transicao_cozinha
 from ..modules.assinatura import gerar_assinatura_png
 from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, nome_etiqueta, previa_png
 from ..services.assistencia import registrar_etapa, registrar_evento
 from ..services.contexto_operacao import carregar_contexto
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
-STATUS_ATIVOS = ("PENDENTE", "EM_PREPARO", "PRONTO")
 OPERADORES = exigir_perfis("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
 ENTREGADORES = exigir_perfis("COPEIRA", "NUTRICIONISTA", "ADMIN_TI")
 
@@ -110,13 +109,9 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
         await verificar_acesso_filial(filial_id, usuario, db)
     pedido = await obter_pedido(filial_id, pedido_id, db)
     anterior = pedido.status
-    if anterior not in STATUS_ATIVOS:
-        raise HTTPException(409, "Este pedido já foi entregue ou cancelado")
+    validar_transicao_cozinha(anterior, dados.status)
     if anterior == dados.status:
         return serializar(pedido)
-    permitido = {"PENDENTE": "EM_PREPARO", "EM_PREPARO": "PRONTO"}.get(anterior)
-    if dados.status not in (permitido, "CANCELADO"):
-        raise HTTPException(409, "A etapa do pedido mudou. Atualize o painel")
     valores = {"status": dados.status}
     if dados.status == "PRONTO":
         valores["concluido_em"] = func.now()

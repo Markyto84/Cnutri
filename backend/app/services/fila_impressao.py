@@ -25,6 +25,8 @@ async def enfileirar(db, pedido, filial, usuario_id=None, confirmar=False, tipo=
     estado = await db.scalar(select(Pedido.status).where(Pedido.id == pedido.id).with_for_update())
     if tipo == "ETIQUETA" and estado != "PRONTO":
         raise HTTPException(409, "A etiqueta só pode ser impressa enquanto a refeição estiver pronta")
+    if tipo == "FILIPETA" and estado == "CANCELADO":
+        raise HTTPException(409, "Pedidos cancelados não podem gerar novas filipetas")
     if tipo == "ETIQUETA" and not nome_etiqueta(pedido).strip():
         raise HTTPException(422, "Este pedido não possui nome do destinatário para gerar a etiqueta")
     ultimo = await db.scalar(select(TrabalhoImpressao).where(TrabalhoImpressao.pedido_id == pedido.id,
@@ -107,19 +109,19 @@ async def processar_um(sessoes):
                     await db.commit()  # mantém o mesmo documento nas novas tentativas.
                 dados = job.dados
                 destino, porta = (configuracao["ip"], configuracao["porta"]) if etiqueta else (filial.ip_impressora, 9100)
-                # Não mantenha conexão/transação do banco ocupada durante o envio TCP.
+                # Libera a transação de preparação; a transmissão revalida e bloqueia só o pedido.
                 await db.rollback()
         if estado == "ENVIADO":
-            if etiqueta:
-                async with sessoes() as db:
-                    # A entrega/cancelamento aguarda o envio com timeout TCP, garantindo PRONTO durante a transmissão.
-                    atual = await db.scalar(select(Pedido.status).where(Pedido.id == pedido_id).with_for_update())
-                    if atual != "PRONTO":
-                        estado, erro = "CANCELADO", "A refeição não está mais pronta"
-                    else:
+            async with sessoes() as db:
+                # O cancelamento aguarda o envio com timeout TCP. Se já confirmado, não há transmissão.
+                atual = await db.scalar(select(Pedido.status).where(Pedido.id == pedido_id).with_for_update())
+                if atual is None or atual == "CANCELADO" or etiqueta and atual != "PRONTO":
+                    estado, erro = "CANCELADO", "A refeição não está mais pronta" if etiqueta else "Pedido cancelado antes do envio"
+                else:
+                    if etiqueta:
                         await run_in_threadpool(enviar_filipeta, destino, dados, porta)
-            else:
-                await run_in_threadpool(enviar_filipeta, destino, dados)
+                    else:
+                        await run_in_threadpool(enviar_filipeta, destino, dados)
     except ErroEnvioImpressora as exc:
         estado = "INCERTO" if exc.incerto else "FALHA"
         erro = "Confira o papel antes de reenviar: o envio pode ter sido parcial" if exc.incerto else "Impressora sem conexão"

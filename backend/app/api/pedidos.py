@@ -10,7 +10,7 @@ from ..core.ws import gerenciador_ws
 from ..models.models import Filial, HistoricoPedido, Pedido, Usuario
 from ..schemas.schemas import PedidoOut, ReimpressaoCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
-from ..services.operacao import pedido_operacional
+from ..services.operacao import pedido_operacional, validar_transicao_cozinha
 from ..services.assistencia import registrar_etapa
 
 router = APIRouter(prefix="/api/pedidos", tags=["Cozinha / Kanban"])
@@ -60,8 +60,7 @@ async def alterar_status(
     await verificar_acesso_filial(pedido.filial_id, usuario, db)
 
     anterior = pedido.status
-    if anterior == "ENTREGUE":
-        raise HTTPException(409, "Este pedido já foi entregue")
+    validar_transicao_cozinha(anterior, dados.status)
     if anterior == dados.status:
         return resposta_por_perfil(pedido, usuario)
     valores = {"status": dados.status}
