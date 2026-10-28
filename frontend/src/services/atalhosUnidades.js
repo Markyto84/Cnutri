@@ -1,4 +1,6 @@
 import { MARCA } from './marca.js'
+import { criarAtalhoWindows } from './atalhoWindows.js'
+import { empacotarArquivoZip } from './arquivoZip.js'
 
 /** A instalação define o destino; versões anteriores usam o endereço aberto pela TI. */
 export function criarAtalhoUnidade(filial, origem, enderecoPublico = null) {
@@ -11,11 +13,19 @@ export function criarAtalhoUnidade(filial, origem, enderecoPublico = null) {
   if (!['http:', 'https:'].includes(base.protocol)) return null
   if (enderecoPublico && (base.username || base.password || !['', '/'].includes(base.pathname) || base.search || base.hash)) return null
   const url = new URL(`/${encodeURIComponent(codigo)}`, base.origin).href
-  const conteudo = `[InternetShortcut]\r\nURL=${url}\r\n`
+  const nomeAtalho = `${MARCA.nome} - ${codigo}.lnk`
+  const arquivoAtalho = criarAtalhoWindows(url, `${MARCA.nome} — ${filial.nome || codigo}`)
+  if (!arquivoAtalho) return null
+  const conteudo = empacotarArquivoZip(nomeAtalho, arquivoAtalho)
+  if (!conteudo) return null
+  const tipoMime = 'application/zip'
+  const base64 = btoa(Array.from(conteudo, byte => String.fromCharCode(byte)).join(''))
   return {
     url,
-    nomeArquivo: `${MARCA.nome} - ${codigo}.url`,
+    nomeArquivo: `${MARCA.nome} - ${codigo}.zip`,
+    nomeAtalho,
     conteudo,
-    href: `data:application/octet-stream;charset=utf-8,${encodeURIComponent(conteudo)}`,
+    tipoMime,
+    href: `data:${tipoMime};base64,${base64}`,
   }
 }

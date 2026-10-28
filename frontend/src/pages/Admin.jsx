@@ -137,25 +137,25 @@ function Unidades({ filiais, urlPublica, onConcluido }) {
   </div>
 }
 
-function AtalhoUnidade({ filial, urlPublica, mostrarEndereco = false }) {
+export function AtalhoUnidade({ filial, urlPublica, mostrarEndereco = false }) {
   const atalho = criarAtalhoUnidade(filial, window.location.origin, urlPublica)
   if (!atalho) return null
   function baixar(evento) {
     evento.preventDefault()
-    const url = URL.createObjectURL(new Blob([atalho.conteudo], { type: 'text/plain;charset=utf-8' }))
+    const url = URL.createObjectURL(new Blob([atalho.conteudo], { type: atalho.tipoMime }))
     const link = document.createElement('a')
     link.href = url; link.download = atalho.nomeArquivo
     document.body.appendChild(link); link.click(); link.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   const download = <a href={atalho.href} download={atalho.nomeArquivo} onClick={baixar} className={SECUNDARIO}
-    aria-label={`Baixar atalho de ${filial.nome}`} title={atalho.url}>Baixar atalho (.url)</a>
+    aria-label={`Baixar atalho de ${filial.nome}`} title={`Contém atalho .lnk para abrir no navegador padrão do Windows: ${atalho.url}`}>Baixar atalho (.zip)</a>
   return mostrarEndereco ? <section aria-label="Atalho da unidade salva" className="space-y-3 rounded-xl bg-panel p-5">
     <h2 className="text-lg font-bold">Atalho da unidade salva</h2>
     <p className="text-sm font-medium">{filial.nome}</p>
     <div><p className="mb-1 text-sm font-medium">Endereço do formulário</p>
       <a href={atalho.url} target="_blank" rel="noreferrer" className="break-all text-sm text-brand underline">{atalho.url}</a></div>
-    <p className="text-sm text-slate-700">Baixe e distribua este atalho nos computadores da unidade.</p>
+    <p className="text-sm text-slate-700">Baixe o ZIP, extraia o atalho (.lnk) e copie-o para a área de trabalho dos computadores da unidade. Ele abrirá no navegador padrão de cada máquina.</p>
     <div className="flex">{download}</div>
   </section> : download
 }
