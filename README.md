@@ -514,6 +514,11 @@ certificado válido para esse nome e chave privada. Veja [HTTPS.md](HTTPS.md)
 para preparação, ativação, renovação e validações. Os acessos atuais são mantidos
 até que a configuração seja aplicada.
 
+No Linux, o modelo `infra/https.env.example` permite preparar os parâmetros após
+a instalação base e ativar o HTTPS em etapa separada. Consulte também o
+[roteiro de homologação Linux](HOMOLOGACAO-LINUX.md) para login, impressões,
+QR Codes e recuperação de backup no servidor de destino.
+
 ## Active Directory e permissões
 
 A área Administração → Credenciais permite escolher conta local ou AD local do

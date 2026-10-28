@@ -1,4 +1,4 @@
-# HTTPS do Cnutri
+# HTTPS do Ceres Care
 
 O projeto tem configuração de HTTPS para a instalação Windows atual e para o
 servidor Linux em Docker. **Preparar os arquivos não ativa HTTPS.** É necessário
@@ -121,26 +121,79 @@ inicialização automática após reiniciar o computador.
 
 ## Linux/Docker — servidor de destino
 
-Na instalação de produção já preparada, disponibilize a pasta privada com
-`servidor.pem` (certificado + intermediários) e `chave.pem`. Defina no ambiente
-privado do Compose:
+O HTTPS pode ser configurado **depois da instalação base**, como etapa separada.
+O arquivo `docker-compose.https.yml` complementa a instalação existente e preserva
+o banco quando se mantém o mesmo projeto Compose e volume.
 
-```dotenv
-CNUTRI_HOSTNAME=cnutri.empresa.local
-CNUTRI_TLS_DIR=/etc/cnutri/tls
-```
-
-Com o mesmo nome de projeto Compose, volume e ambiente da instalação existente:
+Na pasta da instalação Linux, prepare a configuração a partir do modelo:
 
 ```sh
-docker compose -f docker-compose.prod.yml -f docker-compose.https.yml config --quiet
-docker compose -f docker-compose.prod.yml -f docker-compose.https.yml up -d --build frontend
+umask 077
+mkdir -p work
+cp infra/https.env.example work/https-linux.env
+chmod 600 work/https-linux.env
 ```
+
+Edite `work/https-linux.env` no servidor. Esse arquivo fica fora do Git. Salvar
+os valores não ativa o HTTPS. Ajuste para os dados reais fornecidos pela TI:
+
+```dotenv
+CNUTRI_HOSTNAME=cnutri.preventsenior.com.br
+CNUTRI_TLS_DIR=/etc/ceres-care/tls
+URL_RECEBIMENTO_PUBLICA=https://${CNUTRI_HOSTNAME}
+```
+
+Disponibilize nessa pasta privada `servidor.pem` (certificado + intermediários)
+e `chave.pem`. Confira DNS, validade/nome do certificado, correspondência da chave
+e confiança da CA nos dispositivos. Os arquivos são os emitidos pela TI; não são
+gerados pelo exemplo. O Nginx usa certificado e chave conforme a sua
+[configuração oficial de HTTPS](https://nginx.org/en/docs/http/configuring_https_servers.html).
+
+Execute os comandos a seguir no mesmo diretório e com o mesmo nome de projeto
+Compose da instalação existente. Se ela usa `-p` ou `COMPOSE_PROJECT_NAME`, mantenha
+esse identificador. O primeiro arquivo `.env` é o privado de produção já existente;
+o segundo adiciona os parâmetros HTTPS. Variáveis exportadas no terminal prevalecem
+sobre arquivos, conforme a [precedência do Compose](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/).
+
+```sh
+docker compose --env-file .env --env-file work/https-linux.env \
+  -f docker-compose.prod.yml -f docker-compose.https.yml config --quiet
+docker compose --env-file .env --env-file work/https-linux.env \
+  -f docker-compose.prod.yml -f docker-compose.https.yml run --rm --no-deps frontend nginx -t
+```
+
+O primeiro comando confere a composição sem imprimir segredos. O segundo verifica
+se o Nginx consegue carregar a configuração e os arquivos TLS, em contêiner
+descartável, sem publicar portas. A imagem frontend precisa ter sido construída
+na instalação base. Essas verificações não confirmam a confiança do certificado
+nos celulares nem a resolução DNS dos clientes.
+
+Na janela combinada para a ativação, faça o backup e confira no monitoramento que
+não há impressão em processamento. Aplique os serviços web e API para atualizar
+também o endereço dos novos QR Codes; o PostgreSQL existente não é recriado:
+
+```sh
+docker compose --env-file .env --env-file work/https-linux.env \
+  -f docker-compose.prod.yml -f docker-compose.https.yml up -d --no-deps frontend backend
+```
+
+Nas próximas atualizações, use os mesmos arquivos e identificador do projeto. Se
+alterar código, construa as imagens novas antes da ativação, com o procedimento
+de atualização da instalação. Para renovar o certificado, valide os novos arquivos
+e recrie somente o frontend na janela combinada para que o Nginx os carregue.
 
 O complemento usa nginx na porta 443 e redireciona a porta 80. Os arquivos TLS são
 montados somente para leitura, fora da pasta pública da aplicação. O proxy
 sobrescreve os cabeçalhos de protocolo/IP e mantém suporte a WebSocket. A API e o
 banco não publicam portas externas nessa composição.
+
+Entre novamente no endereço HTTPS; sessões guardadas pelo navegador no endereço
+HTTP não são copiadas entre origens. Os endereços já impressos nos QR Codes precisam
+permanecer alcançáveis ou ter redirecionamento próprio. Atualizar a variável da API
+muda os novos códigos, sem reescrever o que já saiu no papel.
+
+Conclua o [roteiro de homologação Linux](HOMOLOGACAO-LINUX.md), incluindo os testes
+em computadores, celulares, impressoras reais e recuperação de backup.
 
 Não execute essa composição para substituir diretamente o ambiente Windows:
 o volume de produção é separado do PostgreSQL de desenvolvimento. A transferência
