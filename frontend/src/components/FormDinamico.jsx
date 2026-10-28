@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { ajustarValores, campoVisivel, dietasDisponiveis, erroAcompanhante, erroLiquidos, opcoesCardapio } from '../services/formularioPaciente.js'
 
-export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, campos, dietas, enviando, erro, onCancelar, onEnviar,
+export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, etapa, campos, dietas, enviando, erro, onCancelar, onEnviar,
   valoresIniciais = {}, complemento, textoBotao = 'Enviar Solicitação' }) {
   const [valores, setValores] = useState(() => ajustarValores(campos, dietas, valoresIniciais))
 
@@ -20,19 +20,23 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
   }
 
   return (
-    <form onSubmit={submeter} className="mx-auto max-w-2xl space-y-5 rounded-2xl bg-panel p-4 shadow-xl sm:p-8">
-      <h2 className="text-2xl font-bold text-slate-900">{titulo}</h2>
+    <form onSubmit={submeter} className="form-card mx-auto space-y-5 rounded-2xl bg-panel p-5 sm:p-7">
+      <div className="form-card-heading">{etapa && <span className="form-step">{etapa}</span>}<div><h2>{titulo}</h2><p>Confira os dados para ajudar a equipe no preparo e na entrega.</p></div></div>
 
       {cabecalho && (
-        <div className="whitespace-pre-line rounded-lg bg-slate-100 p-4 text-sm leading-relaxed text-slate-700">
-          {destacarCabecalho ? <strong>{cabecalho}</strong> : cabecalho}
-        </div>
+        destacarCabecalho || cabecalho.length < 300
+          ? <div className="whitespace-pre-line rounded-xl bg-brand-soft p-4 text-sm leading-relaxed text-brand-ink">{destacarCabecalho ? <strong>{cabecalho}</strong> : cabecalho}</div>
+          : <details open className="orientacoes-unidade rounded-xl bg-slate-50 text-sm text-slate-700">
+            <summary className="cursor-pointer px-4 py-3 font-semibold text-brand-ink">Horários e orientações da unidade</summary>
+            <div className="whitespace-pre-line border-t border-slate-200 px-4 py-4 leading-relaxed">{cabecalho}</div>
+          </details>
       )}
 
-      {erro && <div className="rounded-lg bg-red-50 p-3 text-red-800 text-sm">{erro}</div>}
+      {erro && <div role="alert" className="rounded-lg bg-red-50 p-3 text-red-800 text-sm">{erro}</div>}
 
+      <div className="dynamic-fields">
       {campos.filter((campo) => campoVisivel(campo, valores)).map((campo) => (
-        <div key={campo.id}>
+        <div key={campo.id} className={`form-field ${['radio', 'texto_longo', 'cardapio', 'selecao_dietas'].includes(campo.tipo) || ['nome_paciente', 'solicitante_nome', 'refeicao', 'local_entrega'].includes(campo.id) ? 'form-field-wide' : ''}`}>
           {campo.tipo === 'radio' ? (
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-slate-700">
@@ -43,7 +47,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
                 {(campo.opcoes || []).map((op) => (
                   <label
                     key={op}
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-sm text-slate-900 ${
+                    className={`radio-choice flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-sm text-slate-900 ${
                       valores[campo.id] === op
                         ? 'border-brand bg-brand-soft'
                         : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
@@ -167,26 +171,28 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
               ))}
             </select>
           )}
+          {['selecao', 'cardapio'].includes(campo.tipo) && String(valores[campo.id] || '').length > 48 && <p aria-hidden="true" className="mt-2 text-sm leading-relaxed text-slate-700">{valores[campo.id]}</p>}
           {campo.id === 'dieta_id' && avisoAcompanhante && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{avisoAcompanhante}</p>}
           {campo.id === 'tipo_liquido_espessado' && avisoLiquidos && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{avisoLiquidos}</p>}
         </div>
       ))}
+      </div>
 
       {complemento?.(valores)}
-      <div className="flex gap-3 pt-2">
+      <div className="form-actions flex flex-wrap gap-3">
         <button
           type="button"
           onClick={onCancelar}
-          className="rounded-lg bg-slate-200 px-6 py-3 font-medium hover:bg-slate-300"
+          className="ui-button ui-button-secondary"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={enviando || !!avisoAcompanhante || !!avisoLiquidos}
-          className="flex-1 rounded-lg bg-brand px-6 py-3 text-lg font-bold text-white hover:bg-brand-hover disabled:opacity-50"
+          className="ui-button ui-button-primary min-w-40 flex-1"
         >
-          {enviando ? 'A enviar…' : textoBotao}
+          {enviando ? 'Enviando…' : textoBotao}
         </button>
       </div>
     </form>

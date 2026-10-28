@@ -4,6 +4,7 @@ import { kioskApi } from '../services/kioskApi.js'
 import FormDinamico from '../components/FormDinamico.jsx'
 import NaoEncontrado from './NaoEncontrado.jsx'
 import { chaveSalva, concluirTentativa, obterChaveEnvio, textoImpressao } from '../services/solicitacoes.js'
+import { Icone, IlustracaoCuidado, MarcaCnutri } from '../components/Identidade.jsx'
 
 export default function Kiosk() {
   const { slug: slugFinal } = useParams()
@@ -42,7 +43,7 @@ export default function Kiosk() {
       </div>
     )
   if (!config)
-    return <div className="flex h-screen items-center justify-center bg-app-background text-slate-950 text-xl">A carregar…</div>
+    return <div role="status" className="auth-shell"><div className="space-y-5 text-center"><MarcaCnutri /><p>Preparando o formulário da sua unidade…</p></div></div>
 
   const dietaSelecionada = (id) => config.dietas.find((d) => d.id === Number(id))
 
@@ -104,36 +105,61 @@ export default function Kiosk() {
     return <Sucesso resultado={resultado} slug={slugFinal} onVoltar={() => { concluirTentativa(slugFinal); setResultado(null); setTela('perfil'); setFluxo(null); setRegistro(''); setSolicitanteNome('') }} />
 
   return (
-    <div className="min-h-screen bg-app-background text-slate-900 p-8">
-      <header className="brand-header text-center mb-8">
-        <h1 className="text-3xl font-bold text-brand">{config.filial.nome}</h1>
-        <p className="text-slate-950 mt-1">Sistema de Gestão de Dietas</p>
+    <div className="app-shell kiosk-shell">
+      <header className="kiosk-topbar">
+        <MarcaCnutri />
+        <p className="unit-pill"><Icone nome="unidade" tamanho={20} /><span>{config.filial.nome}</span></p>
       </header>
 
       {tela === 'perfil' && (
-        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
+        <main className="kiosk-content">
+          <section className="care-intro">
+            <div><p className="eyebrow">Bem-vindo ao Cnutri</p>
+              <h1>Uma refeição,<br /><span>muitos cuidados.</span></h1>
+              <p>Escolha o tipo de solicitação para começar. Sua equipe de nutrição acompanha os próximos passos.</p>
+            </div>
+            <IlustracaoCuidado />
+          </section>
+        <div className="profile-grid" aria-label="Tipo de solicitação">
           <button
             onClick={() => { setFluxo('MEDICO'); setTela('form') }}
-            className="rounded-2xl bg-brand p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-brand-hover text-white"
+            className="profile-card"
           >
-            👨‍⚕️ Sou Médico
+            <span className="profile-card-icon"><Icone nome="profissional" tamanho={28} /></span>
+            <span className="profile-card-arrow"><Icone nome="seta" tamanho={20} /></span>
+            <span className="profile-card-title">Médico / Administração</span>
+            <span className="profile-card-description">Solicite a refeição da sua equipe, com os detalhes de entrega.</span>
           </button>
           <button
             onClick={() => { setFluxo('ENFERMAGEM'); setTela('form') }}
-            className="rounded-2xl bg-brand-vibrant p-10 text-2xl font-bold shadow-lg transition hover:scale-105 hover:bg-brand-vibrant-hover text-brand-ink"
+            className="profile-card profile-card-patient"
           >
-            🏥 Enfermagem / Paciente
+            <span className="profile-card-icon"><Icone nome="cuidado" tamanho={28} /></span>
+            <span className="profile-card-arrow"><Icone nome="seta" tamanho={20} /></span>
+            <span className="profile-card-title">Enfermagem / Paciente</span>
+            <span className="profile-card-description">Solicite a dieta do paciente e, quando necessário, do acompanhante.</span>
           </button>
         </div>
+          <ol className="journey-strip" aria-label="Etapas da solicitação">
+            {[['1', 'Solicitação', 'Preencha os dados da refeição.'], ['2', 'Preparo', 'A cozinha recebe sua solicitação.'], ['3', 'Recebimento', 'Confirme a entrega pelo QR Code.']].map(([numero, titulo, texto]) =>
+              <li key={numero} className="journey-step"><span>{numero}</span><div><strong>{titulo}</strong><p>{texto}</p></div></li>)}
+          </ol>
+          <p className="care-footer">Cuidado em cada etapa, da solicitação à entrega.</p>
+        </main>
       )}
 
       {tela === 'form' && (
-        <div className="mx-auto max-w-2xl space-y-4">
-          <div className="rounded-2xl bg-panel p-6 shadow-xl">
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+        <main className="form-content space-y-5">
+          <button type="button" onClick={() => setTela('perfil')} className="ui-button ui-button-secondary"><Icone nome="voltar" tamanho={18} />Voltar às solicitações</button>
+          <div className="form-intro"><p className="eyebrow">{fluxo === 'MEDICO' ? 'Médico / Administração' : 'Enfermagem / Paciente'}</p>
+            <h1>Vamos cuidar desta solicitação.</h1><p>Informe os dados abaixo. Os campos com <span className="text-red-700">*</span> são obrigatórios.</p></div>
+          <section aria-labelledby="titulo-solicitante" className="form-card rounded-2xl bg-panel p-5 sm:p-7">
+            <div className="form-card-heading"><span className="form-step">1</span><div><h2 id="titulo-solicitante">Quem está solicitando?</h2><p>Sua identificação acompanha a solicitação.</p></div></div>
+            <label htmlFor="registro-solicitante" className="mb-2 block text-sm font-semibold text-slate-700">
               Registro profissional (CRM, COREN ou Matrícula)<span className="text-red-700"> *</span>
             </label>
             <input
+              id="registro-solicitante"
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               maxLength={50}
               value={registro}
@@ -141,19 +167,21 @@ export default function Kiosk() {
               placeholder="Ex.: COREN-12345"
               autoFocus
             />
-            <p className="mt-1 text-xs text-slate-700">Usado apenas para rastreabilidade e auditoria — sem necessidade de login.</p>
-            <label className="mb-1 mt-4 block text-sm font-medium text-slate-700">
+            <p className="mt-2 text-xs text-slate-700">Informe CRM, COREN ou matrícula profissional. Não é necessário entrar em uma conta.</p>
+            <label htmlFor="nome-solicitante" className="mb-2 mt-5 block text-sm font-semibold text-slate-700">
               Solicitante (seu nome)<span className="text-red-700"> *</span>
             </label>
             <input
+              id="nome-solicitante"
               className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
               maxLength={100}
               value={solicitanteNome}
               onChange={(e) => setSolicitanteNome(e.target.value)}
               placeholder="Ex.: Enf. João Souza"
             />
-          </div>
+          </section>
         <FormDinamico
+          etapa="2"
           titulo={config.formularios?.[fluxo]?.titulo || (fluxo === 'MEDICO' ? 'Solicitação — Profissional' : 'Solicitação — Paciente')}
           cabecalho={config.formularios?.[fluxo]?.cabecalho || ''}
           destacarCabecalho={fluxo === 'MEDICO'}
@@ -165,7 +193,7 @@ export default function Kiosk() {
           onCancelar={() => setTela('perfil')}
           onEnviar={enviar}
         />
-        </div>
+        </main>
       )}
     </div>
   )
@@ -187,17 +215,18 @@ function Sucesso({ resultado, slug, onVoltar }) {
   }, [slug])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-app-background p-6 text-center">
-      <div className="text-8xl">✅</div>
+    <div className="auth-shell text-center"><section className="receipt-card flex flex-col items-center">
+      <div className="success-halo"><Icone nome="conferir" tamanho={32} /></div>
       <h2 className="mt-6 text-3xl font-bold text-slate-950">Pedido #{resultado.id} registrado</h2>
+      <p className="mt-3 text-slate-700">Sua solicitação foi recebida. Obrigado por cuidar de cada detalhe.</p>
       <p className="mt-4 font-semibold text-brand" role="status">{textoImpressao(impressao?.estado)}</p>
       {impressao?.erro && <p className="mt-2 max-w-xl text-sm text-red-800">{impressao.erro}</p>}
       {['FALHA', 'INCERTO'].includes(impressao?.estado) && <p className="mt-2 text-sm text-slate-800">Informe o número do pedido à cozinha para conferir ou reenviar a filipeta.</p>}
       {resultado.aviso && <p className="mt-4 max-w-xl rounded-lg bg-amber-50 p-4 text-sm text-amber-950">{resultado.aviso}</p>}
       <p className="mt-5 text-sm text-slate-700">Guarde o número do pedido. Retorno ao início em 20 segundos.</p>
-      <button onClick={onVoltar} className="mt-8 rounded-lg bg-slate-50 px-6 py-3 text-slate-800 hover:bg-slate-200">
+      <button onClick={onVoltar} className="ui-button ui-button-primary mt-8 w-full">
         Nova solicitação
       </button>
-    </div>
+    </section></div>
   )
 }

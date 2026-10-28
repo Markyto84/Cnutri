@@ -7,6 +7,7 @@ import { podeOperar, useAuth } from '../context/auth.js'
 import FiltrosOperacao from '../components/FiltrosOperacao.jsx'
 import AlertaDemora from '../components/AlertaDemora.jsx'
 import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
+import { Icone, Indicador } from '../components/Identidade.jsx'
 
 export default function Entregas() {
   const { filialId } = useParams()
@@ -59,22 +60,22 @@ function PaginaEntregas({ filialId }) {
     }
   }
 
-  return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
+  return <main className="app-shell workspace-shell">
     <CabecalhoOperacao modo="entregas" painel={painel} filialId={filialId} />
     {!autorizado && <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Entre com uma conta de copeira ou gestão autorizada nesta unidade para registrar entregas.</p>}
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-4 text-emerald-950">{aviso}</p>}
     <div className="mb-4 grid grid-cols-2 gap-3">
-      <div className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">Refeições prontas</p><strong className="text-3xl">{prontos.length}</strong></div>
-      <div className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">Copeiras online</p><strong className="text-3xl">{copeiras.length}</strong></div>
+      <Indicador titulo="Refeições prontas" valor={prontos.length} icone="refeicao" />
+      <Indicador titulo="Copeiras online" valor={copeiras.length} icone="pessoas" />
     </div>
     {erroPlantao && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-amber-950">{erroPlantao}</p>}
     {!painel.carregando && !painel.indisponivel && <section aria-label="Refeições prontas para entrega">
       <FiltrosOperacao pedidos={prontos} filtros={filtros} onChange={setFiltros} total={filtrados.length} />
       <div className="mb-4"><h2 className="text-lg font-bold">Prontas para entrega</h2><p className="mt-1 text-sm text-slate-950">O recebedor finaliza a entrega pelo QR Code da filipeta. Para filipetas anteriores, permanece a entrega pela copeira.</p></div>
-      {!prontos.length && <div className="rounded-2xl bg-panel p-8 text-center"><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="mt-2 text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
+      {!prontos.length && <div className="empty-state bg-panel"><Icone nome="entrega" tamanho={32} /><h3 className="font-bold">Nenhuma refeição aguardando entrega</h3><p className="text-sm text-slate-700">Os pedidos aparecem aqui quando a cozinha marca como Pronto.</p></div>}
       {prontos.length > 0 && !filtrados.length && <p className="rounded-xl bg-panel p-6">Nenhuma refeição corresponde aos filtros. Use “Limpar filtros” para ver todas.</p>}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{filtrados.map((pedido) => <article key={pedido.id} className="flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{filtrados.map((pedido) => <article key={pedido.id} className="order-card flex min-w-0 flex-col rounded-2xl border-t-4 border-brand-vibrant bg-panel p-4">
         <ResumoPedido pedido={pedido} />
         <AlertaDemora pedido={pedido} limites={painel.alertas} agora={painel.agora} />
         {pedido.concluido_em && <p className="mt-3 text-xs text-slate-700">Pronto às {new Date(pedido.concluido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}

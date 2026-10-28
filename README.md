@@ -243,13 +243,16 @@ O Compose de desenvolvimento mantém o nome `projeto-dietas-hospitalares`, assoc
 `projeto-dietas-hospitalares_pgdata`. Assim, mudar a pasta de trabalho preserva o banco existente.
 
 O tema corporativo usa **Blue `#0070AD`** nas ações principais e **Vibrant Blue `#17ABDA`** nos
-destaques, bordas dos cabeçalhos e ações de entrega/exportação. O fundo é azul suave `#EDF5FA`,
+destaques e ações de entrega/exportação. O fundo neutro suave é `#F4F7F8`,
 com painéis brancos e campos em tons claros. O texto é branco sobre o azul principal e azul profundo
 `#06344B` sobre o azul vibrante, com contraste de 5,36:1 e 4,92:1, respectivamente.
-As cores ficam centralizadas em `frontend/src/index.css`: `brand`, `brand-vibrant`, `brand-ink`,
+As cores ficam centralizadas em `frontend/src/cuidado.css`, importado pelo `index.css`: `brand`, `brand-vibrant`, `brand-ink`,
 variantes de foco/hover, `app-background`, `panel` e escala `slate` com tons azulados. Formulários,
 login, gestão, administração, relatórios, cozinha e entregas compartilham essa paleta. Alertas de
 restrição/erro, avisos e indicadores de produção continuam identificados por suas cores funcionais.
+
+A [linguagem visual de acolhimento](UI-ACOLHIMENTO.md) reúne tipografia local, ícones SVG,
+formas suaves, navegação e formulários responsivos. A interface funciona sem fontes ou CDNs externos.
 
 No painel **Gestão de Nutrição → Formulários → Médico**, edite as listas de **Refeição**, **Suco**,
 **Sobremesa** e **Local de entrega**, com uma opção por linha em cada campo, e publique o formulário.

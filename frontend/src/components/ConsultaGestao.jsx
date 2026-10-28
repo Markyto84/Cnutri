@@ -1,6 +1,6 @@
 export const CAMPO = 'mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal'
-export const PRIMARIO = 'min-h-11 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50'
-export const SECUNDARIO = 'min-h-11 rounded-lg bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50'
+export const PRIMARIO = 'ui-button ui-button-primary'
+export const SECUNDARIO = 'ui-button ui-button-secondary'
 
 export function FiltroUnidade({ filiais, valor, onChange, todas = true }) {
   return <label className="min-w-0 text-sm font-semibold">Unidade

@@ -12,7 +12,7 @@ export default function FiltrosOperacao({ pedidos, filtros, onChange, total }) {
   ]
   const mudar = (campo, valor) => onChange({ ...filtros, [campo]: valor })
   const estilo = 'mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal'
-  return <section aria-label="Filtros de refeições" className="mb-4 rounded-xl bg-panel p-4">
+  return <section aria-label="Filtros de refeições" className="painel-filtros mb-5 rounded-xl bg-panel p-4">
     <button className={`${BOTAO} mb-2 w-full bg-white md:hidden`} aria-expanded={aberto} aria-controls={id} onClick={() => setAberto(!aberto)}>{aberto ? 'Ocultar filtros' : 'Mostrar filtros'}</button>
     <div id={id} className={`${aberto ? 'grid' : 'hidden'} min-w-0 gap-3 sm:grid-cols-2 md:grid lg:grid-cols-5`}>
       <label className="min-w-0 text-sm font-semibold">Buscar pedido, nome ou leito

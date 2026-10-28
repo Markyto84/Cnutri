@@ -10,6 +10,7 @@ import AlertaDemora from '../components/AlertaDemora.jsx'
 import CancelarPedido from '../components/CancelarPedido.jsx'
 import { FILTROS_VAZIOS, filtrarPedidos } from '../services/painelOperacional.js'
 import { caminhoCozinha } from '../services/rotasUnidades.js'
+import { Icone, NotaCuidado } from '../components/Identidade.jsx'
 
 const COLUNAS = [
   { status: 'PENDENTE', titulo: 'Pendentes', cor: 'border-t-amber-500' },
@@ -67,9 +68,9 @@ function Dashboard({ unidade }) {
     return <Navigate replace to={{ pathname: caminhoCozinha(painel.filial), search: localizacao.search, hash: localizacao.hash }} />
   }
 
-  return <main className="min-h-screen bg-app-background p-3 text-slate-900 sm:p-5">
+  return <main className="app-shell workspace-shell">
     <CabecalhoOperacao modo="cozinha" painel={painel} filialId={filialId} />
-    <p className="mb-4 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Preparo, cancelamento e impressão disponíveis sem login. As etapas são registradas como “Painel da cozinha (sem login)”. O recebedor finaliza a entrega pelo QR Code da filipeta; filipetas anteriores continuam com a entrega pela copeira.</p>
+    <NotaCuidado icone="refeicao" className="mb-5"><strong className="block">Da cozinha à entrega, cada detalhe importa.</strong> Acompanhe o preparo abaixo. Quando a refeição estiver pronta, o recebedor confirma a entrega pelo QR Code da filipeta.</NotaCuidado>
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-brand-soft p-3 text-brand-ink">{aviso}</p>}
     {falhas > 0 && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{falhas} pedido(s) com falha ou envio de filipeta incerto. Confira os avisos de impressão nos cartões.</p>}
@@ -85,10 +86,10 @@ function Dashboard({ unidade }) {
       <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
         {COLUNAS.map((col) => {
           const pedidos = filtrados.filter((p) => p.status === col.status)
-          return <section key={col.status} className={`min-w-0 rounded-2xl border-t-4 bg-panel p-3 ${col.cor} ${filtro === col.status ? '' : 'hidden md:block'}`}>
-            <h2 className="mb-3 text-lg font-bold">{col.titulo} <span className="font-normal text-slate-700">({pedidos.length})</span></h2>
-            {!pedidos.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-700">Nenhuma refeição nesta etapa.</p>}
-            <div className="space-y-3">{pedidos.map((pedido) => <article key={pedido.id} className="rounded-xl bg-white p-4 shadow-sm">
+          return <section key={col.status} className={`kanban-column min-w-0 rounded-2xl border-t-4 p-3 ${col.cor} ${filtro === col.status ? '' : 'hidden md:block'}`}>
+            <div className="mb-4 flex items-center justify-between gap-2 px-1 pt-1"><h2 className="text-lg font-extrabold">{col.titulo}</h2><span className="kanban-count" aria-label={`${pedidos.length} ${pedidos.length === 1 ? 'refeição' : 'refeições'}`}>{pedidos.length}</span></div>
+            {!pedidos.length && <div className="empty-state"><Icone nome={col.status === 'PRONTO' ? 'conferir' : 'refeicao'} /><p className="text-sm">Nenhuma refeição nesta etapa.</p></div>}
+            <div className="space-y-3">{pedidos.map((pedido) => <article key={pedido.id} className="order-card rounded-xl bg-white p-4">
               <ResumoPedido pedido={pedido} />
               <AlertaDemora pedido={pedido} limites={painel.alertas} agora={painel.agora} />
               <EstadoImpressao impressao={pedido.impressao} />

@@ -1,7 +1,10 @@
+import { Icone, MarcaCnutri } from '../components/Identidade.jsx'
+
 function OrientacaoDeAcesso({ titulo, codigo }) {
-  return <main className="flex min-h-screen items-center justify-center bg-app-background p-4 text-slate-900">
-    <section className="w-full max-w-lg space-y-4 rounded-2xl bg-panel p-6 text-center shadow-sm sm:p-8">
-      <p className="font-semibold text-brand">Cnutri{codigo && ` · ${codigo}`}</p>
+  return <main className="auth-shell">
+    <section className="receipt-card space-y-5 text-center">
+      <MarcaCnutri /><span className="mx-auto flex w-fit rounded-full bg-brand-soft p-4 text-brand"><Icone nome="unidade" tamanho={32} /></span>
+      {codigo && <p className="eyebrow">Página {codigo}</p>}
       <h1 className="text-2xl font-bold">{titulo}</h1>
       <p className="text-slate-700">Utilize o atalho da sua unidade fornecido pela TI. Se não conseguir acessar, confira o endereço com o suporte.</p>
     </section>

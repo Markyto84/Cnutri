@@ -11,10 +11,11 @@ import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
 import Monitoramento from '../components/Monitoramento.jsx'
 import Prescricoes from '../components/Prescricoes.jsx'
 import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
+import { Icone, Indicador, MarcaCnutri } from '../components/Identidade.jsx'
 
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand'
-const PRIMARIO = 'rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50'
-const SECUNDARIO = 'rounded-lg bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200 disabled:opacity-50'
+const PRIMARIO = 'ui-button ui-button-primary'
+const SECUNDARIO = 'ui-button ui-button-secondary'
 const PERFIS = { ADMIN_TI: 'Administrador', NUTRICIONISTA: 'Gestor de nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
 
 function mensagemErro(e) {
@@ -57,24 +58,25 @@ export default function Admin() {
     atualizarUsuario().catch(() => setErro('Cadastro salvo. Recarregue a página para atualizar suas unidades.'))
   }
 
-  return <div className="min-h-screen space-y-6 bg-app-background p-6 text-slate-900">
+  return <div className="app-shell workspace-shell space-y-6">
     <header className="brand-header flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="text-2xl font-bold text-brand">⚙️ Painel de administração</h1>
-        <p className="mt-1 text-sm text-slate-950">Unidades, credenciais e impressoras · {usuario.nome}</p></div>
+      <div className="header-identity"><MarcaCnutri compacto /><span className="header-divider" aria-hidden="true" />
+        <div><p className="eyebrow">Estrutura para apoiar o cuidado</p><h1 className="mt-1">Painel de administração</h1>
+        <p className="mt-2 text-sm text-slate-700">Unidades, credenciais e impressoras · {usuario.nome}</p></div></div>
       <div className="flex flex-wrap gap-2"><Link to="/gestao" className={SECUNDARIO}>Gestão de nutrição</Link>
         <Link to="/senha" className={SECUNDARIO}>Alterar minha senha</Link>
         <button onClick={sair} className={SECUNDARIO}>Sair</button></div>
     </header>
     {aba !== 'monitoramento' && <div className="grid gap-4 sm:grid-cols-3">
       {[
-        ['Unidades cadastradas', dados.filiais.length],
-        ['Credenciais ativas', dados.usuarios.filter((u) => u.ativo).length],
-        ['Impressoras configuradas', dados.filiais.filter((f) => f.ip_impressora).length],
-      ].map(([rotulo, total]) => <div key={rotulo} className="rounded-xl bg-panel p-4"><p className="text-sm text-slate-700">{rotulo}</p><p className="mt-1 text-3xl font-bold">{total}</p></div>)}
+        ['Unidades cadastradas', dados.filiais.length, 'unidade'],
+        ['Credenciais ativas', dados.usuarios.filter((u) => u.ativo).length, 'pessoas'],
+        ['Impressoras configuradas', dados.filiais.filter((f) => f.ip_impressora).length, 'impressora'],
+      ].map(([rotulo, total, icone]) => <Indicador key={rotulo} titulo={rotulo} valor={total} icone={icone} />)}
     </div>}
-    <nav className="flex flex-wrap gap-2" aria-label="Administração">
-      {[['monitoramento', 'Monitoramento'], ['prescricoes', 'Pedidos e rastreabilidade'], ['unidades', '🏢 Unidades'], ['credenciais', '🔑 Credenciais'], ['impressoras', '🖨️ Impressoras'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].map(([id, rotulo]) =>
-        <button key={id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}>{rotulo}</button>)}
+    <nav className="workspace-nav" aria-label="Administração">
+      {[['monitoramento', 'Monitoramento', 'gestao'], ['prescricoes', 'Pedidos e rastreabilidade', 'prancheta'], ['unidades', 'Unidades', 'unidade'], ['credenciais', 'Credenciais', 'chave'], ['impressoras', 'Impressoras', 'impressora'], ['central-impressoes', 'Central de impressões', 'impressora'], ['alertas', 'Alertas de demora', 'relogio'], ['historico', 'Histórico de alterações', 'historico'], ['relatorios', 'Relatórios', 'gestao']].map(([id, rotulo, icone]) =>
+        <button key={id} aria-pressed={aba === id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}><Icone nome={icone} tamanho={18} />{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />
     {carregando ? <p>Carregando administração…</p> : <>

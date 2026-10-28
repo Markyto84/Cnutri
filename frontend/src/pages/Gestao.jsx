@@ -10,6 +10,7 @@ import CentralImpressoes from '../components/CentralImpressoes.jsx'
 import ConfiguracaoAlertas from '../components/ConfiguracaoAlertas.jsx'
 import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
 import Prescricoes from '../components/Prescricoes.jsx'
+import { Icone, MarcaCnutri } from '../components/Identidade.jsx'
 
 /** Painel da Nutrição: catálogo de dietas, editor de formulários e relatórios. */
 export default function Gestao() {
@@ -22,9 +23,10 @@ export default function Gestao() {
   if (!filial) return <SemUnidades />
 
   return (
-    <div className="min-h-screen bg-app-background p-6 text-slate-900">
+    <div className="app-shell workspace-shell">
       <header className="brand-header mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-brand">🥗 Gestão de Nutrição</h1>
+        <div className="header-identity"><MarcaCnutri compacto /><span className="header-divider" aria-hidden="true" />
+          <div><p className="eyebrow">Sua equipe, bem acompanhada</p><h1 className="mt-1">Gestão de Nutrição</h1><p className="mt-2 text-sm text-slate-700">{usuario.nome} · {filial.nome}</p></div></div>
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={filialId}
@@ -36,24 +38,25 @@ export default function Gestao() {
               <option key={f.id} value={f.id}>{f.nome}</option>
             ))}
           </select>
-          {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Administração</Link>}
-          <Link to={caminhoCozinha(filial)} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Cozinha</Link>
-          <Link to={`/entregas/${filialId}`} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Entregas</Link>
-          <Link to="/senha" className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">Alterar minha senha</Link>
-          <button onClick={sair} className="rounded bg-white px-4 py-2 text-sm hover:bg-slate-50">
+          {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="ui-button ui-button-secondary">Administração</Link>}
+          <Link to={caminhoCozinha(filial)} className="ui-button ui-button-secondary">Cozinha</Link>
+          <Link to={`/entregas/${filialId}`} className="ui-button ui-button-secondary">Entregas</Link>
+          <Link to="/senha" className="ui-button ui-button-secondary">Alterar minha senha</Link>
+          <button onClick={sair} className="ui-button ui-button-secondary">
             Sair
           </button>
         </div>
       </header>
 
-      <nav className="mb-6 flex flex-wrap gap-2">
-        {[['dietas', '📋 Dietas'], ['prescricoes', 'Pedidos e rastreabilidade'], ['formularios', '🧩 Formulários'], ['central-impressoes', 'Central de impressões'], ['alertas', 'Alertas de demora'], ['historico', 'Histórico de alterações'], ['relatorios', '📊 Relatórios']].filter(([id]) => id !== 'historico' || usuario.perfil === 'ADMIN_TI').map(([id, rotulo]) => (
+      <nav className="workspace-nav mb-6" aria-label="Gestão de Nutrição">
+        {[['dietas', 'Dietas', 'folha'], ['prescricoes', 'Pedidos e rastreabilidade', 'prancheta'], ['formularios', 'Formulários', 'ajustes'], ['central-impressoes', 'Central de impressões', 'impressora'], ['alertas', 'Alertas de demora', 'relogio'], ['historico', 'Histórico de alterações', 'historico'], ['relatorios', 'Relatórios', 'gestao']].filter(([id]) => id !== 'historico' || usuario.perfil === 'ADMIN_TI').map(([id, rotulo, icone]) => (
           <button
             key={id}
             onClick={() => setAba(id)}
-            className={`rounded-lg px-4 py-2 font-medium ${aba === id ? 'bg-brand text-white' : 'bg-white hover:bg-slate-50'}`}
+            aria-pressed={aba === id}
+            className={`ui-button ${aba === id ? 'ui-button-primary' : 'ui-button-secondary'}`}
           >
-            {rotulo}
+            <Icone nome={icone} tamanho={18} />{rotulo}
           </button>
         ))}
       </nav>
@@ -110,7 +113,7 @@ function AbaDietas({ filialId }) {
     <div className="grid gap-6 md:grid-cols-[1fr_300px]">
       <div className="space-y-2">
         {dietas.map((d) => (
-          <div key={d.id} className="rounded-lg bg-panel p-4">
+          <div key={d.id} className="form-card rounded-xl bg-panel p-5">
             {editandoId === d.id ? (
               <div className="space-y-2">
                 <input
@@ -129,22 +132,22 @@ function AbaDietas({ filialId }) {
                   Restrição severa (destaque vermelho no Kanban e na filipeta)
                 </label>
                 <div className="flex gap-2">
-                  <button onClick={() => salvarEdicao(d.id)} className="rounded bg-brand px-4 py-1.5 text-sm font-bold hover:bg-brand-hover text-white">💾 Salvar</button>
-                  <button onClick={() => setEditandoId(null)} className="rounded bg-slate-50 px-4 py-1.5 text-sm hover:bg-slate-200">Cancelar</button>
+                  <button onClick={() => salvarEdicao(d.id)} className="ui-button ui-button-primary"><Icone nome="conferir" tamanho={18} />Salvar</button>
+                  <button onClick={() => setEditandoId(null)} className="ui-button ui-button-secondary">Cancelar</button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 flex-1 break-words">
                   <p className="font-medium">
                     {d.nome} {d.severa && <span className="ml-1 rounded bg-red-600 px-2 py-0.5 text-xs text-white">SEVERA</span>}
                     {!d.ativa && <span className="ml-1 rounded bg-slate-200 px-2 py-0.5 text-xs">INATIVA</span>}
                   </p>
                   {d.descricao && <p className="text-sm text-slate-700">{d.descricao}</p>}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => iniciarEdicao(d)} className="rounded bg-slate-50 px-3 py-1 text-sm hover:bg-slate-200" title="Editar nome, descrição e severidade">✏️ Editar</button>
-                  <button onClick={() => alternarAtiva(d)} className="rounded bg-slate-50 px-3 py-1 text-sm hover:bg-slate-200">
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => iniciarEdicao(d)} className="ui-button ui-button-secondary" title="Editar nome, descrição e severidade"><Icone nome="ajustes" tamanho={16} />Editar</button>
+                  <button onClick={() => alternarAtiva(d)} className="ui-button ui-button-secondary">
                     {d.ativa ? 'Desativar' : 'Reativar'}
                   </button>
                 </div>
@@ -153,16 +156,17 @@ function AbaDietas({ filialId }) {
           </div>
         ))}
       </div>
-      <form onSubmit={criar} className="h-fit space-y-3 rounded-xl bg-panel p-4">
+      <form onSubmit={criar} className="form-card h-fit space-y-4 rounded-xl bg-panel p-5">
         <h3 className="font-bold">Nova dieta</h3>
-        <p className="text-xs text-slate-700">Para editar uma dieta existente (nome, severidade…), use o botão ✏️ da lista.</p>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome (ex.: Pastosa)"
+        <p className="text-xs text-slate-700">Para ajustar uma dieta existente, use Editar na lista de dietas.</p>
+        <label className="block text-sm font-semibold" htmlFor="nome-nova-dieta">Nome da dieta</label>
+        <input id="nome-nova-dieta" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Pastosa"
           className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-2" />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={severa} onChange={(e) => setSevera(e.target.checked)} />
           Restrição severa (destaque vermelho)
         </label>
-        <button className="w-full rounded bg-brand py-2 font-bold hover:bg-brand-hover text-white">Adicionar</button>
+        <button className="ui-button ui-button-primary w-full">Adicionar dieta</button>
       </form>
     </div>
   )
@@ -400,7 +404,7 @@ function AbaFormularios({ filialId }) {
           <div className="flex flex-wrap gap-2 pt-2">
             {estruturaEditavel && <button onClick={adicionarCampo} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">+ Adicionar campo</button>}
             {estruturaEditavel && <button onClick={resetar} className="rounded bg-slate-50 px-4 py-2 text-sm hover:bg-slate-200">↺ Restaurar padrão</button>}
-            <button onClick={salvar} className="rounded bg-brand px-6 py-2 font-bold hover:bg-brand-hover text-white">💾 Publicar</button>
+            <button onClick={salvar} className="ui-button ui-button-primary"><Icone nome="conferir" tamanho={18} />Publicar</button>
           </div>
         </div>
       )}

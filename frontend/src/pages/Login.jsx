@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { destinoAposLogin, useAuth } from '../context/auth.js'
+import { Icone, IlustracaoCuidado, MarcaCnutri } from '../components/Identidade.jsx'
 
 export default function Login() {
   const [nomeUsuario, setNomeUsuario] = useState('')
@@ -29,12 +30,18 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-app-background p-4">
-      <form onSubmit={submeter} className="w-full max-w-sm space-y-4 rounded-2xl border-t-4 border-brand-vibrant bg-panel p-8 shadow-xl">
-        <h1 className="text-center text-2xl font-bold text-brand">🏥 Dietas Hospitalares</h1>
-        <p className="text-center text-sm text-slate-700">Acesso à gestão, cozinha e plantão das copeiras</p>
+    <main className="auth-shell">
+      <div className="auth-layout">
+        <aside className="auth-story"><MarcaCnutri /><IlustracaoCuidado />
+          <p className="eyebrow">Pessoas no centro do cuidado</p><h2>Nutrir também<br />é cuidar.</h2>
+          <p>Uma rotina mais simples para quem solicita, prepara e entrega cada refeição.</p>
+        </aside>
+        <section className="auth-form-panel" aria-labelledby="titulo-login">
+          <MarcaCnutri /><p className="eyebrow">Seu espaço de trabalho</p>
+          <h1 id="titulo-login">Que bom ter você aqui.</h1><p className="mt-3 text-sm text-slate-700">Acesse sua conta para continuar.</p>
+      <form onSubmit={submeter} className="space-y-5">
 
-        {erro && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
+        {erro && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
 
         <label className="block text-sm font-medium text-slate-900">Usuário
         <input
@@ -65,15 +72,15 @@ export default function Login() {
         <button
           type="submit"
           disabled={carregando}
-          className="w-full rounded-lg bg-brand py-3 font-bold text-white hover:bg-brand-hover disabled:opacity-50"
+          className="ui-button ui-button-primary w-full"
         >
-          {carregando ? 'A entrar…' : 'Entrar'}
+          {carregando ? 'Entrando…' : <><span>Entrar</span><Icone nome="seta" tamanho={18} /></>}
         </button>
 
-        <p className="text-center text-xs text-slate-700">
-          Use as credenciais fornecidas pela TI. Contas do AD utilizam a senha da rede.
-        </p>
       </form>
-    </div>
+          <p className="auth-help"><Icone nome="chave" tamanho={18} /><span>Use o usuário fornecido pela TI. Para contas da rede, utilize sua senha do AD. Se precisar de ajuda, procure o suporte da sua unidade.</span></p>
+        </section>
+      </div>
+    </main>
   )
 }

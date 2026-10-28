@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { codigoRecebimentoValido, nomeRecebedorValido, recebimentoApi, registroRecebimentoValido } from '../services/recebimentoQr.js'
+import { Icone, MarcaCnutri } from '../components/Identidade.jsx'
 
 const horario = (valor) => new Date(valor).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-const BOTAO = 'min-h-12 w-full rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50'
+const BOTAO = 'ui-button ui-button-primary min-h-12 w-full'
 
 export default function Receber() {
   const { hash } = useLocation()
@@ -46,17 +47,18 @@ function ConfirmarRecebimento({ codigo }) {
 
   function consultarNovamente() { setErro(''); setDados(null); setTentativa((t) => t + 1) }
 
-  return <main className="flex min-h-screen items-center justify-center bg-app-background p-4 text-slate-900">
-    <section className="w-full max-w-md space-y-5 rounded-2xl border-t-4 border-brand-vibrant bg-panel p-5 shadow-sm sm:p-8">
-      <header><p className="text-sm font-semibold text-brand">Cnutri</p><h1 className="mt-2 text-2xl font-bold">Recebimento da refeição</h1></header>
+  return <main className="auth-shell">
+    <section className="receipt-card space-y-5">
+      <header><MarcaCnutri compacto /><h1 className="mt-5">Recebimento da refeição</h1><p className="mt-3 text-sm text-slate-700">Sua confirmação completa esta etapa do cuidado.</p></header>
       {!valido ? <p role="alert">QR Code inválido. Escaneie o código da filipeta fornecida com a refeição.</p> : <>
         {dados && <div className="rounded-xl bg-brand-soft p-4"><p className="font-semibold">{dados.unidade}</p><p className="mt-1 text-sm">Pedido #{dados.pedido_id}</p></div>}
         {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</p>}
         {!dados && !erro && <p role="status">Consultando refeição…</p>}
         {dados?.status === 'ENTREGUE' ? <div role="status" className="space-y-2 rounded-xl bg-emerald-50 p-4 text-emerald-950">
-          <h2 className="font-bold">Recebimento já confirmado</h2>
+          <span className="inline-flex rounded-full bg-white p-2 text-emerald-800"><Icone nome="conferir" /></span>
+          <h2 className="font-bold">Recebimento confirmado</h2>
           {dados.confirmado_em && <p>Data e hora: {horario(dados.confirmado_em)}</p>}
-          <p className="text-sm">A entrega está registrada. Você pode fechar esta página.</p>
+          <p className="text-sm">Obrigado. A entrega está registrada e você já pode fechar esta página.</p>
         </div> : dados?.status === 'CANCELADO' ? <p role="status" className="rounded-xl bg-amber-50 p-4 text-amber-950">Esta solicitação foi cancelada. Confira a refeição com a cozinha.</p>
           : dados?.pode_confirmar ? <form onSubmit={confirmar} className="space-y-4">
             <label className="block text-sm font-semibold">Recebedor
