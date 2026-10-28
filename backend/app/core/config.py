@@ -7,6 +7,7 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from .marca import NOME_APLICACAO
+from .endereco_publico import normalizar_endereco_publico
 
 BACKEND = Path(__file__).resolve().parents[2]
 
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     JWT_EXPIRA_MINUTOS: int = 720
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    URL_PUBLICA: str | None = Field(default=None, max_length=300)
     URL_RECEBIMENTO_PUBLICA: str | None = Field(default=None, max_length=300)
     BACKUP_RELATORIO_ARQUIVO: Path = Field(default=BACKEND.parent / "work/recuperacao/ultimo_resultado.json", repr=False)
     AD_HABILITADO: bool = False
@@ -34,6 +36,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def impedir_segredos_padrao(self):
+        if self.URL_PUBLICA:
+            self.URL_PUBLICA = normalizar_endereco_publico(self.URL_PUBLICA)
+            self.URL_RECEBIMENTO_PUBLICA = self.URL_PUBLICA
+            self.CORS_ORIGINS = [self.URL_PUBLICA]
         if self.URL_RECEBIMENTO_PUBLICA:
             valor = self.URL_RECEBIMENTO_PUBLICA.strip().rstrip('/')
             partes = urlsplit(valor)

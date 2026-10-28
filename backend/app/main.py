@@ -102,6 +102,12 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/configuracao/instalacao")
+async def configuracao_instalacao():
+    # Somente o endereço distribuído aos clientes; configurações privadas não são expostas.
+    return {"url_publica": settings.URL_PUBLICA or None}
+
+
 @app.websocket("/ws/operacao/{filial_id}")
 async def ws_operacao(websocket: WebSocket, filial_id: int):
     async with SessionLocal() as db:

@@ -121,6 +121,11 @@ inicialização automática após reiniciar o computador.
 
 ## Linux/Docker — servidor de destino
 
+Instalações preparadas por `servidor.sh` usam o arquivo único `work/servidor.env`.
+Para elas, siga [Ativar HTTPS posteriormente](INSTALACAO-SERVIDOR.md#ativar-https-posteriormente):
+o assistente atualiza endereço, porta, atalhos e novos QR Codes juntos. O procedimento
+manual a seguir atende às instalações anteriores que usam arquivos Compose diretamente.
+
 O HTTPS pode ser configurado **depois da instalação base**, como etapa separada.
 O arquivo `docker-compose.https.yml` complementa a instalação existente e preserva
 o banco quando se mantém o mesmo projeto Compose e volume.
@@ -140,7 +145,8 @@ os valores não ativa o HTTPS. Ajuste para os dados reais fornecidos pela TI:
 ```dotenv
 CNUTRI_HOSTNAME=cnutri.preventsenior.com.br
 CNUTRI_TLS_DIR=/etc/ceres-care/tls
-URL_RECEBIMENTO_PUBLICA=https://${CNUTRI_HOSTNAME}
+URL_PUBLICA=https://${CNUTRI_HOSTNAME}
+URL_RECEBIMENTO_PUBLICA=${URL_PUBLICA}
 ```
 
 Disponibilize nessa pasta privada `servidor.pem` (certificado + intermediários)

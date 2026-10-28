@@ -1,7 +1,7 @@
 server {
     listen 80 default_server;
     server_name _;
-    return 308 https://${CNUTRI_HOSTNAME}$request_uri;
+    return 308 ${CNUTRI_URL_PUBLICA}$request_uri;
 }
 
 server {

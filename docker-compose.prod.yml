@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://dietas:${POSTGRES_PASSWORD:?Configure uma senha exclusiva para o banco}@db:5432/dietas
       JWT_SECRET: ${JWT_SECRET:?Configure um segredo JWT exclusivo de pelo menos 32 caracteres}
       ADMIN_INICIAL_SENHA: ${ADMIN_INICIAL_SENHA:-}
+      URL_PUBLICA: ${URL_PUBLICA:-}
       URL_RECEBIMENTO_PUBLICA: ${URL_RECEBIMENTO_PUBLICA:-}
       # Somente o nginx publica portas; ele substitui os cabeçalhos recebidos.
       FORWARDED_ALLOW_IPS: "*"
@@ -42,7 +43,7 @@ services:
     build: ./frontend
     container_name: dietas-frontend
     ports:
-      - "80:80"
+      - "${CNUTRI_PORTA_HTTP:-80}:80"
     depends_on:
       - backend
     restart: unless-stopped

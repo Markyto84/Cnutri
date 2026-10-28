@@ -7,6 +7,10 @@ certificados depende desse ambiente.
 
 ## HTTPS depois da instalação
 
+Para instalações novas, o [assistente inicial](INSTALACAO-SERVIDOR.md) centraliza
+IP/DNS, protocolo e portas em `work/servidor.env`. A ativação posterior do HTTPS
+usa esse mesmo assistente. A configuração manual abaixo permanece como alternativa.
+
 A instalação base usa `docker-compose.prod.yml`. O HTTPS é uma etapa separada,
 ativada pelo complemento `docker-compose.https.yml`, sem reinstalar o banco.
 O modelo público `infra/https.env.example` organiza domínio, pasta do certificado

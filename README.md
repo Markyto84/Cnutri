@@ -55,6 +55,19 @@ Projeto Cnutri/
 
 ## Como rodar em um servidor Linux
 
+Há um [assistente de configuração inicial](INSTALACAO-SERVIDOR.md) para definir
+IP/DNS, protocolo e porta da instalação, gerar os arquivos privados e iniciar os
+serviços com a mesma configuração. O painel de TI mostra o destino em **Servidor
+da aplicação**; atalhos e novos QR Codes seguem o endereço definido.
+
+```sh
+sh ./servidor.sh configurar
+sh ./servidor.sh validar
+sh ./servidor.sh iniciar
+```
+
+O procedimento manual abaixo continua disponível para instalações anteriores.
+
 O item 10 do review (HTTPS com domínio/certificado da TI e preparação operacional)
 foi adiado para o novo servidor. O roteiro Docker abaixo é a base existente e ainda
 precisa dessa etapa antes da implantação definitiva. A API deve usar **um único

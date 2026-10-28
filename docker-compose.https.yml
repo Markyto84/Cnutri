@@ -4,8 +4,9 @@ services:
   frontend:
     environment:
       CNUTRI_HOSTNAME: ${CNUTRI_HOSTNAME:?Informe o nome DNS da aplicação}
+      CNUTRI_URL_PUBLICA: ${URL_PUBLICA:-https://${CNUTRI_HOSTNAME}}
     ports:
-      - "443:443"
+      - "${CNUTRI_PORTA_HTTPS:-443}:443"
     volumes:
       - ./infra/nginx-https.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ${CNUTRI_TLS_DIR:?Informe a pasta privada com servidor.pem e chave.pem}:/etc/nginx/cnutri-tls:ro
