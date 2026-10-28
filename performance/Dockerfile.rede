@@ -1,0 +1,5 @@
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends iproute2 && rm -rf /var/lib/apt/lists/*
+COPY servicos_lab.py /lab/servicos_lab.py
+ENV MODO=proxy
+CMD ["sh", "-c", "tc qdisc replace dev eth0 root netem delay 50ms rate 5mbit limit 2000 && exec python /lab/servicos_lab.py"]
