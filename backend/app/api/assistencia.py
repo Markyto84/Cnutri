@@ -63,6 +63,7 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
     entrega = await db.get(EntregaPedido, pedido.id)
     recebimento = await db.get(RecebimentoEntrega, pedido.id) if entrega else None
     qr = await db.get(RecebimentoQR, pedido.id)
+    retirada = pedido.retirada
     config = await db.scalar(select(FormularioConfig).where(FormularioConfig.filial_id == pedido.filial_id,
         FormularioConfig.tipo_publico == "ENFERMAGEM"))
     emitidos = await db.scalar(select(TrabalhoImpressao.id).where(TrabalhoImpressao.pedido_id == pedido.id,
@@ -80,7 +81,9 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
             "registrado_por_usuario_id": entrega.registrado_por_usuario_id, "entregue_em": data_utc(entrega.entregue_em),
             "recebedor_nome": recebimento.recebedor_nome if recebimento else None,
             "assinatura_registrada": recebimento is not None, "origem_entrega": 'Copeira'} if entrega else {
-                "copeira_id": None, "copeira_nome": None, "registrado_por_usuario_id": None,
+                "copeira_id": retirada.copeira_id if retirada else None, "copeira_nome": retirada.copeira_nome if retirada else None,
+                "registrado_por_usuario_id": retirada.registrado_por_usuario_id if retirada else None,
+                "retirada_em": data_utc(retirada.retirada_em) if retirada else None,
                 "recebedor_nome": qr.recebedor_nome, "recebedor_registro_profissional": qr.registro_profissional,
                 "entregue_em": data_utc(qr.confirmado_em), "assinatura_registrada": False,
                 "origem_entrega": 'QR Code'} if qr and qr.confirmado_em else None}
@@ -130,7 +133,7 @@ async def corrigir(pedido_id: int, dados: PedidoAssistencialUpdate, db: AsyncSes
         db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=antes["status"], status_novo="PENDENTE", alterado_por_usuario_id=usuario.id))
     await enfileirar(db, pedido, pedido.filial, usuario.id, confirmar=dados.confirmar_substituicao)
     await db.commit()
-    await db.refresh(pedido, attribute_names=["trabalhos_impressao", "recebimento_qr"])
+    await db.refresh(pedido, attribute_names=["trabalhos_impressao", "recebimento_qr", "retirada"])
     await gerenciador_ws.transmitir(pedido.filial_id, {"evento": "pedido_corrigido", "pedido": PedidoOut.model_validate(pedido).model_dump(mode="json")})
     return {"id": pedido.id, "versao": pedido.versao, "mensagem": "Correção registrada. Pedido devolvido a Pendentes; substitua os documentos anteriores com a cozinha."}
 
@@ -154,5 +157,7 @@ async def conferir(pedido_id: int, dados: ConferenciaPrescricao, db: AsyncSessio
     codigo_qr = await db.get(RecebimentoQR, pedido.id)
     if codigo_qr:
         codigo_qr.versao = pedido.versao
+    if pedido.retirada:
+        pedido.retirada.versao = pedido.versao
     await db.commit()
     return {"id": pedido.id, "versao": pedido.versao}

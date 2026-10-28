@@ -44,12 +44,15 @@ async def relatorio_entregas(
     itens = []
     for pedido, entrega, qr, recebedor, operador in linhas:
         dados = pedido.dados_dinamicos or {}
+        retirada = pedido.retirada
         itens.append({"pedido_id": pedido.id, "tipo_solicitacao": pedido.tipo_solicitacao,
             "destinatario": pedido.nome_paciente or pedido.solicitante_nome,
             "solicitante_nome": pedido.solicitante_nome, "solicitante_identificacao": pedido.solicitante_identificacao,
             "leito": pedido.leito, "refeicao": dados.get("refeicao"),
             "local_entrega": dados.get("local_entrega") or dados.get("andar"),
-            "copeira_nome": entrega.copeira_nome if entrega else None,
+            "copeira_nome": entrega.copeira_nome if entrega else retirada.copeira_nome if retirada else None,
+            "copeira_id": entrega.copeira_id if entrega else retirada.copeira_id if retirada else None,
+            "retirada_em": data_utc(retirada.retirada_em) if retirada else None,
             "recebedor_nome": qr.recebedor_nome if qr and qr.confirmado_em else recebedor, "registrado_por_nome": operador,
             "recebedor_registro_profissional": qr.registro_profissional if qr and qr.confirmado_em else None,
             "origem_entrega": 'QR Code' if qr and qr.confirmado_em else 'Copeira',

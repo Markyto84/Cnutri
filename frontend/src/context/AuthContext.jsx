@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { AuthContext, inicioDoUsuario, useAuth } from './auth.js'
 import { filialDoPlantao } from '../services/rotasUnidades.js'
+import { limparRetirada } from '../services/retiradaEntrega.js'
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
@@ -72,6 +73,7 @@ export function AuthProvider({ children }) {
   }
 
   function sair() {
+    limparRetirada()
     const token = localStorage.getItem('token')
     const encerramento = token ? api.post('/auth/logout', {}, {
       headers: { Authorization: `Bearer ${token}` }, ignorarRedirecionamento401: true,

@@ -180,6 +180,19 @@ class AlertasUpdate(BaseModel):
     entrega_minutos: int | None = Field(default=None, ge=1, le=1440, strict=True)
 
 
+class RetiradaCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    copeira_id: int | None = Field(default=None, gt=0)
+    versao: int | None = Field(default=None, ge=1, strict=True)
+
+
+class RetiradaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    copeira_id: int
+    copeira_nome: str
+    retirada_em: datetime
+
+
 class EntregaCreate(BaseModel):
     copeira_id: int | None = Field(default=None, gt=0)
     # Compatibilidade com telas anteriores; a entrega atual dispensa comprovante.
@@ -307,6 +320,7 @@ class PedidoOut(BaseModel):
     prescricao: dict[str, Any] | None = None
     versao: int = 1
     recebimento_qr: bool = False
+    retirada: RetiradaOut | None = None
 
 
 class PedidoAssistencialUpdate(BaseModel):

@@ -8,7 +8,8 @@ from sqlalchemy import event, func, select
 
 import test_cozinha_sem_login as fixtures
 from app.core.config import settings
-from app.models.models import EventoAssistencial, Filial, FormularioConfig, HistoricoPedido, Pedido, RecebimentoQR
+from app.core.sessoes import emitir_sessao
+from app.models.models import EventoAssistencial, Filial, FormularioConfig, HistoricoPedido, Pedido, Perfil, RecebimentoQR, Usuario
 from app.services.impressora import compor_linhas_filipeta
 from app.services.impressao_raster import renderizar_filipeta, LinhaImpressao
 from app.services.recebimento_qr import endereco_recebimento, preparar_codigo
@@ -39,7 +40,11 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         async with self.f.sessoes() as db:
             for tipo in ('MEDICO', 'ENFERMAGEM'):
                 db.add(FormularioConfig(filial_id=self.f.a, tipo_publico=tipo, esquema_json={'campos': []}))
-            await db.commit()
+            copeira = Usuario(nome='Copeira Fictícia', nome_usuario='copeira_qr', senha_hash='NAO-UTILIZADO',
+                perfil=Perfil(nome='COPEIRA'), filiais=[await db.get(Filial, self.f.a)])
+            db.add(copeira)
+            await db.flush()
+            self.copeira = {'Authorization': 'Bearer ' + (await emitir_sessao(db, copeira, self.f.a)).access_token}
 
     async def asyncTearDown(self):
         self.config.stop()
@@ -49,16 +54,22 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         return {'tipo_solicitacao': 'PACIENTE' if paciente else 'MEDICO', 'solicitante_nome': 'Solicitante fictício',
             'solicitante_identificacao': 'REGISTRO PRIVADO', 'nome_paciente': 'Paciente fictício' if paciente else None}
 
-    async def criar(self, status='PENDENTE', paciente=False):
+    async def criar(self, status='PENDENTE', paciente=False, retirar=True):
         r = await self.f.cliente.post('/api/public/a/pedidos', json=self.payload(paciente))
         self.assertEqual(r.status_code, 201, r.text)
         pedido = r.json()['id']
         for etapa in (() if status == 'PENDENTE' else ('EM_PREPARO',) if status == 'EM_PREPARO' else ('EM_PREPARO', 'PRONTO')):
             r = await self.f.cliente.patch(f'{self.f.base}/pedidos/{pedido}/status', json={'status': etapa})
             self.assertEqual(r.status_code, 200, r.text)
+        if status == 'PRONTO' and retirar:
+            await self.retirar(pedido)
         async with self.f.sessoes() as db:
             codigo = await db.get(RecebimentoQR, pedido)
             return pedido, codigo.codigo
+
+    async def retirar(self, pedido):
+        r = await self.f.cliente.post(f'/api/operacao/unidades/{self.f.a}/pedidos/{pedido}/retirar', headers=self.copeira, json={})
+        self.assertEqual(r.status_code, 201, r.text)
 
     async def confirmar(self, codigo, registro='COREN-SP 123456', nome='João da Conceição'):
         return await self.f.cliente.post('/api/recebimentos/confirmar', json={'codigo': codigo,
@@ -72,7 +83,7 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(codigo), 43)
         r = await self.f.cliente.post('/api/recebimentos/consultar', json={'codigo': codigo}, headers={'Authorization': 'Bearer expirado'})
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual(set(r.json()), {'pedido_id', 'unidade', 'status', 'pode_confirmar', 'confirmado_em'})
+        self.assertEqual(set(r.json()), {'pedido_id', 'unidade', 'status', 'pode_confirmar', 'confirmado_em', 'copeira_nome', 'retirada_em', 'aguardando_retirada'})
         self.assertEqual(r.json()['pedido_id'], pedido)
         self.assertFalse(r.json()['pode_confirmar'])
         self.assertNotIn('Paciente', r.text)
@@ -89,6 +100,7 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual((await self.confirmar(codigo)).status_code, 409)
         await self.f.cliente.patch(f'{self.f.base}/pedidos/{pedido}/status', json={'status': 'PRONTO'})
+        await self.retirar(pedido)
         for registro in ('', '   ', 'a', 'COREN', '123\nABC', 'A' * 51, '=12345'):
             r = await self.confirmar(codigo, registro)
             self.assertEqual(r.status_code, 422, r.text)
@@ -128,7 +140,7 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.confirmar(codigo, nome="Érica D'Ávila-Souza")).status_code, 200)
 
     async def test_migracao_idempotente_preserva_recebimento_antigo_sem_inventar_nome(self):
-        pedido, codigo = await self.criar('PRONTO')
+        pedido, codigo = await self.criar('PRONTO', retirar=False)
         async with self.f.sessoes() as db:
             qr = await db.get(RecebimentoQR, pedido)
             qr.registro_profissional, qr.confirmado_em = 'COREN 123', func.now()
@@ -190,7 +202,8 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(item['recebedor_registro_profissional'], 'COREN-SP 123456')
         self.assertEqual(item['origem_entrega'], 'QR Code')
         self.assertFalse(item['assinatura_disponivel'])
-        self.assertIsNone(item['copeira_nome'])
+        self.assertEqual(item['copeira_nome'], 'Copeira Fictícia')
+        self.assertIsNotNone(item['retirada_em'])
         filtro = {'inicio': '2020-01-01T00:00:00Z', 'fim': '2100-01-01T00:00:00Z', 'data_base': 'entrega'}
         detalhes = await self.f.cliente.get('/api/relatorios/dietas-periodo', headers=self.f.admin, params=filtro)
         self.assertEqual(detalhes.status_code, 200, detalhes.text)

@@ -81,8 +81,12 @@ async def consultar_codigo(db, valor, bloquear=False):
 
 
 def resumo_recebimento(codigo, pedido, filial):
+    retirada = pedido.retirada
     return {'pedido_id': pedido.id, 'unidade': filial.nome, 'status': pedido.status,
-        'pode_confirmar': pedido.status == 'PRONTO', 'confirmado_em': data_utc(codigo.confirmado_em)}
+        'pode_confirmar': pedido.status == 'PRONTO' and retirada is not None, 'confirmado_em': data_utc(codigo.confirmado_em),
+        'aguardando_retirada': pedido.status == 'PRONTO' and retirada is None,
+        'copeira_nome': retirada.copeira_nome if retirada else None,
+        'retirada_em': data_utc(retirada.retirada_em) if retirada else None}
 
 
 async def confirmar_recebimento(db, dados, ip):
@@ -91,6 +95,8 @@ async def confirmar_recebimento(db, dados, ip):
         return resumo_recebimento(codigo, pedido, filial)
     if pedido.status != 'PRONTO':
         raise HTTPException(409, 'O recebimento só pode ser confirmado para uma refeição pronta e não cancelada')
+    if pedido.retirada is None:
+        raise HTTPException(409, 'A copeira precisa registrar a retirada desta refeição antes da confirmação do recebimento')
     alterado = await db.scalar(update(Pedido).where(Pedido.id == pedido.id, Pedido.status == 'PRONTO')
         .values(status='ENTREGUE').returning(Pedido.id).execution_options(synchronize_session=False))
     if alterado is None:
@@ -99,7 +105,8 @@ async def confirmar_recebimento(db, dados, ip):
     codigo.confirmado_em, codigo.ip_origem = func.now(), ip
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior='PRONTO', status_novo='ENTREGUE', alterado_por_usuario_id=None))
     registrar_evento(db, pedido, 'ENTREGA_CONFIRMADA_QR', depois={'status': 'ENTREGUE',
-        'recebedor_nome': dados.recebedor_nome, 'registro_profissional': dados.registro_profissional}, origem='RECEBEDOR_QR')
+        'recebedor_nome': dados.recebedor_nome, 'registro_profissional': dados.registro_profissional,
+        'copeira_id': pedido.retirada.copeira_id, 'copeira_nome': pedido.retirada.copeira_nome}, origem='RECEBEDOR_QR')
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=['dieta', 'trabalhos_impressao'])

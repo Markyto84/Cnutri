@@ -34,7 +34,8 @@ def pedido_operacional(dados: dict, autenticado=False) -> dict:
         # Sem nomes, localização, dieta, alergias, metadados de impressão ou campos futuros.
         return {"id": dados["id"], "filial_id": dados["filial_id"], "tipo_solicitacao": dados["tipo_solicitacao"],
             "status": dados["status"], "criado_em": data_utc(dados.get("criado_em")),
-            "concluido_em": data_utc(dados.get("concluido_em")), "dados_restritos": True}
+            "concluido_em": data_utc(dados.get("concluido_em")), "dados_restritos": True,
+            **({"em_entrega": True} if dados.get("retirada") else {})}
     dinamicos = dados.get("dados_dinamicos") or {}
     idade = None
     try:
@@ -59,4 +60,5 @@ def pedido_operacional(dados: dict, autenticado=False) -> dict:
         "etiqueta": dados.get("etiqueta"),
         "versao": dados.get("versao", 1),
         "recebimento_qr": dados.get("recebimento_qr", False),
+        "retirada": {**dados["retirada"], "retirada_em": data_utc(dados["retirada"]["retirada_em"])} if dados.get("retirada") else None,
     }

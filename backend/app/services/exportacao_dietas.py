@@ -40,6 +40,7 @@ COLUNAS = [
     ("tipo_liquido_espessado", "Líquido disponível selecionado", 30),
     ("cancelado_por_nome", "Cancelado por", 32), ("cancelado_por_usuario_id", "ID de quem cancelou", 22),
     ("motivo_cancelamento", "Motivo do cancelamento", 52), ("cancelado_em", "Cancelamento (Brasília)", 26),
+    ("retirada_em", "Retirada pela copeira (Brasília)", 28), ("etapa_entrega", "Etapa da entrega", 26),
 ]
 RESUMO = [("unidade", "Unidade", 38), ("dieta", "Dieta / categoria", 32), ("total", "Solicitações", 15),
     ("pendentes", "Pendentes", 14), ("em_preparo", "Em preparo", 14), ("prontos", "Prontos", 13),
@@ -56,8 +57,10 @@ def limpar(valor):
 
 def valor_celula(item, chave):
     valor = item.get(chave)
-    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em", "cancelado_em"):
+    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em", "cancelado_em", "retirada_em"):
         return horario_brasilia(valor)
+    if chave == "etapa_entrega":
+        return {"EM_ENTREGA": "Em entrega", "AGUARDANDO_RETIRADA": "Aguardando retirada", **STATUS}.get(valor, valor)
     if chave == "status":
         return STATUS.get(valor, valor)
     if chave == "tipo_solicitacao":

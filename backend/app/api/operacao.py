@@ -11,8 +11,8 @@ from ..core.database import get_db
 from ..core.security import exigir_perfis, usuario_opcional, verificar_acesso_filial
 from ..core.presenca import sessoes_online
 from ..core.ws import gerenciador_ws
-from ..models.models import EntregaPedido, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, RecebimentoEntrega, SessaoCopeira, Usuario
-from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, StatusUpdate
+from ..models.models import EntregaPedido, Filial, HistoricoPedido, ImpressoraEtiqueta, Pedido, RecebimentoEntrega, RetiradaPedido, SessaoCopeira, Usuario
+from ..schemas.schemas import EntregaCreate, PedidoOut, ReimpressaoCreate, RetiradaCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import STATUS_ATIVOS, data_utc, pedido_operacional, validar_transicao_cozinha
 from ..modules.assinatura import gerar_assinatura_png
@@ -178,6 +178,52 @@ async def imprimir_etiqueta(filial_id: int, pedido_id: int, dados: ReimpressaoCr
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])
     await notificar(pedido)
     return resposta_fila(job)
+
+
+@router.post("/unidades/{filial_id}/pedidos/{pedido_id}/retirar", status_code=201)
+async def retirar(filial_id: int, pedido_id: int, request: Request, response: Response,
+    dados: RetiradaCreate | None = None, db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(ENTREGADORES)):
+    await verificar_acesso_filial(filial_id, usuario, db)
+    dados = dados or RetiradaCreate()
+    if usuario.perfil.nome == "COPEIRA":
+        if dados.copeira_id is not None and dados.copeira_id != usuario.id:
+            raise HTTPException(403, "A copeira deve registrar a própria retirada")
+        copeira_id = usuario.id
+    else:
+        copeira_id = dados.copeira_id
+        if copeira_id is None:
+            raise HTTPException(422, "Selecione a copeira do plantão responsável pela retirada")
+    # A mesma trava coordena duas retiradas, correções, cancelamento e recebimento.
+    await db.scalar(select(Pedido.id).where(Pedido.id == pedido_id, Pedido.filial_id == filial_id).with_for_update())
+    pedido = await obter_pedido(filial_id, pedido_id, db)
+    if dados.versao is not None and dados.versao != pedido.versao:
+        raise HTTPException(409, "A refeição foi corrigida. Atualize o painel e confira a filipeta antes da retirada")
+    if pedido.status not in ("PRONTO", "ENTREGUE") or not pedido.recebimento_qr:
+        raise HTTPException(409, "A retirada exige uma refeição pronta com QR Code de recebimento")
+    retirada = await db.get(RetiradaPedido, (pedido.id, pedido.versao))
+    if retirada:
+        if retirada.copeira_id != copeira_id:
+            raise HTTPException(409, f"Esta refeição já foi retirada por {retirada.copeira_nome}")
+        response.status_code = 200
+        return serializar(pedido)
+    if pedido.status != "PRONTO":
+        raise HTTPException(409, "Esta refeição já teve o recebimento confirmado")
+    sessao = await db.scalar(sessoes_online(filial_id).where(SessaoCopeira.usuario_id == copeira_id)
+        .limit(1).with_for_update(of=SessaoCopeira))
+    if sessao is None:
+        raise HTTPException(409, "Aguarde a confirmação de presença da copeira neste plantão e tente novamente")
+    copeira = await db.get(Usuario, copeira_id)
+    retirada = RetiradaPedido(pedido_id=pedido.id, versao=pedido.versao, copeira_id=copeira.id,
+        copeira_nome=copeira.nome, registrado_por_usuario_id=usuario.id,
+        ip_origem=request.client.host if request.client else None)
+    db.add(retirada)
+    await db.flush()
+    registrar_evento(db, pedido, "RETIRADA_REGISTRADA", usuario,
+        depois={"copeira_id": copeira.id, "copeira_nome": copeira.nome, "retirada_em": data_utc(retirada.retirada_em)})
+    await db.commit()
+    await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao", "retirada"])
+    await notificar(pedido)
+    return serializar(pedido)
 
 
 @router.post("/unidades/{filial_id}/pedidos/{pedido_id}/entregar", status_code=201)

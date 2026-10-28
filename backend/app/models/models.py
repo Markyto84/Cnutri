@@ -1,7 +1,7 @@
 """Modelos SQLAlchemy — espelham o DDL da especificação técnica."""
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint, func, select
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint, and_, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
@@ -149,6 +149,18 @@ class RecebimentoQR(Base):
     ip_origem: Mapped[str | None] = mapped_column(String(45))
 
 
+class RetiradaPedido(Base):
+    __tablename__ = "retiradas_pedidos"
+
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), primary_key=True)
+    versao: Mapped[int] = mapped_column(Integer, primary_key=True)
+    copeira_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    copeira_nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    registrado_por_usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    retirada_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    ip_origem: Mapped[str | None] = mapped_column(String(45))
+
+
 class Pedido(Base):
     __tablename__ = "pedidos"
 
@@ -180,6 +192,9 @@ class Pedido(Base):
     dieta: Mapped[Dieta | None] = relationship()
     historico: Mapped[list["HistoricoPedido"]] = relationship(back_populates="pedido", cascade="all, delete")
     trabalhos_impressao: Mapped[list["TrabalhoImpressao"]] = relationship(lazy="selectin", order_by="TrabalhoImpressao.id")
+    retirada: Mapped[RetiradaPedido | None] = relationship(
+        primaryjoin=lambda: and_(Pedido.id == RetiradaPedido.pedido_id, Pedido.versao == RetiradaPedido.versao),
+        viewonly=True, uselist=False, lazy="selectin")
 
     @property
     def impressao(self):

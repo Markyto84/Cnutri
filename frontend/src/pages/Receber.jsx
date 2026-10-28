@@ -52,6 +52,9 @@ function ConfirmarRecebimento({ codigo }) {
       <header><MarcaAplicacao compacto /><h1 className="mt-5">Recebimento da refeição</h1><p className="mt-3 text-sm text-slate-700">Sua confirmação completa esta etapa do cuidado.</p></header>
       {!valido ? <p role="alert">QR Code inválido. Escaneie o código da filipeta fornecida com a refeição.</p> : <>
         {dados && <div className="rounded-xl bg-brand-soft p-4"><p className="font-semibold">{dados.unidade}</p><p className="mt-1 text-sm">Pedido #{dados.pedido_id}</p></div>}
+        {dados?.copeira_nome && <div className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-brand-ink"><Icone nome="entrega" />
+          <div><p className="text-xs text-slate-700">Copeira responsável pela entrega</p><p className="mt-1 font-semibold">{dados.copeira_nome}</p>
+            {dados.retirada_em && <p className="mt-1 text-xs text-slate-700">Retirada: {horario(dados.retirada_em)}</p>}</div></div>}
         {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</p>}
         {!dados && !erro && <p role="status">Consultando refeição…</p>}
         {dados?.status === 'ENTREGUE' ? <div role="status" className="space-y-2 rounded-xl bg-emerald-50 p-4 text-emerald-950">
@@ -73,7 +76,7 @@ function ConfirmarRecebimento({ codigo }) {
             </label>
             <p className="text-sm text-slate-700">Informe o nome e o registro profissional de quem recebeu a refeição e confirme o recebimento.</p>
             <button type="submit" disabled={enviando || !nomeRecebedorValido(recebedor) || !registroRecebimentoValido(registro)} className={BOTAO}>{enviando ? 'Confirmando…' : 'Confirmar recebimento'}</button>
-          </form> : dados && <div className="space-y-3"><p>A refeição ainda não está pronta para recebimento.</p><button onClick={consultarNovamente} className={BOTAO}>Consultar novamente</button></div>}
+          </form> : dados && <div className="space-y-3"><p>{dados.aguardando_retirada ? 'Aguardando a copeira registrar a retirada desta refeição. Depois, consulte novamente para confirmar o recebimento.' : 'A refeição ainda não está pronta para recebimento.'}</p><button onClick={consultarNovamente} className={BOTAO}>Consultar novamente</button></div>}
         {erro && <button onClick={consultarNovamente} disabled={enviando} className="min-h-12 w-full rounded-lg bg-slate-50 px-4 py-3 font-semibold">Consultar novamente</button>}
       </>}
     </section>

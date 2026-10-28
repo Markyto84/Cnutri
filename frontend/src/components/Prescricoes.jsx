@@ -8,7 +8,7 @@ import { CAMPO, FiltroUnidade, Paginacao, PRIMARIO, SECUNDARIO } from './Consult
 import FormDinamico from './FormDinamico.jsx'
 
 const ACOES = { SOLICITADO: 'Solicitação registrada', PEDIDO_CORRIGIDO: 'Pedido corrigido', VINCULO_CONFERIDO: 'Vínculo com prescrição conferido',
-  ETAPA_ALTERADA: 'Etapa alterada', ENTREGA_REGISTRADA: 'Entrega registrada' }
+  ETAPA_ALTERADA: 'Etapa alterada', RETIRADA_REGISTRADA: 'Retirada registrada', ENTREGA_REGISTRADA: 'Entrega registrada', ENTREGA_CONFIRMADA_QR: 'Recebimento confirmado por QR Code' }
 const ROTULOS = { solicitante_nome: 'Solicitante informado', solicitante_identificacao: 'Registro do solicitante',
   nome_paciente: 'Paciente', prontuario: 'Prontuário', leito: 'Leito', dieta_id: 'ID da dieta', dieta_nome: 'Dieta',
   observacoes_alergias: 'Restrições / alergias / observações', dados_dinamicos: 'Respostas do formulário', prescricao: 'Referência da prescrição',
