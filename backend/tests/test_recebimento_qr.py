@@ -68,13 +68,15 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
             return pedido, codigo.codigo
 
     async def retirar(self, pedido):
-        r = await self.f.cliente.post(f'/api/operacao/unidades/{self.f.a}/pedidos/{pedido}/retirar', headers=self.copeira, json={})
-        self.assertEqual(r.status_code, 201, r.text)
+        async with self.f.sessoes() as db:
+            codigo = (await db.get(RecebimentoQR, pedido)).codigo
+        r = await self.f.cliente.post('/api/recebimentos/identificar', headers=self.copeira, json={'codigo': codigo})
+        self.assertEqual(r.status_code, 200, r.text)
 
     async def confirmar(self, codigo, registro='COREN-SP 123456', nome='João da Conceição'):
         return await self.f.cliente.post('/api/recebimentos/confirmar', json={'codigo': codigo,
             'recebedor_nome': nome, 'registro_profissional': registro},
-            headers={'Authorization': 'Bearer expirado'})
+            headers=self.copeira)
 
     async def test_criacao_emite_codigo_exclusivo_consulta_publica_nao_expoe_dados_clinicos(self):
         pedido, codigo = await self.criar(paciente=True)
@@ -83,7 +85,7 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(codigo), 43)
         r = await self.f.cliente.post('/api/recebimentos/consultar', json={'codigo': codigo}, headers={'Authorization': 'Bearer expirado'})
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual(set(r.json()), {'pedido_id', 'unidade', 'status', 'pode_confirmar', 'confirmado_em', 'copeira_nome', 'retirada_em', 'aguardando_retirada'})
+        self.assertEqual(set(r.json()), {'pedido_id', 'filial_id', 'unidade', 'status', 'pode_confirmar', 'confirmado_em', 'copeira_nome', 'retirada_em', 'aguardando_retirada'})
         self.assertEqual(r.json()['pedido_id'], pedido)
         self.assertFalse(r.json()['pode_confirmar'])
         self.assertNotIn('Paciente', r.text)
@@ -121,13 +123,13 @@ class RecebimentoQRTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(select(func.count()).select_from(EventoAssistencial).where(EventoAssistencial.acao == 'ENTREGA_CONFIRMADA_QR')), 1)
             evento = await db.scalar(select(EventoAssistencial).where(EventoAssistencial.acao == 'ENTREGA_CONFIRMADA_QR'))
             self.assertEqual(evento.depois['recebedor_nome'], 'João da Conceição')
-        adulterada = await self.f.cliente.post('/api/recebimentos/confirmar', json={'codigo': codigo,
+        adulterada = await self.f.cliente.post('/api/recebimentos/confirmar', headers=self.copeira, json={'codigo': codigo,
             'recebedor_nome': 'Outra Pessoa', 'registro_profissional': 'CRM 1234', 'confirmado_em': '2000-01-01', 'pedido_id': 1})
         self.assertEqual(adulterada.status_code, 422)
 
     async def test_nome_obrigatorio_rejeita_vazio_controles_e_limite_sem_registrar_entrega(self):
         pedido, codigo = await self.criar('PRONTO')
-        sem_nome = await self.f.cliente.post('/api/recebimentos/confirmar', json={'codigo': codigo, 'registro_profissional': 'COREN 123'})
+        sem_nome = await self.f.cliente.post('/api/recebimentos/confirmar', headers=self.copeira, json={'codigo': codigo, 'registro_profissional': 'COREN 123'})
         self.assertEqual(sem_nome.status_code, 422)
         for nome in ('', '   ', 'A', 'A  ', '12345', '=João', 'João\nSilva', '<Pessoa>', 'A' * 121):
             with self.subTest(nome=nome):

@@ -37,7 +37,7 @@ class RetiradaEntregaTest(unittest.IsolatedAsyncioTestCase):
         return await self.f.client.post(self.base + '/retirar', headers=usuario or self.ana, json=dados or {})
 
     async def confirmar(self):
-        return await self.f.client.post('/api/recebimentos/confirmar', json={'codigo': self.codigo,
+        return await self.f.client.post('/api/recebimentos/confirmar', headers=self.ana, json={'codigo': self.codigo,
             'recebedor_nome': 'Recebedora Fictícia', 'registro_profissional': 'COREN-SP 000001'})
 
     async def test_primeira_retirada_exige_login_identidade_propria_unidade_e_presenca(self):
@@ -82,7 +82,7 @@ class RetiradaEntregaTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('Ana Teste', publica.text)
         self.assertNotIn('retirada_em', publica.text)
 
-    async def test_qr_aguarda_retirada_finaliza_apos_logout_e_preserva_identificacoes(self):
+    async def test_qr_preserva_identificacao_apos_logout_e_exige_nova_sessao_para_confirmar(self):
         antes = await self.f.client.post('/api/recebimentos/consultar', json={'codigo': self.codigo})
         self.assertFalse(antes.json()['pode_confirmar'])
         self.assertTrue(antes.json()['aguardando_retirada'])
@@ -95,6 +95,8 @@ class RetiradaEntregaTest(unittest.IsolatedAsyncioTestCase):
         depois = await self.f.client.post('/api/recebimentos/consultar', json={'codigo': self.codigo})
         self.assertEqual(depois.json()['copeira_nome'], 'Ana Teste')
         self.assertTrue(depois.json()['pode_confirmar'])
+        self.assertEqual((await self.confirmar()).status_code, 401)
+        self.ana = await self.f.entrar('ana')
         primeira = await self.confirmar()
         self.assertEqual(primeira.status_code, 200, primeira.text)
         self.assertEqual(primeira.json()['status'], 'ENTREGUE')
@@ -118,7 +120,7 @@ class RetiradaEntregaTest(unittest.IsolatedAsyncioTestCase):
             exportacao = await self.f.client.get('/api/relatorios/dietas-periodo/exportar', params={**filtro, 'formato': formato}, headers=self.admin)
             self.assertEqual(exportacao.status_code, 200, exportacao.text[:100] if formato == 'csv' else '')
             if formato == 'csv':
-                self.assertIn('Retirada pela copeira (Brasília)', exportacao.text)
+                self.assertIn('Identificação da copeira (Brasília)', exportacao.text)
                 self.assertIn('Ana Teste', exportacao.text)
                 self.assertIn('Recebedora Fictícia', exportacao.text)
             if formato == 'xlsx':
@@ -126,7 +128,7 @@ class RetiradaEntregaTest(unittest.IsolatedAsyncioTestCase):
                 folha = livro['Solicitações']
                 colunas = {c.value: c.column for c in folha[7]}
                 linha = next(n for n in range(8, folha.max_row + 1) if folha.cell(n, colunas['Pedido']).value == self.id)
-                self.assertIsInstance(folha.cell(linha, colunas['Retirada pela copeira (Brasília)']).value, datetime)
+                self.assertIsInstance(folha.cell(linha, colunas['Identificação da copeira (Brasília)']).value, datetime)
                 self.assertIsInstance(folha.cell(linha, colunas['Entrega (Brasília)']).value, datetime)
         entregas = await self.f.client.get('/api/relatorios/entregas', params={'filial_id': self.f.a}, headers=self.admin)
         item = next(p for p in entregas.json()['itens'] if p['pedido_id'] == self.id)
@@ -147,6 +149,35 @@ class RetiradaEntregaTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(nova.json()['retirada']['copeira_id'], self.f.bia)
         async with self.f.sessoes() as db:
             self.assertEqual(await db.scalar(select(func.count()).select_from(RetiradaPedido)), 2)
+
+    async def identificar(self, cabecalho=None):
+        return await self.f.client.post('/api/recebimentos/identificar', headers=cabecalho or self.ana, json={'codigo': self.codigo})
+
+    async def test_login_e_identificacao_acontecem_no_qr_sem_etapa_no_painel(self):
+        sem_login = await self.f.client.post('/api/recebimentos/identificar', json={'codigo': self.codigo})
+        self.assertEqual(sem_login.status_code, 401)
+        primeira = await self.identificar()
+        self.assertEqual(primeira.status_code, 200, primeira.text)
+        self.assertTrue(primeira.json()['pode_confirmar'])
+        self.assertEqual(primeira.json()['copeira_nome'], 'Ana Teste')
+        self.assertEqual(primeira.json(), (await self.identificar()).json())
+        self.assertEqual((await self.identificar(self.bia)).status_code, 409)
+        self.assertEqual((await self.f.client.post('/api/recebimentos/confirmar', headers=self.bia,
+            json={'codigo': self.codigo, 'recebedor_nome': 'Pessoa Fictícia', 'registro_profissional': 'COREN 123'})).status_code, 403)
+        self.assertEqual((await self.confirmar()).status_code, 200)
+        async with self.f.sessoes() as db:
+            self.assertEqual(await db.scalar(select(func.count()).select_from(RetiradaPedido)), 1)
+            self.assertEqual(await db.scalar(select(func.count()).select_from(EventoAssistencial).where(EventoAssistencial.acao == 'COPEIRA_IDENTIFICADA_QR')), 1)
+
+    async def test_qr_exige_copeira_da_unidade_e_rejeita_identidade_ou_horario_enviados_pelo_cliente(self):
+        self.assertEqual((await self.identificar(self.admin)).status_code, 403)
+        for dados in ({'copeira_id': self.f.bia}, {'identificada_em': '2000-01-01'}, {'copeira_nome': 'Outra pessoa'}):
+            r = await self.f.client.post('/api/recebimentos/identificar', headers=self.ana, json={'codigo': self.codigo, **dados})
+            self.assertEqual(r.status_code, 422)
+        async with self.f.sessoes() as db:
+            (await db.get(Pedido, self.id)).filial_id = self.f.b
+            await db.commit()
+        self.assertEqual((await self.identificar(self.bia)).status_code, 403)
 
 
 @unittest.skipUnless(os.environ.get('CNUTRI_TEST_POSTGRES_URL'), 'Requer PostgreSQL de teste')
@@ -179,3 +210,10 @@ class RetiradaEntregaPostgresTest(RetiradaEntregaTest):
         resultados = await asyncio.gather(self.retirar(), self.retirar())
         self.assertEqual(sorted(r.status_code for r in resultados), [200, 201], [r.text for r in resultados])
         self.assertEqual(resultados[0].json()['retirada'], resultados[1].json()['retirada'])
+
+    async def test_duas_leituras_qr_de_copeiras_distintas_identificam_uma_so(self):
+        resultados = await asyncio.gather(self.identificar(self.ana), self.identificar(self.bia))
+        self.assertEqual(sorted(r.status_code for r in resultados), [200, 409], [r.text for r in resultados])
+        async with self.f.sessoes() as db:
+            self.assertEqual(await db.scalar(select(func.count()).select_from(RetiradaPedido)), 1)
+            self.assertEqual(await db.scalar(select(func.count()).select_from(EventoAssistencial).where(EventoAssistencial.acao == 'COPEIRA_IDENTIFICADA_QR')), 1)

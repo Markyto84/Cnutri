@@ -38,14 +38,14 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
       <button onClick={() => painel.recarregar()} className={`${BOTAO} bg-slate-50 text-slate-900`}>Atualizar</button>
       {usuario?.perfil === 'ADMIN_TI' && <Link to="/admin" className={`${BOTAO} bg-slate-50 text-center`}>Administração</Link>}
       {usuario?.perfil === 'NUTRICIONISTA' && <Link to={filialId ? `/gestao?unidade=${filialId}` : '/gestao'} className={`${BOTAO} bg-slate-50 text-center`}>Gestão</Link>}
-      {!usuario && <Link to={entrega ? `/login?retorno=${encodeURIComponent(`/entregas/${filialId}`)}` : '/login'} className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>{entrega ? 'Entrar no plantão' : 'Entrar na gestão'}</Link>}
+      {!usuario && !entrega && <Link to="/login" className={`${BOTAO} col-span-2 bg-brand text-center text-white hover:bg-brand-hover`}>Entrar na gestão</Link>}
       {usuario && <Link to={caminhoAtual ? `/senha?retorno=${encodeURIComponent(caminhoAtual)}` : '/senha'} className={`${BOTAO} bg-slate-50 text-center`}>{usuario.troca_senha_obrigatoria ? 'Definir nova senha' : 'Alterar minha senha'}</Link>}
       {usuario && <button onClick={sair} className={`${BOTAO} col-span-2 bg-slate-50 text-slate-900`}>Sair{usuario.perfil === 'COPEIRA' ? ' do plantão' : ''}</button>}
     </div>
     {usuario?.perfil === 'COPEIRA' && <p role="status" className={`rounded-lg p-3 text-sm ${nestePlantao && plantaoOnline ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
       <strong>{usuario.nome}</strong> · {nestePlantao && plantaoOnline ? 'Você está online neste plantão' : 'Sua presença depende de conexão e vínculo com esta unidade'}
     </p>}
-    {entrega && !usuario && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Consulta pública por número e etapa. Entre com uma conta vinculada à unidade para visualizar destinatários, dietas e locais de entrega.</p>}
+    {entrega && !usuario && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Consulta pública por número e etapa. O acesso da copeira é feito no celular após a leitura do QR Code da filipeta.</p>}
   </header>
 }
 

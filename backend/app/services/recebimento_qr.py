@@ -1,4 +1,4 @@
-"""Código opaco da filipeta e confirmação única, sem autenticação pessoal do navegador."""
+"""QR Code móvel: autenticação da copeira, recebedor declarado e confirmação única."""
 import re
 import secrets
 import unicodedata
@@ -8,8 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select, update
 
 from ..core.config import settings
+from ..core.security import verificar_acesso_filial
 from ..core.ws import gerenciador_ws
-from ..models.models import Filial, HistoricoPedido, Pedido, RecebimentoQR
+from ..models.models import Filial, HistoricoPedido, Pedido, RecebimentoQR, RetiradaPedido
 from ..schemas.schemas import PedidoOut
 from .assistencia import registrar_evento
 from .operacao import data_utc
@@ -82,29 +83,56 @@ async def consultar_codigo(db, valor, bloquear=False):
 
 def resumo_recebimento(codigo, pedido, filial):
     retirada = pedido.retirada
-    return {'pedido_id': pedido.id, 'unidade': filial.nome, 'status': pedido.status,
+    return {'pedido_id': pedido.id, 'filial_id': filial.id, 'unidade': filial.nome, 'status': pedido.status,
         'pode_confirmar': pedido.status == 'PRONTO' and retirada is not None, 'confirmado_em': data_utc(codigo.confirmado_em),
         'aguardando_retirada': pedido.status == 'PRONTO' and retirada is None,
         'copeira_nome': retirada.copeira_nome if retirada else None,
         'retirada_em': data_utc(retirada.retirada_em) if retirada else None}
 
 
-async def confirmar_recebimento(db, dados, ip):
+async def identificar_copeira(db, dados, ip, usuario):
     codigo, pedido, filial = await consultar_codigo(db, dados.codigo, bloquear=True)
+    await verificar_acesso_filial(filial.id, usuario, db)
+    if pedido.retirada and pedido.retirada.copeira_id != usuario.id:
+        raise HTTPException(409, f'Esta refeição já está identificada com {pedido.retirada.copeira_nome}. Entre com a conta responsável')
+    if codigo.confirmado_em is not None:
+        return resumo_recebimento(codigo, pedido, filial)
+    if pedido.status != 'PRONTO':
+        raise HTTPException(409, 'A identificação da entrega exige uma refeição pronta e não cancelada')
+    if pedido.retirada is not None:
+        return resumo_recebimento(codigo, pedido, filial)
+    identificacao = RetiradaPedido(pedido_id=pedido.id, versao=pedido.versao, copeira_id=usuario.id,
+        copeira_nome=usuario.nome, registrado_por_usuario_id=usuario.id, ip_origem=ip)
+    db.add(identificacao)
+    await db.flush()
+    registrar_evento(db, pedido, 'COPEIRA_IDENTIFICADA_QR', usuario,
+        depois={'copeira_id': usuario.id, 'copeira_nome': usuario.nome, 'identificada_em': data_utc(identificacao.retirada_em)}, origem='COPEIRA_QR')
+    await db.commit()
+    await db.refresh(pedido, attribute_names=['dieta', 'trabalhos_impressao', 'retirada'])
+    await gerenciador_ws.transmitir(pedido.filial_id, {'evento': 'status_alterado',
+        'pedido': PedidoOut.model_validate(pedido).model_dump(mode='json')})
+    return resumo_recebimento(codigo, pedido, filial)
+
+
+async def confirmar_recebimento(db, dados, ip, usuario):
+    codigo, pedido, filial = await consultar_codigo(db, dados.codigo, bloquear=True)
+    await verificar_acesso_filial(filial.id, usuario, db)
+    if pedido.retirada is not None and pedido.retirada.copeira_id != usuario.id:
+        raise HTTPException(403, 'Entre com a conta da copeira identificada nesta refeição para confirmar a entrega')
     if codigo.confirmado_em is not None:
         return resumo_recebimento(codigo, pedido, filial)
     if pedido.status != 'PRONTO':
         raise HTTPException(409, 'O recebimento só pode ser confirmado para uma refeição pronta e não cancelada')
     if pedido.retirada is None:
-        raise HTTPException(409, 'A copeira precisa registrar a retirada desta refeição antes da confirmação do recebimento')
+        raise HTTPException(409, 'Identifique a copeira pela leitura do QR Code antes de confirmar o recebimento')
     alterado = await db.scalar(update(Pedido).where(Pedido.id == pedido.id, Pedido.status == 'PRONTO')
         .values(status='ENTREGUE').returning(Pedido.id).execution_options(synchronize_session=False))
     if alterado is None:
         raise HTTPException(409, 'A refeição já foi atualizada. Consulte novamente a filipeta')
     codigo.recebedor_nome, codigo.registro_profissional = dados.recebedor_nome, dados.registro_profissional
     codigo.confirmado_em, codigo.ip_origem = func.now(), ip
-    db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior='PRONTO', status_novo='ENTREGUE', alterado_por_usuario_id=None))
-    registrar_evento(db, pedido, 'ENTREGA_CONFIRMADA_QR', depois={'status': 'ENTREGUE',
+    db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior='PRONTO', status_novo='ENTREGUE', alterado_por_usuario_id=usuario.id))
+    registrar_evento(db, pedido, 'ENTREGA_CONFIRMADA_QR', usuario, depois={'status': 'ENTREGUE',
         'recebedor_nome': dados.recebedor_nome, 'registro_profissional': dados.registro_profissional,
         'copeira_id': pedido.retirada.copeira_id, 'copeira_nome': pedido.retirada.copeira_nome}, origem='RECEBEDOR_QR')
     await db.commit()

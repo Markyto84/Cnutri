@@ -1,32 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { consumirRetirada, etapaEntrega, guardarRetirada, limparRetirada } from '../src/services/retiradaEntrega.js'
+import { etapaEntrega, limparRetirada } from '../src/services/retiradaEntrega.js'
 
 function armazenamento() {
   const mapa = new Map()
   return { getItem: k => mapa.get(k) ?? null, setItem: (k, v) => mapa.set(k, v), removeItem: k => mapa.delete(k) }
 }
 
-test('primeira retirada continua uma única vez após login, somente na unidade escolhida', () => {
+test('logout limpa intenções antigas do painel sem criar novas retiradas', () => {
   const s = armazenamento()
-  guardarRetirada('2', 32, s, 1000)
-  assert.equal(consumirRetirada('2', s, 2000), 32)
-  assert.equal(consumirRetirada('2', s, 2000), null)
-  guardarRetirada(2, 33, s, 1000)
-  assert.equal(consumirRetirada(3, s, 2000), null)
-  assert.equal(consumirRetirada(2, s, 2000), null)
-})
-
-test('intenção expirada, futura, corrompida ou encerrada no logout não retira refeições', () => {
-  const s = armazenamento()
-  guardarRetirada(2, 32, s, 1000)
-  assert.equal(consumirRetirada(2, s, 301000), null)
-  guardarRetirada(2, 32, s, 1000)
-  assert.equal(consumirRetirada(2, s, 900), null)
-  s.setItem('cnutri-retirada-apos-login', 'inválido')
-  assert.equal(consumirRetirada(2, s, 1000), null)
-  guardarRetirada(2, 32, s, 1000); limparRetirada(s)
-  assert.equal(consumirRetirada(2, s, 2000), null)
+  s.setItem('cnutri-retirada-apos-login', '{"pedidoId":32}')
+  limparRetirada(s)
+  assert.equal(s.getItem('cnutri-retirada-apos-login'), null)
 })
 
 test('retirada apresenta Em entrega até o recebimento, preservando cancelamento e conclusão', () => {

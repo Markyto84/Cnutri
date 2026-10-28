@@ -4,6 +4,7 @@ import { api } from '../services/api.js'
 import { AuthContext, inicioDoUsuario, useAuth } from './auth.js'
 import { filialDoPlantao } from '../services/rotasUnidades.js'
 import { limparRetirada } from '../services/retiradaEntrega.js'
+import { limparCodigoRecebimento } from '../services/recebimentoQr.js'
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
@@ -74,6 +75,7 @@ export function AuthProvider({ children }) {
 
   function sair() {
     limparRetirada()
+    limparCodigoRecebimento()
     const token = localStorage.getItem('token')
     const encerramento = token ? api.post('/auth/logout', {}, {
       headers: { Authorization: `Bearer ${token}` }, ignorarRedirecionamento401: true,

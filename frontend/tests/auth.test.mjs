@@ -29,3 +29,9 @@ test('troca obrigatória vem antes do painel e preserva retorno interno permitid
   assert.equal(inicioDoUsuario(usuario), '/senha')
   assert.equal(destinoAposLogin(usuario, parametros('/entregas/1')), '/senha?retorno=%2Fentregas%2F1')
 })
+
+test('login no celular retorna ao QR Code e preserva troca obrigatória de senha', () => {
+  assert.equal(destinoAposLogin(copeira, parametros('/receber')), '/receber')
+  assert.equal(destinoAposLogin({ ...copeira, troca_senha_obrigatoria: true }, parametros('/receber')), '/senha?retorno=%2Freceber')
+  assert.equal(destinoAposLogin(copeira, parametros('/receber?codigo=indevido')), '/entregas/1')
+})

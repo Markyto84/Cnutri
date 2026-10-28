@@ -22,6 +22,7 @@ export function podeOperar(usuario, filialId, perfis) {
 
 export function destinoAposLogin(usuario, parametros) {
   const retorno = parametros.get('retorno') || (usuario.perfil === 'COPEIRA' && parametros.get('unidade') ? `/entregas/${parametros.get('unidade')}` : '')
+  if (retorno === '/receber') return usuario.troca_senha_obrigatoria ? '/senha?retorno=%2Freceber' : '/receber'
   const partes = retorno.match(/^\/(cozinha|entregas)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/)
   const filial = partes && unidadeDoPainel(retorno, usuario.filiais || [])
   const perfis = partes?.[1] === 'cozinha' ? ['ADMIN_TI', 'NUTRICIONISTA', 'COZINHA'] : ['ADMIN_TI', 'NUTRICIONISTA', 'COPEIRA']

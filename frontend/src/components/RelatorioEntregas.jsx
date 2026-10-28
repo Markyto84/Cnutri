@@ -74,7 +74,7 @@ function Comprovante({ item, filialId }) {
       <div><dt className="text-slate-700">Confirmação</dt><dd className="font-semibold">{item.origem_entrega || 'Copeira'}{item.copeira_nome && ` · ${item.copeira_nome}`}</dd></div>
       {item.recebedor_registro_profissional && <div><dt className="text-slate-700">Registro profissional do recebedor</dt><dd className="font-semibold">{item.recebedor_registro_profissional}</dd></div>}
       {(item.registrado_por_nome || item.origem_entrega !== 'QR Code') && <div><dt className="text-slate-700">Registrado por</dt><dd className="font-semibold">{item.registrado_por_nome || 'Não registrado na entrega antiga'}</dd></div>}
-      {item.retirada_em && <div><dt className="text-slate-700">Data e hora da retirada</dt><dd className="font-semibold">{horario(item.retirada_em)}</dd></div>}
+      {item.retirada_em && <div><dt className="text-slate-700">Data e hora da identificação da copeira</dt><dd className="font-semibold">{horario(item.retirada_em)}</dd></div>}
       {item.recebedor_nome && <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome}</dd></div>}
       <div><dt className="text-slate-700">Data e hora da entrega</dt><dd className="font-semibold">{horario(item.entregue_em)}</dd></div>
       <div><dt className="text-slate-700">Local / leito</dt><dd>{[item.local_entrega, item.leito && `Leito ${item.leito}`].filter(Boolean).join(' · ') || 'Não informado'}</dd></div>

@@ -118,7 +118,7 @@ export default function RelatorioDietas({ filialId, filiais }) {
             <p className="whitespace-pre-wrap"><strong>Motivo:</strong> {item.motivo_cancelamento || 'Não registrado na época'}</p>
           </div>}
           <p className="text-slate-700">Solicitação: {horario(item.criado_em)}</p><p className="text-slate-700">Entrega: {horario(item.entregue_em)}{item.copeira_nome && ` · ${item.copeira_nome}`}</p>
-          {item.retirada_em && <div className="space-y-1 rounded-lg bg-brand-soft p-3 text-brand-ink"><p><strong>Copeira responsável:</strong> {item.copeira_nome}</p><p><strong>Retirada:</strong> {horario(item.retirada_em)}</p>
+          {item.retirada_em && <div className="space-y-1 rounded-lg bg-brand-soft p-3 text-brand-ink"><p><strong>Copeira responsável:</strong> {item.copeira_nome}</p><p><strong>Identificação da copeira:</strong> {horario(item.retirada_em)}</p>
             {item.etapa_entrega === 'EM_ENTREGA' && <p className="font-semibold">Em entrega · aguardando confirmação do recebedor</p>}</div>}
           {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
           {(item.recebedor_nome || item.recebedor_registro_profissional) && <p className="text-slate-700">Recebedor: {item.recebedor_nome || 'Nome não registrado'}{item.recebedor_registro_profissional && ` · ${item.recebedor_registro_profissional}`}
