@@ -36,7 +36,7 @@ function Aviso({ erro, sucesso }) {
 export default function Admin() {
   const { usuario, sair, atualizarUsuario } = useAuth()
   const [aba, setAba] = useState('monitoramento')
-  const [dados, setDados] = useState({ filiais: [], usuarios: [] })
+  const [dados, setDados] = useState({ filiais: [], usuarios: [], urlPublica: null })
   const [carregando, setCarregando] = useState(true)
   const [revisao, setRevisao] = useState(0)
   const [erro, setErro] = useState(null)
@@ -44,8 +44,8 @@ export default function Admin() {
 
   useEffect(() => {
     const controller = new AbortController()
-    Promise.all([api.get('/admin/filiais', { signal: controller.signal }), api.get('/admin/usuarios', { signal: controller.signal })])
-      .then(([filiais, usuarios]) => { if (!controller.signal.aborted) setDados({ filiais: filiais.data, usuarios: usuarios.data }) })
+    Promise.all([api.get('/admin/filiais', { signal: controller.signal }), api.get('/admin/usuarios', { signal: controller.signal }), api.get('/configuracao/instalacao', { signal: controller.signal })])
+      .then(([filiais, usuarios, instalacao]) => { if (!controller.signal.aborted) setDados({ filiais: filiais.data, usuarios: usuarios.data, urlPublica: instalacao.data.url_publica }) })
       .catch((e) => { if (!controller.signal.aborted) setErro(mensagemErro(e)) })
       .finally(() => { if (!controller.signal.aborted) setCarregando(false) })
     return () => controller.abort()
@@ -75,14 +75,15 @@ export default function Admin() {
       ].map(([rotulo, total, icone]) => <Indicador key={rotulo} titulo={rotulo} valor={total} icone={icone} />)}
     </div>}
     <nav className="workspace-nav" aria-label="Administração">
-      {[['monitoramento', 'Monitoramento', 'gestao'], ['prescricoes', 'Pedidos e rastreabilidade', 'prancheta'], ['unidades', 'Unidades', 'unidade'], ['credenciais', 'Credenciais', 'chave'], ['impressoras', 'Impressoras', 'impressora'], ['central-impressoes', 'Central de impressões', 'impressora'], ['alertas', 'Alertas de demora', 'relogio'], ['historico', 'Histórico de alterações', 'historico'], ['relatorios', 'Relatórios', 'gestao']].map(([id, rotulo, icone]) =>
+      {[['monitoramento', 'Monitoramento', 'gestao'], ['servidor', 'Servidor da aplicação', 'ajustes'], ['prescricoes', 'Pedidos e rastreabilidade', 'prancheta'], ['unidades', 'Unidades', 'unidade'], ['credenciais', 'Credenciais', 'chave'], ['impressoras', 'Impressoras', 'impressora'], ['central-impressoes', 'Central de impressões', 'impressora'], ['alertas', 'Alertas de demora', 'relogio'], ['historico', 'Histórico de alterações', 'historico'], ['relatorios', 'Relatórios', 'gestao']].map(([id, rotulo, icone]) =>
         <button key={id} aria-pressed={aba === id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}><Icone nome={icone} tamanho={18} />{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />
     {carregando ? <p>Carregando administração…</p> : <>
       {aba === 'monitoramento' && <Monitoramento onAbrirCentral={() => setAba('central-impressoes')} />}
       {aba === 'prescricoes' && <Prescricoes filiais={dados.filiais} />}
-      {aba === 'unidades' && <Unidades filiais={dados.filiais} onConcluido={concluido} />}
+      {aba === 'servidor' && <ServidorInstalacao urlPublica={dados.urlPublica} />}
+      {aba === 'unidades' && <Unidades filiais={dados.filiais} urlPublica={dados.urlPublica} onConcluido={concluido} />}
       {aba === 'credenciais' && <Credenciais filiais={dados.filiais} usuarios={dados.usuarios} usuarioAtual={usuario} onConcluido={concluido} />}
       {aba === 'impressoras' && <Impressoras filiais={dados.filiais} onConcluido={concluido} />}
       {aba === 'relatorios' && <RelatorioDietas filiais={dados.filiais} />}
@@ -93,7 +94,21 @@ export default function Admin() {
   </div>
 }
 
-function Unidades({ filiais, onConcluido }) {
+function ServidorInstalacao({ urlPublica }) {
+  const endereco = urlPublica || window.location.origin
+  return <section className="space-y-5 rounded-xl bg-panel p-5" aria-labelledby="titulo-servidor">
+    <div><p className="eyebrow">Configuração da instalação</p><h2 id="titulo-servidor" className="mt-2 text-xl font-bold">Servidor da aplicação</h2>
+      <p className="mt-3 text-sm text-slate-700">Este endereço identifica a instalação para distribuir os acessos da equipe e gerar novos QR Codes.</p></div>
+    <div><p className="mb-1 text-sm font-semibold">Endereço da aplicação</p><p className="break-all rounded-lg bg-slate-50 p-3 font-semibold text-brand">{endereco}</p>
+      <p className="mt-2 text-sm text-slate-700">{urlPublica ? 'Definido no assistente de instalação do servidor.' : 'Acompanhando o endereço aberto no navegador. O assistente de instalação permite definir um endereço fixo.'}</p></div>
+    <dl className="grid gap-3 sm:grid-cols-2">{[['Login', '/login'], ['Administração de TI', '/admin'], ['Gestão de nutrição', '/gestao'], ['Recebimento por QR Code', '/receber']].map(([rotulo, caminho]) =>
+      <div key={caminho} className="min-w-0 rounded-lg border border-slate-200 p-4"><dt className="text-sm font-semibold">{rotulo}</dt><dd className="mt-2"><a className="break-all text-sm text-brand underline" href={`${endereco}${caminho}`} target="_blank" rel="noreferrer">{endereco}{caminho}</a></dd></div>)}</dl>
+    <p className="text-sm text-slate-700">Os acessos de formulários, cozinhas e entregas acompanham as unidades cadastradas. Na aba Unidades, baixe o atalho de cada formulário.</p>
+    <p className="text-sm text-slate-700">Para mudar IP, domínio, porta ou ativar HTTPS, execute o assistente no servidor e aplique a configuração na janela de manutenção. QR Codes já impressos precisam conservar um endereço acessível.</p>
+  </section>
+}
+
+function Unidades({ filiais, urlPublica, onConcluido }) {
   const [editando, setEditando] = useState(null)
   const [ultimaSalva, setUltimaSalva] = useState(null)
   return <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
@@ -106,7 +121,7 @@ function Unidades({ filiais, onConcluido }) {
         <p className="text-sm text-slate-700">Impressora: {f.ip_impressora || 'Não configurada'}</p>
         <div className="flex flex-wrap gap-2">
           {f.ativa && <a href={`/${f.codigo_slug}`} target="_blank" rel="noreferrer" className={SECUNDARIO}>Abrir formulário</a>}
-          <AtalhoUnidade filial={f} />
+          <AtalhoUnidade filial={f} urlPublica={urlPublica} />
           <Link to={`/gestao?unidade=${f.id}`} className={SECUNDARIO}>Gerenciar unidade</Link>
           <Link to={caminhoCozinha(f)} className={SECUNDARIO}>Painel da cozinha</Link>
           <Link to={`/entregas/${f.id}`} className={SECUNDARIO}>Entregas das copeiras</Link>
@@ -115,15 +130,15 @@ function Unidades({ filiais, onConcluido }) {
       {!filiais.length && <p className="rounded-xl bg-panel p-5">Cadastre a primeira unidade para começar.</p>}
     </div>
     <div className="space-y-4">
-      <AtalhoUnidade filial={ultimaSalva} mostrarEndereco />
+      <AtalhoUnidade filial={ultimaSalva} urlPublica={urlPublica} mostrarEndereco />
       <FormularioUnidade key={editando?.id || 'nova'} filial={editando} filiais={filiais}
         onCancelar={() => setEditando(null)} onConcluido={(mensagem, salva) => { setUltimaSalva(salva); setEditando(null); onConcluido(mensagem) }} />
     </div>
   </div>
 }
 
-function AtalhoUnidade({ filial, mostrarEndereco = false }) {
-  const atalho = criarAtalhoUnidade(filial, window.location.origin)
+function AtalhoUnidade({ filial, urlPublica, mostrarEndereco = false }) {
+  const atalho = criarAtalhoUnidade(filial, window.location.origin, urlPublica)
   if (!atalho) return null
   function baixar(evento) {
     evento.preventDefault()

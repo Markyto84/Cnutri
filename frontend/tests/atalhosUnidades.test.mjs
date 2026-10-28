@@ -31,3 +31,15 @@ test('não gera download para rascunho, unidade inativa ou endereço inválido',
   }
   for (const origem of ['invalida', 'javascript:alert(1)', 'file:///tmp/']) assert.equal(criarAtalhoUnidade(unidade, origem), null)
 })
+
+test('atalho usa o servidor da instalação mesmo quando a TI acessa por localhost', () => {
+  const atalho = criarAtalhoUnidade(unidade, 'http://localhost:5173/admin', 'https://ceres.exemplo.local:8443')
+  assert.equal(atalho.url, 'https://ceres.exemplo.local:8443/unidade-colorado')
+  assert.equal(lerDownload(atalho), '[InternetShortcut]\r\nURL=https://ceres.exemplo.local:8443/unidade-colorado\r\n')
+})
+
+test('endereço configurado inválido não distribui um atalho para outro destino', () => {
+  for (const endereco of ['javascript:alert(1)', 'https://usuario:senha@ceres.exemplo.local', 'https://ceres.exemplo.local/admin', 'https://ceres.exemplo.local?token=teste']) {
+    assert.equal(criarAtalhoUnidade(unidade, 'http://localhost:5173', endereco), null)
+  }
+})
