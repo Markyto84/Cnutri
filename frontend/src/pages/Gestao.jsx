@@ -10,7 +10,7 @@ import CentralImpressoes from '../components/CentralImpressoes.jsx'
 import ConfiguracaoAlertas from '../components/ConfiguracaoAlertas.jsx'
 import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
 import Prescricoes from '../components/Prescricoes.jsx'
-import { Icone, MarcaCnutri } from '../components/Identidade.jsx'
+import { Icone, MarcaAplicacao } from '../components/Identidade.jsx'
 
 /** Painel da Nutrição: catálogo de dietas, editor de formulários e relatórios. */
 export default function Gestao() {
@@ -25,7 +25,7 @@ export default function Gestao() {
   return (
     <div className="app-shell workspace-shell">
       <header className="brand-header mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="header-identity"><MarcaCnutri compacto /><span className="header-divider" aria-hidden="true" />
+        <div className="header-identity"><MarcaAplicacao compacto /><span className="header-divider" aria-hidden="true" />
           <div><p className="eyebrow">Sua equipe, bem acompanhada</p><h1 className="mt-1">Gestão de Nutrição</h1><p className="mt-2 text-sm text-slate-700">{usuario.nome} · {filial.nome}</p></div></div>
         <div className="flex flex-wrap items-center gap-3">
           <select

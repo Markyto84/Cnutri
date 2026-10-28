@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { destinoAposLogin, useAuth } from '../context/auth.js'
-import { Icone, IlustracaoCuidado, MarcaCnutri } from '../components/Identidade.jsx'
+import { Icone, IlustracaoCuidado, MarcaAplicacao } from '../components/Identidade.jsx'
 
 export default function Login() {
   const [nomeUsuario, setNomeUsuario] = useState('')
@@ -32,12 +32,12 @@ export default function Login() {
   return (
     <main className="auth-shell">
       <div className="auth-layout">
-        <aside className="auth-story"><MarcaCnutri /><IlustracaoCuidado />
+        <aside className="auth-story"><MarcaAplicacao /><IlustracaoCuidado />
           <p className="eyebrow">Pessoas no centro do cuidado</p><h2>Nutrir também<br />é cuidar.</h2>
           <p>Uma rotina mais simples para quem solicita, prepara e entrega cada refeição.</p>
         </aside>
         <section className="auth-form-panel" aria-labelledby="titulo-login">
-          <MarcaCnutri /><p className="eyebrow">Seu espaço de trabalho</p>
+          <MarcaAplicacao /><p className="eyebrow">Seu espaço de trabalho</p>
           <h1 id="titulo-login">Que bom ter você aqui.</h1><p className="mt-3 text-sm text-slate-700">Acesse sua conta para continuar.</p>
       <form onSubmit={submeter} className="space-y-5">
 

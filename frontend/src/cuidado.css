@@ -58,12 +58,13 @@
   .ui-button-secondary { background: var(--color-slate-100); color: var(--color-brand-ink); }
   .ui-button-secondary:hover:not(:disabled) { background: var(--color-slate-200); }
   .eyebrow { color: var(--color-brand); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
-  .marca-cnutri { display: inline-flex; flex-shrink: 0; align-items: center; gap: 0.7rem; color: var(--color-brand-ink); }
-  .marca-simbolo { display: grid; width: 52px; height: 56px; place-items: center; border: 1px solid #dceaf0; border-radius: 1.1rem; background: white; }
+  .marca-aplicacao { display: inline-flex; max-width: 100%; flex-shrink: 0; align-items: center; gap: 0.7rem; color: var(--color-brand-ink); }
+  .marca-simbolo { display: grid; flex-shrink: 0; width: 52px; height: 56px; place-items: center; border: 1px solid #dceaf0; border-radius: 1.1rem; background: white; }
   .marca-simbolo img { width: 29px; height: 40px; object-fit: contain; }
-  .marca-nome { display: block; font-size: 1.8rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.045em; }
-  .marca-ponto { color: var(--color-brand-vibrant); }
-  .marca-descricao { display: block; margin-top: 0.2rem; color: var(--color-slate-600); font-size: 0.7rem; font-weight: 650; letter-spacing: 0.02em; }
+  .marca-nome { display: block; white-space: nowrap; font-size: 1.8rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.045em; }
+  .marca-texto { min-width: 0; }
+  .marca-care { color: var(--color-brand); font-weight: 450; letter-spacing: -0.025em; }
+  .marca-descricao { display: block; max-width: 14.5rem; margin-top: 0.2rem; color: var(--color-slate-600); font-size: 0.7rem; font-weight: 650; letter-spacing: 0.02em; }
   .marca-compacta .marca-simbolo { width: 38px; height: 42px; border-radius: 0.8rem; }
   .marca-compacta .marca-simbolo img { width: 21px; height: 30px; }
   .marca-compacta .marca-nome { font-size: 1.45rem; }
@@ -139,7 +140,7 @@
   .auth-story > p:last-child { max-width: 350px; margin-top: 1rem; color: var(--color-slate-700); line-height: 1.8; }
   .auth-form-panel { display: flex; flex-direction: column; justify-content: center; padding: 3rem 2.25rem; }
   .auth-form-panel h1 { margin-top: 0.6rem; font-size: 1.9rem; font-weight: 800; }
-  .auth-form-panel > .marca-cnutri { display: none; }
+  .auth-form-panel > .marca-aplicacao { display: none; }
   .auth-form-panel form { margin-top: 1.75rem; }
   .auth-form-panel input { background: #fbfcfd; }
   .auth-help { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: 1.5rem; border-top: 1px solid var(--color-slate-200); padding-top: 1.2rem; color: var(--color-slate-700); font-size: 0.75rem; line-height: 1.7; }
@@ -160,17 +161,17 @@
 @media (max-width: 900px) {
   .auth-layout { max-width: 460px; grid-template-columns: 1fr; }
   .auth-story { display: none; }
-  .auth-form-panel > .marca-cnutri { display: inline-flex; margin-bottom: 2rem; }
+  .auth-form-panel > .marca-aplicacao { display: inline-flex; margin-bottom: 2rem; }
 }
 @media (max-width: 767px) {
   .auth-layout { max-width: 460px; grid-template-columns: 1fr; }
   .auth-story { display: none; }
   .auth-form-panel { padding: 1.8rem 1.5rem; }
-  .auth-form-panel > .marca-cnutri { display: inline-flex; margin-bottom: 2rem; }
+  .auth-form-panel > .marca-aplicacao { display: inline-flex; margin-bottom: 2rem; }
   .care-intro { padding-top: 2.75rem; }
   .care-intro > .ilustracao-cuidado { display: none; }
   .header-identity { gap: 0.75rem; }
-  .header-identity .marca-cnutri { display: none; }
+  .header-identity .marca-aplicacao { display: none; }
   .header-divider { display: none; }
 }
 @media (max-width: 540px) {

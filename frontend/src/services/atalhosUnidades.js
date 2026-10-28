@@ -1,3 +1,5 @@
+import { MARCA } from './marca.js'
+
 /** O atalho usa a unidade salva e o endereço pelo qual a TI acessou o sistema. */
 export function criarAtalhoUnidade(filial, origem) {
   const codigo = filial?.codigo_slug
@@ -11,7 +13,7 @@ export function criarAtalhoUnidade(filial, origem) {
   const conteudo = `[InternetShortcut]\r\nURL=${url}\r\n`
   return {
     url,
-    nomeArquivo: `Cnutri - ${codigo}.url`,
+    nomeArquivo: `${MARCA.nome} - ${codigo}.url`,
     conteudo,
     href: `data:application/octet-stream;charset=utf-8,${encodeURIComponent(conteudo)}`,
   }

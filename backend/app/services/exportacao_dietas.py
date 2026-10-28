@@ -16,6 +16,7 @@ from odf.table import Table, TableCell, TableColumn, TableRow
 from odf.text import P
 
 from .relatorio_dietas import STATUS, TIPOS, horario_brasilia
+from ..core.marca import NOME_APLICACAO
 
 COLUNAS = [
     ("pedido_id", "Pedido", 11), ("unidade", "Unidade", 38), ("criado_em", "Solicitação (Brasília)", 24),
@@ -75,10 +76,10 @@ def contexto_linhas(contexto):
     inicio = datetime.fromisoformat(contexto["inicio"]).strftime("%d/%m/%Y %H:%M:%S")
     fim = datetime.fromisoformat(contexto["fim"]).strftime("%d/%m/%Y %H:%M:%S")
     criterio = "solicitação" if contexto["data_base"] == "solicitacao" else "entrega"
-    return ["Cnutri — Relatório de dietas e solicitações", f"Período por {criterio}: {inicio} a {fim} (Brasília)",
+    return [f"{NOME_APLICACAO} — Relatório de dietas e solicitações", f"Período por {criterio}: {inicio} a {fim} (Brasília)",
         "Unidades: " + (", ".join(contexto["unidades"]) or "Nenhuma unidade disponível"),
         f'Formulário: {contexto["tipo"]}. Situação: {contexto["status"]}. Uma linha por solicitação.',
-        "Fonte: registros do Cnutri. Os horários das planilhas estão em Brasília (UTC-3)."]
+        f"Fonte: registros do {NOME_APLICACAO}. Os horários das planilhas estão em Brasília (UTC-3)."]
 
 
 def xlsx(itens, resumo, totais, contexto):

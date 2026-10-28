@@ -11,7 +11,7 @@ import HistoricoAdministrativo from '../components/HistoricoAdministrativo.jsx'
 import Monitoramento from '../components/Monitoramento.jsx'
 import Prescricoes from '../components/Prescricoes.jsx'
 import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
-import { Icone, Indicador, MarcaCnutri } from '../components/Identidade.jsx'
+import { Icone, Indicador, MarcaAplicacao } from '../components/Identidade.jsx'
 
 const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand'
 const PRIMARIO = 'ui-button ui-button-primary'
@@ -60,7 +60,7 @@ export default function Admin() {
 
   return <div className="app-shell workspace-shell space-y-6">
     <header className="brand-header flex flex-wrap items-center justify-between gap-4">
-      <div className="header-identity"><MarcaCnutri compacto /><span className="header-divider" aria-hidden="true" />
+      <div className="header-identity"><MarcaAplicacao compacto /><span className="header-divider" aria-hidden="true" />
         <div><p className="eyebrow">Estrutura para apoiar o cuidado</p><h1 className="mt-1">Painel de administração</h1>
         <p className="mt-2 text-sm text-slate-700">Unidades, credenciais e impressoras · {usuario.nome}</p></div></div>
       <div className="flex flex-wrap gap-2"><Link to="/gestao" className={SECUNDARIO}>Gestão de nutrição</Link>
@@ -208,7 +208,7 @@ function Credenciais({ filiais, usuarios, usuarioAtual, onConcluido }) {
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-bold">{u.nome} {u.id === usuarioAtual.id && <span className="text-sm font-normal">(sua conta)</span>}</h2>
         <p className="mt-1 break-all text-sm text-slate-700">Usuário: <strong>{u.nome_usuario}</strong> · {PERFIS[u.perfil]} · {u.ativo ? 'Ativo' : 'Inativo'}</p></div>
         <button onClick={() => setEditando(u)} className={SECUNDARIO} aria-label={`Editar credencial ${u.nome}`}>Editar credencial</button></div>
-      <p className="mt-2 break-all text-sm text-slate-700">{u.origem_autenticacao === 'AD' ? `Active Directory · ${u.usuario_ad}` : 'Conta local · senha do Cnutri'}</p>
+      <p className="mt-2 break-all text-sm text-slate-700">{u.origem_autenticacao === 'AD' ? `Active Directory · ${u.usuario_ad}` : 'Conta local · senha do Ceres Care'}</p>
       <p className="mt-3 text-sm text-slate-700">{u.perfil === 'ADMIN_TI' ? 'Acesso a todas as unidades' : u.filiais.map((f) => f.nome).join(', ') || 'Sem unidades vinculadas'}</p>
     </article>)}</div>
     <FormularioCredencial key={editando?.id || 'nova'} usuario={editando} usuarioAtual={usuarioAtual} filiais={filiais} ad={ad}
@@ -255,13 +255,13 @@ function FormularioCredencial({ usuario, usuarioAtual, filiais, ad, onCancelar, 
     <p id="ajuda-nome-usuario" className="text-xs text-slate-700">De 3 a 50 caracteres, começando por letra ou número. Use letras sem acento, números, ponto, hífen ou sublinhado. Cada nome deve ser único.</p>
     <Campo titulo="Autenticação"><select disabled={propria} className={CAMPO} value={form.origem_autenticacao || 'LOCAL'}
       onChange={(e) => setForm((f) => ({ ...f, origem_autenticacao: e.target.value, senha: '' }))}>
-      <option value="LOCAL">Conta local do Cnutri</option><option value="AD">Active Directory (AD)</option>
+      <option value="LOCAL">Conta local do Ceres Care</option><option value="AD">Active Directory (AD)</option>
     </select></Campo>
     {usaAD ? <>
       <Campo titulo="Usuário no AD"><input required type="text" maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false}
         placeholder={`usuario@${ad?.dominio || 'empresa.local'}`} className={CAMPO} value={form.usuario_ad || ''} disabled={propria}
         onChange={(e) => alterar('usuario_ad', e.target.value.toLowerCase())} /></Campo>
-      <p className="text-sm text-slate-700">Use o nome de usuário do Cnutri para entrar, com a senha da rede. A senha do AD não é cadastrada ou redefinida aqui.</p>
+      <p className="text-sm text-slate-700">Use o nome de usuário do Ceres Care para entrar, com a senha da rede. A senha do AD não é cadastrada ou redefinida aqui.</p>
       {!ad?.habilitado && <p role="status" className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">O vínculo pode ser preparado, mas o login AD permanece indisponível até a TI ativar a integração.</p>}
     </> : propria ? <Link to="/senha" className="block text-sm font-semibold text-brand underline">Alterar minha senha com a senha atual</Link> : <Campo titulo={!exigeSenha ? 'Nova senha temporária (opcional)' : 'Senha temporária'}><input required={exigeSenha} type="password" autoComplete="new-password" minLength={MIN_SENHA} maxLength={MAX_SENHA} pattern={PADRAO_SENHA} title={REGRA_SENHA} aria-describedby="regra-senha-temporaria"
       placeholder={usuario ? 'Preencha para substituir a senha' : 'De 8 a 12 caracteres'} className={CAMPO} value={form.senha} onChange={(e) => alterar('senha', e.target.value)} /></Campo>}

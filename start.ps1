@@ -50,7 +50,7 @@ function Wait-Http([string]$Url) {
 }
 
 function Show-ServiceInfo {
-    Write-Host "Cnutri em execucao a partir de: $projectRoot" -ForegroundColor Green
+    Write-Host "Ceres Care em execucao a partir de: $projectRoot" -ForegroundColor Green
     Write-Host "Formulario: $frontendBase/unidade-havai"
     Write-Host "Login:      $frontendBase/login"
     Write-Host "Logs:       $logsRoot"

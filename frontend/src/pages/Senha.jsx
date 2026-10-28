@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { destinoAposLogin, useAuth } from '../context/auth.js'
 import { MAX_SENHA, MIN_SENHA, PADRAO_SENHA, REGRA_SENHA, senhaValida } from '../services/politicaSenha.js'
-import { MarcaCnutri } from '../components/Identidade.jsx'
+import { MarcaAplicacao } from '../components/Identidade.jsx'
 
 export default function Senha() {
   const { usuario, entrar, sair } = useAuth()
@@ -41,7 +41,7 @@ export default function Senha() {
   </main>
   return <main className="auth-shell">
     <form onSubmit={salvar} className="receipt-card space-y-5">
-      <MarcaCnutri compacto />
+      <MarcaAplicacao compacto />
       <div><p className="text-sm font-semibold text-brand">{usuario.nome}</p><h1 className="mt-2 text-2xl font-bold">{usuario.troca_senha_obrigatoria ? 'Defina sua nova senha' : 'Alterar minha senha'}</h1></div>
       {usuario.troca_senha_obrigatoria && <p className="rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">Substitua a senha temporária fornecida pela TI para acessar o sistema.</p>}
       {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">{erro}</p>}

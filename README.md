@@ -1,6 +1,14 @@
-# Sistema de Gestão de Dietas Hospitalares
+# Ceres Care — Gestão de Nutrição
 
-Plataforma multifilial para solicitação, preparo, entrega e auditoria de dietas hospitalares.
+**Nutrição e cuidado em cada etapa.**
+
+Plataforma multifilial para solicitação, preparo, entrega e auditoria de dietas hospitalares,
+anteriormente chamada Cnutri. A identidade pública usa **Ceres Care** na interface, na aba
+do navegador, nos relatórios e nos arquivos exportados. O ícone e a paleta azul são mantidos.
+
+Os endereços já distribuídos, as pastas, o repositório Git, as configurações privadas e os
+identificadores de integração continuam compatíveis. A alteração do nome não muda o DNS
+reservado pela TI. Consulte a [linguagem visual](UI-ACOLHIMENTO.md).
 
 **Stack:** FastAPI (Python) · React + Vite · PostgreSQL 16 · WebSockets · Impressão ESC/POS · Docker
 
@@ -108,7 +116,7 @@ diretamente, sem página de seleção de unidade. O endereço principal apenas o
 o atalho fornecido pela TI, sem escolher ou redirecionar para uma unidade.
 Em **Administração → Unidades**, use **Baixar atalho (.url)** na unidade desejada.
 Após criar ou editar uma unidade, o painel também mostra o endereço salvo e seu download.
-O arquivo usa o domínio/IP, protocolo e porta do endereço pelo qual a TI acessou o Cnutri.
+O arquivo usa o domínio/IP, protocolo e porta do endereço pelo qual a TI acessou o Ceres Care.
 Novos endereços de unidade precisam incluir uma letra e não podem usar rotas reservadas,
 como `login` ou `admin`.
 
@@ -501,7 +509,7 @@ As impressoras são simuladas nesses testes; a saída em papel deve ser validada
 
 Para configurar o certificado da TI na instalação Windows atual, use
 `configurar-https.ps1`. No servidor Linux/Docker, há o complemento
-`docker-compose.https.yml`. A ativação depende do nome DNS reservado ao Cnutri,
+`docker-compose.https.yml`. A ativação depende do nome DNS reservado ao Ceres Care,
 certificado válido para esse nome e chave privada. Veja [HTTPS.md](HTTPS.md)
 para preparação, ativação, renovação e validações. Os acessos atuais são mantidos
 até que a configuração seja aplicada.
@@ -510,7 +518,7 @@ até que a configuração seja aplicada.
 
 A área Administração → Credenciais permite escolher conta local ou AD local do
 Windows Server. A senha AD é validada no domínio; perfil e unidades continuam
-controlados no Cnutri. A integração vem desativada e exige LDAPS com certificado
+controlados no Ceres Care. A integração vem desativada e exige LDAPS com certificado
 válido e HTTPS no acesso à aplicação. Usuários e senhas atuais são preservados.
 Veja [configuração, ativação e limites das sessões AD](ACTIVE-DIRECTORY.md).
 

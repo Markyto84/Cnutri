@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/auth.js'
 import { caminhoCozinha } from '../services/rotasUnidades.js'
-import { MarcaCnutri } from './Identidade.jsx'
+import { MarcaAplicacao } from './Identidade.jsx'
 
 export const BOTAO = 'ui-button disabled:cursor-not-allowed disabled:opacity-50'
 const PERFIS = { ADMIN_TI: 'Administração de TI', NUTRICIONISTA: 'Nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
@@ -16,7 +16,7 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
   const nestePlantao = usuario?.perfil === 'COPEIRA' && usuario.filiais.some((f) => f.id === Number(filialId))
   return <header className="brand-header mb-5 space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="header-identity"><MarcaCnutri compacto /><span className="header-divider" aria-hidden="true" />
+      <div className="header-identity"><MarcaAplicacao compacto /><span className="header-divider" aria-hidden="true" />
         <div className="min-w-0"><p className="eyebrow">{entrega ? 'O cuidado chega até você' : 'Cuidado em cada preparo'}</p>
         <h1 className="mt-1">{entrega ? 'Entrega de refeições' : 'Cozinha'}</h1>
         <p className="mt-2 text-sm text-slate-700">{painel.filial?.nome || 'Carregando unidade…'}</p></div></div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../services/api.js'
+import { MARCA } from '../services/marca.js'
 import { useConsultaGestao } from '../hooks/useConsultaGestao.js'
 import { horarioBrasilia, mensagemErro } from '../services/painelOperacional.js'
 import { corpoPedido } from '../services/prescricao.js'
@@ -69,7 +70,7 @@ function DetalhePedido({ pedidoId, onFechar, onAtualizar }) {
   function atualizar(mensagem) { setAviso(mensagem); setAba('dados'); setDetalhe(null); setRevisao((v) => v + 1); onAtualizar() }
   function exportarHistorico() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(detalhe, null, 2)], { type: 'application/json;charset=utf-8' }))
-    const link = document.createElement('a'); link.href = url; link.download = `cnutri-historico-pedido-${pedidoId}.json`; link.click()
+    const link = document.createElement('a'); link.href = url; link.download = `${MARCA.prefixoArquivos}-historico-pedido-${pedidoId}.json`; link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   return <dialog ref={dialogo} onCancel={(e) => { e.preventDefault(); if (!salvando) onFechar() }} aria-labelledby="titulo-prescricao"

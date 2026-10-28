@@ -7,6 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
+from ..core.marca import PREFIXO_ARQUIVOS
 from ..core.security import exigir_perfis, filiais_permitidas, verificar_acesso_filial
 from ..models.models import EntregaPedido, Pedido, Usuario
 from ..services.relatorio_dietas import BRASILIA, STATUS, TIPOS, ConsultaDietas, agrupar, consulta_base, detalhar, resumir, data_entrega
@@ -68,7 +69,7 @@ async def exportar(formato: Literal["xlsx", "ods", "csv"], consulta: ConsultaDie
         raise HTTPException(400, str(erro))
     periodo = datetime.fromisoformat(consulta.contexto["inicio"]).strftime("%Y%m%d-%H%M")
     fim = datetime.fromisoformat(consulta.contexto["fim"]).strftime("%Y%m%d-%H%M")
-    nome = f"cnutri-dietas-{periodo}-a-{fim}.{formato}"
+    nome = f"{PREFIXO_ARQUIVOS}-dietas-{periodo}-a-{fim}.{formato}"
     return Response(content=arquivo, media_type=mime, headers={
         "Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",

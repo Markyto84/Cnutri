@@ -51,7 +51,7 @@ export default function Monitoramento({ onAbrirCentral }) {
   const recuperacao = dados?.recuperacao
   const validacao = recuperacao?.ultima_validacao
   return <section className="min-w-0 space-y-4" aria-label="Monitoramento da aplicação">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">Monitoramento do Cnutri</h2>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">Monitoramento do Ceres Care</h2>
       <p className="mt-1 text-sm text-slate-700">API, banco, impressão e recuperação de backups · atualização a cada 15 segundos.</p>
       {atualizado && <p className="mt-1 text-xs text-slate-700">Última consulta: {horarioBrasilia(atualizado)}</p>}</div>
       <button className={SECUNDARIO} onClick={() => setRevisao((v) => v + 1)}>Atualizar monitoramento</button></div>

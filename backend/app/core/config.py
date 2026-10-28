@@ -6,12 +6,13 @@ from urllib.parse import urlsplit
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
+from .marca import NOME_APLICACAO
 
 BACKEND = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Sistema de Gestão de Dietas Hospitalares"
+    APP_NAME: str = f"{NOME_APLICACAO} — Gestão de Nutrição"
     APP_ENV: Literal["development", "test", "production"] = "development"
     DATABASE_URL: str = "postgresql+asyncpg://dietas:dietas@localhost:5433/dietas"
     JWT_SECRET: str = Field(min_length=32, repr=False)
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
             if partes.port is not None and not 1 <= partes.port <= 65535:
                 raise ValueError('Informe uma porta válida em URL_RECEBIMENTO_PUBLICA')
             if any(c.isspace() for c in valor) or partes.scheme not in ('http', 'https') or not partes.hostname or partes.username or partes.password or partes.path or partes.query or partes.fragment:
-                raise ValueError('URL_RECEBIMENTO_PUBLICA deve conter somente protocolo, domínio/IP e porta do Cnutri')
+                raise ValueError(f'URL_RECEBIMENTO_PUBLICA deve conter somente protocolo, domínio/IP e porta do {NOME_APLICACAO}')
             self.URL_RECEBIMENTO_PUBLICA = valor
         dns = r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
         for nome in ("AD_DOMINIO", "AD_SERVIDOR"):

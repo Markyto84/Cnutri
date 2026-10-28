@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { codigoRecebimentoValido, nomeRecebedorValido, recebimentoApi, registroRecebimentoValido } from '../services/recebimentoQr.js'
-import { Icone, MarcaCnutri } from '../components/Identidade.jsx'
+import { Icone, MarcaAplicacao } from '../components/Identidade.jsx'
 
 const horario = (valor) => new Date(valor).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const BOTAO = 'ui-button ui-button-primary min-h-12 w-full'
@@ -49,7 +49,7 @@ function ConfirmarRecebimento({ codigo }) {
 
   return <main className="auth-shell">
     <section className="receipt-card space-y-5">
-      <header><MarcaCnutri compacto /><h1 className="mt-5">Recebimento da refeição</h1><p className="mt-3 text-sm text-slate-700">Sua confirmação completa esta etapa do cuidado.</p></header>
+      <header><MarcaAplicacao compacto /><h1 className="mt-5">Recebimento da refeição</h1><p className="mt-3 text-sm text-slate-700">Sua confirmação completa esta etapa do cuidado.</p></header>
       {!valido ? <p role="alert">QR Code inválido. Escaneie o código da filipeta fornecida com a refeição.</p> : <>
         {dados && <div className="rounded-xl bg-brand-soft p-4"><p className="font-semibold">{dados.unidade}</p><p className="mt-1 text-sm">Pedido #{dados.pedido_id}</p></div>}
         {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</p>}

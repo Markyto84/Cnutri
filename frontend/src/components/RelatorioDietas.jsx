@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/api.js'
+import { MARCA } from '../services/marca.js'
 import { BOTAO } from './Operacao.jsx'
 
 const CAMPO = 'mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal'
@@ -63,7 +64,7 @@ export default function RelatorioDietas({ filialId, filiais }) {
       const url = URL.createObjectURL(resposta.data)
       const link = document.createElement('a')
       link.href = url
-      link.download = resposta.headers['content-disposition']?.match(/filename="([^"]+)"/)?.[1] || `cnutri-dietas.${formato}`
+      link.download = resposta.headers['content-disposition']?.match(/filename="([^"]+)"/)?.[1] || `${MARCA.prefixoArquivos}-dietas.${formato}`
       document.body.appendChild(link); link.click(); link.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
       setMensagem(formato === 'csv' ? 'CSV baixado. No Google Sheets, use Arquivo → Importar para abrir o relatório.' : `Relatório baixado para ${formato === 'xlsx' ? 'Excel' : 'LibreOffice Calc'}.`)

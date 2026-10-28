@@ -1,4 +1,6 @@
 /** Ícones decorativos de traço suave; as ações mantêm seus rótulos de texto. */
+import { MARCA } from '../services/marca.js'
+
 const DESENHOS = {
     folha: <><path d="M19 4c-8-1-14 3-14 9a6 6 0 0 0 6 6c6 0 9-7 8-15Z" /><path d="m5 20 9-10M9 16v-5m0 5h5" /></>,
     refeicao: <><path d="M3 12h18a9 9 0 0 1-18 0ZM5 21h14M8 4v4m4-5v5m4-4v4" /></>,
@@ -27,11 +29,11 @@ export function Icone({ nome = 'folha', tamanho = 24, className = '' }) {
   </svg>
 }
 
-export function MarcaCnutri({ compacto = false }) {
-  return <div className={`marca-cnutri ${compacto ? 'marca-compacta' : ''}`} aria-label="Cnutri · Gestão de alimentação e cuidado">
+export function MarcaAplicacao({ compacto = false }) {
+  return <div className={`marca-aplicacao ${compacto ? 'marca-compacta' : ''}`} aria-label={`${MARCA.nome} · ${MARCA.assinatura}`}>
     <span className="marca-simbolo"><img src="/cnutri-icon-v2.png" width="32" height="40" alt="" /></span>
-    <span><span className="marca-nome">Cnutri<span className="marca-ponto">.</span></span>
-      {!compacto && <span className="marca-descricao">Alimentação e cuidado</span>}</span>
+    <span className="marca-texto"><span className="marca-nome">{MARCA.nomePrincipal} <span className="marca-care">{MARCA.complemento}</span></span>
+      {!compacto && <span className="marca-descricao">{MARCA.assinatura}</span>}</span>
   </div>
 }
 

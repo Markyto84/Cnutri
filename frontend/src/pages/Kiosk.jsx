@@ -4,7 +4,7 @@ import { kioskApi } from '../services/kioskApi.js'
 import FormDinamico from '../components/FormDinamico.jsx'
 import NaoEncontrado from './NaoEncontrado.jsx'
 import { chaveSalva, concluirTentativa, obterChaveEnvio, textoImpressao } from '../services/solicitacoes.js'
-import { Icone, IlustracaoCuidado, MarcaCnutri } from '../components/Identidade.jsx'
+import { Icone, IlustracaoCuidado, MarcaAplicacao } from '../components/Identidade.jsx'
 
 export default function Kiosk() {
   const { slug: slugFinal } = useParams()
@@ -43,7 +43,7 @@ export default function Kiosk() {
       </div>
     )
   if (!config)
-    return <div role="status" className="auth-shell"><div className="space-y-5 text-center"><MarcaCnutri /><p>Preparando o formulário da sua unidade…</p></div></div>
+    return <div role="status" className="auth-shell"><div className="space-y-5 text-center"><MarcaAplicacao /><p>Preparando o formulário da sua unidade…</p></div></div>
 
   const dietaSelecionada = (id) => config.dietas.find((d) => d.id === Number(id))
 
@@ -107,14 +107,14 @@ export default function Kiosk() {
   return (
     <div className="app-shell kiosk-shell">
       <header className="kiosk-topbar">
-        <MarcaCnutri />
+        <MarcaAplicacao />
         <p className="unit-pill"><Icone nome="unidade" tamanho={20} /><span>{config.filial.nome}</span></p>
       </header>
 
       {tela === 'perfil' && (
         <main className="kiosk-content">
           <section className="care-intro">
-            <div><p className="eyebrow">Bem-vindo ao Cnutri</p>
+            <div><p className="eyebrow">Bem-vindo ao Ceres Care</p>
               <h1>Uma refeição,<br /><span>muitos cuidados.</span></h1>
               <p>Escolha o tipo de solicitação para começar. Sua equipe de nutrição acompanha os próximos passos.</p>
             </div>

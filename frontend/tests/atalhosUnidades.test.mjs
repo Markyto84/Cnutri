@@ -9,7 +9,7 @@ for (const origem of ['http://10.1.140.15:5173', 'https://cnutri.empresa.local']
   test(`atalho distribuído abre diretamente a unidade usando ${origem}`, () => {
     const atalho = criarAtalhoUnidade(unidade, origem)
     assert.equal(atalho.url, origem + '/unidade-colorado')
-    assert.equal(atalho.nomeArquivo, 'Cnutri - unidade-colorado.url')
+    assert.equal(atalho.nomeArquivo, 'Ceres Care - unidade-colorado.url')
     assert.equal(lerDownload(atalho), '[InternetShortcut]\r\nURL=' + origem + '/unidade-colorado\r\n')
     assert.equal(atalho.conteudo, lerDownload(atalho))
   })
@@ -20,7 +20,7 @@ test('edição do endereço salva um atalho novo sem incluir sessão ou parâmet
   const atualizado = criarAtalhoUnidade({ ...unidade, codigo_slug: 'unidade-colorado-nova' }, 'https://cnutri.empresa.local')
   assert.equal(anterior.url, 'https://cnutri.empresa.local/unidade-colorado')
   assert.equal(atualizado.url, 'https://cnutri.empresa.local/unidade-colorado-nova')
-  assert.equal(atualizado.nomeArquivo, 'Cnutri - unidade-colorado-nova.url')
+  assert.equal(atualizado.nomeArquivo, 'Ceres Care - unidade-colorado-nova.url')
   assert.doesNotMatch(lerDownload(anterior), /admin|token|nao-compartilhar|#|\?/)
 })
 

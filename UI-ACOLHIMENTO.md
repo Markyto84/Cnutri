@@ -1,8 +1,12 @@
-# Cnutri — linguagem visual de acolhimento
+# Ceres Care — linguagem visual de acolhimento
 
 O desenho aproxima o sistema da rotina de quem solicita, prepara e recebe as refeições.
 Acolhimento é uma intenção do conjunto visual e da linguagem, sem presumir que uma cor
 produza a mesma resposta emocional em todas as pessoas.
+
+A marca apresentada é **Ceres Care**, com a assinatura **Nutrição e cuidado em cada etapa.**
+O nome e os prefixos de arquivos ficam centralizados em `frontend/src/services/marca.js`
+e `backend/app/core/marca.py`. O título HTML também identifica a aplicação na aba do navegador.
 
 ## Cores e hierarquia
 
@@ -29,7 +33,7 @@ indisponível durante a implementação; nenhum recurso ausente ficou referencia
 Cartões têm cantos arredondados, sombra discreta e espaço entre grupos. Círculos e arcos
 formam uma ilustração leve de refeição, folha e cuidado. Ícones são SVG com traço arredondado,
 decorativos para leitores de tela; botões mantêm o nome da ação em texto.
-O ícone original do Cnutri continua identificando a aplicação.
+O ícone original continua identificando a aplicação ao lado do nome Ceres Care.
 
 ## Telas e interação
 
