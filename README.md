@@ -55,6 +55,9 @@ Projeto Cnutri/
 
 ## Como rodar em um servidor Linux
 
+O projeto também gera um [instalador executável `.run`](DISTRIBUICAO-LINUX.md) com
+as imagens compiladas, destinado a uma instalação nova em Linux Intel/AMD 64 bits.
+
 Há um [assistente de configuração inicial](INSTALACAO-SERVIDOR.md) para definir
 IP/DNS, protocolo e porta da instalação, gerar os arquivos privados e iniciar os
 serviços com a mesma configuração. O painel de TI mostra o destino em **Servidor

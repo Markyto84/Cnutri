@@ -32,7 +32,9 @@ sh ./servidor.sh iniciar
 ```
 
 O assistente apenas prepara os arquivos. `validar` confere o modelo Compose;
-`iniciar` constrói as imagens e inicia os serviços. DNS, alcance da rede, impressão
+`iniciar` constrói as imagens na instalação pelo código-fonte e inicia os serviços.
+No pacote executável `.run`, utiliza as imagens já incluídas, sem compilar ou baixar.
+DNS, alcance da rede, impressão
 e confiança do certificado nos dispositivos exigem a [homologação](HOMOLOGACAO-LINUX.md).
 
 Arquivos privados gerados:

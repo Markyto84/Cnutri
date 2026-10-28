@@ -4,6 +4,10 @@ set -eu
 RAIZ=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ACAO=${1:-ajuda}
 if [ "$#" -gt 0 ]; then shift; fi
+if [ -f "$RAIZ/release.json" ]; then
+  # A distribuição executável usa uma identidade estável para serviços e volume.
+  export COMPOSE_PROJECT_NAME=ceres-care
+fi
 
 if [ "$ACAO" = configurar ]; then
   if command -v python3 >/dev/null 2>&1; then
@@ -42,11 +46,17 @@ case "$ACAO" in
     ;;
   iniciar)
     compose config --quiet
-    compose build
+    if [ ! -f "$RAIZ/release.json" ]; then
+      compose build
+    fi
     if grep -qx 'CNUTRI_HTTPS_ATIVO=true' "$RAIZ/work/servidor.env"; then
       compose run --rm --no-deps frontend nginx -t
     fi
-    compose up -d --no-build
+    if [ -f "$RAIZ/release.json" ]; then
+      compose up -d --no-build --pull never
+    else
+      compose up -d --no-build
+    fi
     ;;
   status) compose ps ;;
   logs) compose logs --tail 80 "$@" ;;
