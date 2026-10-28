@@ -100,7 +100,7 @@ class UsuarioBase(BaseModel):
             if not self.usuario_ad:
                 raise ValueError("Informe o usuário do AD no formato usuario@dominio")
             if getattr(self, "senha", None) is not None:
-                raise ValueError("A senha do AD não deve ser cadastrada no Ceres Care")
+                raise ValueError("A senha do AD não deve ser cadastrada no Cnutri")
         elif self.usuario_ad is not None:
             raise ValueError("Vínculo AD disponível somente para contas do Active Directory")
         return self

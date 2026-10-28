@@ -1,10 +1,10 @@
-const nomePrincipal = 'Ceres'
-const complemento = 'Care'
+const nomePrincipal = 'Cnutri'
+const complemento = ''
 
 export const MARCA = Object.freeze({
-  nome: `${nomePrincipal} ${complemento}`,
+  nome: `${nomePrincipal} ${complemento}`.trim(),
   nomePrincipal,
   complemento,
   assinatura: 'Nutrição e cuidado em cada etapa.',
-  prefixoArquivos: 'ceres-care',
+  prefixoArquivos: 'cnutri',
 })

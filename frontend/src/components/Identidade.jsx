@@ -32,7 +32,7 @@ export function Icone({ nome = 'folha', tamanho = 24, className = '' }) {
 export function MarcaAplicacao({ compacto = false }) {
   return <div className={`marca-aplicacao ${compacto ? 'marca-compacta' : ''}`} aria-label={`${MARCA.nome} · ${MARCA.assinatura}`}>
     <span className="marca-simbolo"><img src="/cnutri-icon-v2.png" width="32" height="40" alt="" /></span>
-    <span className="marca-texto"><span className="marca-nome">{MARCA.nomePrincipal} <span className="marca-care">{MARCA.complemento}</span></span>
+    <span className="marca-texto"><span className="marca-nome">{MARCA.nomePrincipal}{MARCA.complemento && <> <span className="marca-care">{MARCA.complemento}</span></>}</span>
       {!compacto && <span className="marca-descricao">{MARCA.assinatura}</span>}</span>
   </div>
 }

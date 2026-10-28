@@ -40,7 +40,7 @@ async def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), d
         if not settings.AD_HABILITADO:
             raise HTTPException(503, "Integração com o Active Directory desativada. Procure a TI.")
         if request.url.scheme != "https":
-            raise HTTPException(503, "O acesso pelo Active Directory exige HTTPS no Ceres Care. Procure a TI.")
+            raise HTTPException(503, "O acesso pelo Active Directory exige HTTPS no Cnutri. Procure a TI.")
         try:
             guid = await asyncio.to_thread(autenticar_ad, usuario.usuario_ad, form.password)
         except ADIndisponivel:

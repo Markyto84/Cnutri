@@ -114,7 +114,7 @@ export default function Kiosk() {
       {tela === 'perfil' && (
         <main className="kiosk-content">
           <section className="care-intro">
-            <div><p className="eyebrow">Bem-vindo ao Ceres Care</p>
+            <div><p className="eyebrow">Bem-vindo ao Cnutri</p>
               <h1>Uma refeição,<br /><span>muitos cuidados.</span></h1>
               <p>Escolha o tipo de solicitação para começar. Sua equipe de nutrição acompanha os próximos passos.</p>
             </div>
