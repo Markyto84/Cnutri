@@ -6,7 +6,7 @@ import json
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import aliased
 
-from ..models.models import Dieta, EntregaPedido, EventoAssistencial, Filial, Pedido, RecebimentoEntrega, RecebimentoQR, RetiradaPedido, Usuario
+from ..models.models import ComprovanteEntrega, Dieta, EntregaPedido, EventoAssistencial, Filial, Pedido, RecebimentoEntrega, RecebimentoQR, RetiradaPedido, Usuario
 from .operacao import data_utc
 
 BRASILIA = timezone(timedelta(hours=-3))
@@ -22,18 +22,19 @@ class ConsultaDietas:
 
 
 def data_entrega():
-    return func.coalesce(RecebimentoQR.confirmado_em, EntregaPedido.entregue_em)
+    return func.coalesce(ComprovanteEntrega.entregue_em, RecebimentoQR.confirmado_em, EntregaPedido.entregue_em)
 
 
 def consulta_base(consulta: ConsultaDietas, incluir_cancelamento=True):
     base = (select(Pedido, Filial.nome, Dieta.nome, data_entrega(),
         func.coalesce(EntregaPedido.copeira_nome, RetiradaPedido.copeira_nome), RecebimentoEntrega.recebedor_nome, Usuario.nome, Filial.codigo_slug,
-        RecebimentoQR.registro_profissional, RecebimentoQR.confirmado_em, RecebimentoQR.recebedor_nome, RetiradaPedido.retirada_em)
+        RecebimentoQR.registro_profissional, RecebimentoQR.confirmado_em, RecebimentoQR.recebedor_nome, RetiradaPedido.retirada_em, ComprovanteEntrega)
         .join(Filial, Filial.id == Pedido.filial_id)
         .outerjoin(Dieta, Dieta.id == Pedido.dieta_id)
         .outerjoin(EntregaPedido, EntregaPedido.pedido_id == Pedido.id)
         .outerjoin(RetiradaPedido, (RetiradaPedido.pedido_id == Pedido.id) & (RetiradaPedido.versao == Pedido.versao))
         .outerjoin(RecebimentoQR, RecebimentoQR.pedido_id == Pedido.id)
+        .outerjoin(ComprovanteEntrega, ComprovanteEntrega.pedido_id == Pedido.id)
         .outerjoin(RecebimentoEntrega, RecebimentoEntrega.pedido_id == Pedido.id)
         .outerjoin(Usuario, Usuario.id == EntregaPedido.registrado_por_usuario_id)
         .where(*consulta.filtros))
@@ -82,7 +83,7 @@ def texto(valor):
 
 
 def detalhar(linha):
-    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo, registro, confirmado_qr, nome_qr, retirada_em, cancelador, cancelador_id, motivo, cancelado_em = linha
+    pedido, unidade, dieta, entregue_em, copeira, recebedor, operador, codigo, registro, confirmado_qr, nome_qr, retirada_em, comprovante, cancelador, cancelador_id, motivo, cancelado_em = linha
     dados = pedido.dados_dinamicos or {}
     referencia = pedido.prescricao or {}
     campos = ("refeicao", "cardapio", "cardapio_acompanhante", "para", "equipe", "horario_entrega", "suco", "sobremesa", "liquido_espessado", "tipo_liquido_espessado", "internado_mais_6h")
@@ -95,10 +96,12 @@ def detalhar(linha):
         **{campo: texto(dados.get(campo)) for campo in campos},
         "observacoes_alergias": pedido.observacoes_alergias or "", "solicitante_nome": pedido.solicitante_nome or "",
         "concluido_em": data_utc(pedido.concluido_em), "entregue_em": data_utc(entregue_em),
-        "copeira_nome": copeira or "", "recebedor_nome": (nome_qr if confirmado_qr else recebedor) or "", "registrado_por_nome": operador or "", "assinatura_registrada": recebedor is not None,
+        "copeira_nome": copeira or "", "recebedor_nome": (nome_qr if confirmado_qr else recebedor) or "",
+        "registrado_por_nome": comprovante.registrado_por_nome if comprovante else operador or "", "assinatura_registrada": recebedor is not None,
+        "comprovante_disponivel": comprovante is not None, "registrado_em": data_utc(comprovante.registrado_em) if comprovante else None,
         "retirada_em": data_utc(retirada_em),
         "etapa_entrega": "EM_ENTREGA" if retirada_em and pedido.status == "PRONTO" else "AGUARDANDO_RETIRADA" if pedido.status == "PRONTO" else pedido.status,
-        "recebedor_registro_profissional": registro or '', "origem_entrega": 'QR Code' if confirmado_qr else 'Copeira' if entregue_em else '',
+        "recebedor_registro_profissional": registro or '', "origem_entrega": 'Nutrição · filipeta assinada' if comprovante else 'QR Code' if confirmado_qr else 'Copeira' if entregue_em else '',
         "outros_campos": texto(extras) if extras else "",
         "solicitante_identificacao": pedido.solicitante_identificacao, "versao_pedido": pedido.versao,
         "cancelado_por_nome": cancelador or "", "cancelado_por_usuario_id": cancelador_id,

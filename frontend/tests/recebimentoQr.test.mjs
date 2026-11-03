@@ -3,7 +3,7 @@ import test from 'node:test'
 import { codigoRecebimentoValido, guardarCodigoRecebimento, limparCodigoRecebimento, nomeRecebedorValido, recebimentoApi, recuperarCodigoRecebimento, registroRecebimentoValido } from '../src/services/recebimentoQr.js'
 import { api } from '../src/services/api.js'
 
-test('recebimento depende do código exclusivo da filipeta e de registro profissional preenchido', () => {
+test('código exclusivo e validador de registro profissional do acervo anterior permanecem compatíveis', () => {
   assert.equal(codigoRecebimentoValido('a'.repeat(43)), true)
   for (const codigo of ['', '123', 'a'.repeat(44), '../admin']) assert.equal(codigoRecebimentoValido(codigo), false)
   for (const registro of ['COREN-SP 123456', 'CRM/RJ 1234', '123456', '  coren 1234  ']) assert.equal(registroRecebimentoValido(registro), true)
@@ -15,7 +15,7 @@ test('identificação exige nome e aceita acentos, apóstrofos e sobrenomes comp
   for (const nome of ['', '   ', 'A', 'A  ', '12345', '=João', 'João\nSilva', '<Pessoa>', 'A'.repeat(121)]) assert.equal(nomeRecebedorValido(nome), false)
 })
 
-test('consulta do QR Code não envia credencial pessoal; ações exigem a sessão da copeira', async () => {
+test('consulta do QR Code não envia credencial pessoal; detalhes e lançamento exigem sessão autenticada', async () => {
   const anterior = globalThis.localStorage
   globalThis.localStorage = { getItem: () => 'expirado', removeItem: () => assert.fail('Sessão pessoal removida') }
   try {
@@ -27,7 +27,7 @@ test('consulta do QR Code não envia credencial pessoal; ações exigem a sessã
         return { status: 200, data: {}, headers: {}, config }
       },
     })
-    for (const acao of ['identificar', 'confirmar']) await api.post(`/recebimentos/${acao}`, { codigo: 'a'.repeat(43) }, {
+    for (const acao of ['detalhes', 'confirmar']) await api.post(`/recebimentos/${acao}`, { codigo: 'a'.repeat(43) }, {
       adapter: async config => {
         assert.equal(config.headers.get('Authorization'), 'Bearer expirado')
         return { status: 200, data: {}, headers: {}, config }

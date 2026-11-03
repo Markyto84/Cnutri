@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { useOperacao } from '../hooks/useOperacao.js'
 import { cozinhaApi } from '../services/cozinhaApi.js'
 import { BOTAO, CabecalhoOperacao, ResumoPedido } from '../components/Operacao.jsx'
@@ -70,7 +70,7 @@ function Dashboard({ unidade }) {
 
   return <main className="app-shell workspace-shell">
     <CabecalhoOperacao modo="cozinha" painel={painel} filialId={filialId} />
-    <NotaCuidado icone="refeicao" className="mb-5"><strong className="block">Da cozinha à entrega, cada detalhe importa.</strong> Acompanhe o preparo abaixo. Quando a refeição estiver pronta, o recebedor confirma a entrega pelo QR Code da filipeta.</NotaCuidado>
+    <NotaCuidado icone="refeicao" className="mb-5"><strong className="block">Da cozinha à entrega, cada detalhe importa.</strong> Acompanhe o preparo abaixo. Na entrega, preencha o recebimento no papel. A Nutrição registra a filipeta assinada e sua foto pelo QR Code.</NotaCuidado>
     {painel.erro && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-900">{painel.erro}</p>}
     {aviso && <p role="status" className="mb-4 rounded-lg bg-brand-soft p-3 text-brand-ink">{aviso}</p>}
     {falhas > 0 && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">{falhas} pedido(s) com falha ou envio de filipeta incerto. Confira os avisos de impressão nos cartões.</p>}
@@ -98,7 +98,7 @@ function Dashboard({ unidade }) {
                 {col.status !== 'PRONTO' && <button disabled={ocupados.includes(pedido.id)}
                   onClick={() => agir(pedido, col.status === 'PENDENTE' ? 'EM_PREPARO' : 'PRONTO')}
                   className={`${BOTAO} flex-1 bg-brand text-white hover:bg-brand-hover`}>{col.status === 'PENDENTE' ? 'Iniciar preparo' : 'Marcar pronto'}</button>}
-                {col.status === 'PRONTO' && <Link to={`/entregas/${filialId}`} className={`${BOTAO} flex-1 bg-brand-vibrant text-center text-brand-ink hover:bg-brand-vibrant-hover`}>Abrir entregas</Link>}
+                {col.status === 'PRONTO' && <p className="w-full text-sm text-slate-700">Aguardando a Nutrição registrar o comprovante da filipeta assinada.</p>}
                 <button disabled={ocupados.includes(pedido.id) || ['PENDENTE', 'PROCESSANDO'].includes(pedido.impressao?.estado)} onClick={() => agir(pedido)} className={`${BOTAO} bg-slate-100`} aria-label={`Reimprimir pedido ${pedido.id}`}>{['PENDENTE', 'PROCESSANDO'].includes(pedido.impressao?.estado) ? 'Na fila de impressão' : pedido.impressao?.estado === 'FALHA' ? 'Reenviar filipeta' : 'Reimprimir'}</button>
                 {col.status === 'PRONTO' && (pedido.tipo_solicitacao === 'MEDICO' ? pedido.solicitante_nome : pedido.nome_paciente)?.trim() && <button disabled={['PENDENTE', 'PROCESSANDO'].includes(pedido.etiqueta?.estado)} onClick={() => setEtiquetar(pedido)} className={`${BOTAO} bg-brand-soft text-brand-ink`} aria-label={`Etiqueta do pedido ${pedido.id}`}>{['PENDENTE', 'PROCESSANDO'].includes(pedido.etiqueta?.estado) ? 'Etiqueta na fila' : 'Etiqueta'}</button>}
                 <button disabled={ocupados.includes(pedido.id)} onClick={() => setCancelar(pedido)} className={`${BOTAO} bg-red-50 text-red-800`} aria-label={`Cancelar pedido ${pedido.id}`}>Cancelar</button>

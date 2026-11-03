@@ -11,7 +11,7 @@ export function CabecalhoOperacao({ modo, painel, filialId }) {
   const { usuario, sair, plantaoOnline } = useAuth()
   const entrega = modo === 'entregas'
   const caminhoAtual = entrega ? `/entregas/${filialId}` : caminhoCozinha(painel.filial)
-  const outroPainel = entrega ? caminhoCozinha(painel.filial) : filialId ? `/entregas/${filialId}` : null
+  const outroPainel = entrega ? caminhoCozinha(painel.filial) : null
   const minhas = entrega && usuario?.perfil === 'COPEIRA' ? painel.filiais.filter((f) => usuario.filiais.some((u) => u.id === f.id)) : painel.filiais
   const nestePlantao = usuario?.perfil === 'COPEIRA' && usuario.filiais.some((f) => f.id === Number(filialId))
   return <header className="brand-header mb-5 space-y-4">

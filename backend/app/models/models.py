@@ -161,6 +161,22 @@ class RetiradaPedido(Base):
     ip_origem: Mapped[str | None] = mapped_column(String(45))
 
 
+class ComprovanteEntrega(Base):
+    """Foto compactada da filipeta e lançamento manual feito pela Nutrição."""
+    __tablename__ = "comprovantes_entrega"
+
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("recebimentos_qr.pedido_id", ondelete="RESTRICT"), primary_key=True)
+    entregue_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    registrado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    registrado_por_usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    registrado_por_nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    foto_jpeg: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
+    foto_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    foto_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    foto_largura: Mapped[int] = mapped_column(Integer, nullable=False)
+    foto_altura: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class Pedido(Base):
     __tablename__ = "pedidos"
 

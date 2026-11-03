@@ -43,7 +43,7 @@ export default function RelatorioEntregas({ filialId }) {
 
   return <section className="min-w-0 rounded-xl bg-panel p-4 md:col-span-3 sm:p-5" aria-labelledby="relatorio-entregas">
     <h3 id="relatorio-entregas" className="text-lg font-bold">Entregas e comprovantes de recebimento</h3>
-    <p className="mt-1 text-sm text-slate-700">Responsável pela entrega e data e hora da conclusão. Os comprovantes anteriores continuam disponíveis. Horário de Brasília.</p>
+    <p className="mt-1 text-sm text-slate-700">Recebedor, data e hora da entrega informadas na filipeta e foto do comprovante. O lançamento da Nutrição tem data e hora próprias. Horário de Brasília.</p>
     <form onSubmit={filtrar} className="my-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
       <label className="min-w-0 text-sm font-semibold">Data inicial<input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" /></label>
       <label className="min-w-0 text-sm font-semibold">Data final<input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base font-normal" /></label>
@@ -77,26 +77,27 @@ function Comprovante({ item, filialId }) {
       {item.retirada_em && <div><dt className="text-slate-700">Data e hora da identificação da copeira</dt><dd className="font-semibold">{horario(item.retirada_em)}</dd></div>}
       {item.recebedor_nome && <div><dt className="text-slate-700">Recebedor</dt><dd className="font-semibold">{item.recebedor_nome}</dd></div>}
       <div><dt className="text-slate-700">Data e hora da entrega</dt><dd className="font-semibold">{horario(item.entregue_em)}</dd></div>
+      {item.registrado_em && <div><dt className="text-slate-700">Lançamento no sistema</dt><dd className="font-semibold">{horario(item.registrado_em)}</dd></div>}
       <div><dt className="text-slate-700">Local / leito</dt><dd>{[item.local_entrega, item.leito && `Leito ${item.leito}`].filter(Boolean).join(' · ') || 'Não informado'}</dd></div>
     </dl>
-    {item.assinatura_disponivel ? <>
-      <button onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} className={`${BOTAO} bg-white text-brand-ink`}>{aberto ? 'Ocultar assinatura' : 'Ver assinatura'}</button>
-      {aberto && <ImagemAssinatura filialId={filialId} pedidoId={item.pedido_id} recebedor={item.recebedor_nome} />}
+    {item.comprovante_disponivel || item.assinatura_disponivel ? <>
+      <button onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} className={`${BOTAO} bg-white text-brand-ink`}>{aberto ? 'Ocultar comprovante' : item.comprovante_disponivel ? 'Ver foto da filipeta' : 'Ver assinatura anterior'}</button>
+      {aberto && <ImagemAssinatura filialId={filialId} pedidoId={item.pedido_id} recebedor={item.recebedor_nome} foto={item.comprovante_disponivel} />}
     </> : <p className="text-xs text-slate-700">{item.recebedor_registro_profissional ? 'Recebimento confirmado pelo QR Code da filipeta.' : 'Entrega finalizada sem assinatura registrada.'}</p>}
   </article>
 }
 
-function ImagemAssinatura({ filialId, pedidoId, recebedor }) {
+function ImagemAssinatura({ filialId, pedidoId, recebedor, foto }) {
   const [url, setUrl] = useState('')
   const [erro, setErro] = useState(false)
   useEffect(() => {
     const controller = new AbortController()
     let imagem
-    api.get(`/relatorios/entregas/${pedidoId}/assinatura`, { params: { filial_id: filialId }, responseType: 'blob', signal: controller.signal })
+    api.get(`/relatorios/entregas/${pedidoId}/${foto ? 'comprovante' : 'assinatura'}`, { params: { filial_id: filialId }, responseType: 'blob', signal: controller.signal })
       .then(({ data }) => { if (!controller.signal.aborted) { imagem = URL.createObjectURL(data); setUrl(imagem) } })
       .catch(() => { if (!controller.signal.aborted) setErro(true) })
     return () => { controller.abort(); if (imagem) URL.revokeObjectURL(imagem) }
-  }, [filialId, pedidoId])
-  if (erro) return <p role="alert" className="text-sm text-red-800">Não foi possível carregar a assinatura. Feche e abra novamente.</p>
-  return url ? <img src={url} alt={`Assinatura de ${recebedor}`} className="w-full rounded-lg border border-slate-300 bg-white" /> : <p role="status" className="text-sm">Carregando assinatura…</p>
+  }, [filialId, pedidoId, foto])
+  if (erro) return <p role="alert" className="text-sm text-red-800">Não foi possível carregar o comprovante. Feche e abra novamente.</p>
+  return url ? <div className="space-y-2"><a href={url} target="_blank" rel="noreferrer" className="block text-sm font-semibold text-brand underline">Ampliar comprovante</a><img src={url} alt={foto ? `Filipeta assinada pelo recebedor ${recebedor}` : `Assinatura de ${recebedor}`} className="w-full rounded-lg border border-slate-300 bg-white" /><a href={url} download={`comprovante-pedido-${pedidoId}.${foto ? 'jpg' : 'png'}`} className="inline-block text-sm font-semibold text-brand underline">Baixar comprovante</a></div> : <p role="status" className="text-sm">Carregando comprovante…</p>
 }

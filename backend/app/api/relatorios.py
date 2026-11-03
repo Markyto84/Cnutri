@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
-from ..models.models import Dieta, EntregaPedido, Pedido, RecebimentoEntrega, RecebimentoQR, Usuario
+from ..models.models import ComprovanteEntrega, Dieta, EntregaPedido, Pedido, RecebimentoEntrega, RecebimentoQR, Usuario
 from ..services.relatorio_dietas import data_entrega
 from ..schemas.schemas import RelatorioConsumoItem, RelatorioDietasItem, RelatorioSLAOut
 from ..services.operacao import data_utc
@@ -32,17 +32,19 @@ async def relatorio_entregas(
         filtros.append(horario_entrega >= datetime.combine(data_inicio, time.min) + timedelta(hours=3))
     if data_fim:
         filtros.append(horario_entrega < datetime.combine(data_fim, time.min) + timedelta(days=1, hours=3))
-    base = select(Pedido).outerjoin(EntregaPedido, EntregaPedido.pedido_id == Pedido.id).outerjoin(RecebimentoQR, RecebimentoQR.pedido_id == Pedido.id).where(*filtros)
+    base = (select(Pedido).outerjoin(EntregaPedido, EntregaPedido.pedido_id == Pedido.id)
+        .outerjoin(RecebimentoQR, RecebimentoQR.pedido_id == Pedido.id)
+        .outerjoin(ComprovanteEntrega, ComprovanteEntrega.pedido_id == Pedido.id).where(*filtros))
     total = await db.scalar(base.with_only_columns(func.count(), maintain_column_froms=True))
     linhas = (await db.execute(
-        base.with_only_columns(Pedido, EntregaPedido, RecebimentoQR, RecebimentoEntrega.recebedor_nome, Usuario.nome, maintain_column_froms=True)
+        base.with_only_columns(Pedido, EntregaPedido, RecebimentoQR, RecebimentoEntrega.recebedor_nome, Usuario.nome, ComprovanteEntrega, maintain_column_froms=True)
         .outerjoin(RecebimentoEntrega, RecebimentoEntrega.pedido_id == EntregaPedido.pedido_id)
         .outerjoin(Usuario, Usuario.id == EntregaPedido.registrado_por_usuario_id)
         .order_by(horario_entrega.desc(), Pedido.id.desc())
         .offset((pagina - 1) * 50).limit(50)
     )).all()
     itens = []
-    for pedido, entrega, qr, recebedor, operador in linhas:
+    for pedido, entrega, qr, recebedor, operador, comprovante in linhas:
         dados = pedido.dados_dinamicos or {}
         retirada = pedido.retirada
         itens.append({"pedido_id": pedido.id, "tipo_solicitacao": pedido.tipo_solicitacao,
@@ -53,11 +55,28 @@ async def relatorio_entregas(
             "copeira_nome": entrega.copeira_nome if entrega else retirada.copeira_nome if retirada else None,
             "copeira_id": entrega.copeira_id if entrega else retirada.copeira_id if retirada else None,
             "retirada_em": data_utc(retirada.retirada_em) if retirada else None,
-            "recebedor_nome": qr.recebedor_nome if qr and qr.confirmado_em else recebedor, "registrado_por_nome": operador,
+            "recebedor_nome": qr.recebedor_nome if qr and qr.confirmado_em else recebedor,
+            "registrado_por_nome": comprovante.registrado_por_nome if comprovante else operador,
             "recebedor_registro_profissional": qr.registro_profissional if qr and qr.confirmado_em else None,
-            "origem_entrega": 'QR Code' if qr and qr.confirmado_em else 'Copeira',
-            "entregue_em": data_utc(qr.confirmado_em if qr and qr.confirmado_em else entrega.entregue_em), "assinatura_disponivel": recebedor is not None})
+            "origem_entrega": 'Nutrição · filipeta assinada' if comprovante else 'QR Code' if qr and qr.confirmado_em else 'Copeira',
+            "entregue_em": data_utc(comprovante.entregue_em if comprovante else qr.confirmado_em if qr and qr.confirmado_em else entrega.entregue_em),
+            "registrado_em": data_utc(comprovante.registrado_em) if comprovante else None,
+            "comprovante_disponivel": comprovante is not None, "assinatura_disponivel": recebedor is not None})
     return {"itens": itens, "total": total, "pagina": pagina, "total_paginas": max(1, ((total or 0) + 49) // 50)}
+
+
+@router.get("/entregas/{pedido_id}/comprovante")
+async def foto_comprovante(pedido_id: int, filial_id: int, db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(exigir_perfis(*PERFIS))):
+    await verificar_acesso_filial(filial_id, usuario, db)
+    imagem = await db.scalar(select(ComprovanteEntrega.foto_jpeg).join(Pedido, Pedido.id == ComprovanteEntrega.pedido_id)
+        .where(Pedido.id == pedido_id, Pedido.filial_id == filial_id))
+    if imagem is None:
+        raise HTTPException(404, "Comprovante não encontrado para este pedido nesta unidade")
+    return Response(content=imagem, media_type="image/jpeg", headers={
+        "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f'inline; filename="filipeta-pedido-{pedido_id}.jpg"',
+    })
 
 
 @router.get("/entregas/{pedido_id}/assinatura")

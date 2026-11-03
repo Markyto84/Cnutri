@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.api.gestao import ESQUEMA_PADRAO_ENFERMAGEM
 from app.core.database import Base
-from app.models.models import Dieta, EntregaPedido, Filial, FormularioConfig, Pedido, Perfil, RecebimentoEntrega, TrabalhoImpressao, Usuario
+from app.models.models import ComprovanteEntrega, Dieta, EntregaPedido, Filial, FormularioConfig, Pedido, Perfil, RecebimentoEntrega, RecebimentoQR, TrabalhoImpressao, Usuario
+from app.services.foto_comprovante import otimizar_foto
 from app.services.monitoramento import EstadoMonitoramento, obter_monitoramento
 from app.services.recuperacao_backup import ComandosPostgres, normalizar_indice, recuperar_e_conferir, resumir_tabelas, validar_alvo
 
@@ -72,6 +73,13 @@ class RecuperacaoPostgresTest(unittest.IsolatedAsyncioTestCase):
             ImageDraw.Draw(imagem).line([(5, 25), (30, 5), (70, 30)], fill="black", width=2)
             png = BytesIO(); imagem.save(png, format="PNG")
             db.add(RecebimentoEntrega(pedido_id=p.id, recebedor_nome="Recebedor fictício", assinatura_png=png.getvalue()))
+            db.add(RecebimentoQR(pedido_id=p.id, codigo='a'*43, versao=1, url_base='https://teste.invalid', confirmado_em=datetime.now(timezone.utc).replace(tzinfo=None)))
+            await db.flush()
+            foto_original=BytesIO(); Image.new('RGB',(700,1200),'white').save(foto_original,format='PNG')
+            foto=otimizar_foto(foto_original.getvalue())
+            db.add(ComprovanteEntrega(pedido_id=p.id, entregue_em=datetime.now(timezone.utc).replace(tzinfo=None),
+                registrado_por_usuario_id=copeira.id, registrado_por_nome=copeira.nome,
+                foto_jpeg=foto.dados, foto_sha256=foto.sha256, foto_bytes=len(foto.dados), foto_largura=foto.largura, foto_altura=foto.altura))
             await db.commit()
         async with self.engine.connect() as conn:
             self.antes = await resumir_tabelas(conn)
@@ -96,6 +104,7 @@ class RecuperacaoPostgresTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r["estado"], "VALIDADO", {k: r.get(k) for k in ("etapa", "erro_tipo")})
         self.assertEqual(r["tabelas"], self.antes)
         self.assertEqual(r["assinaturas_verificadas"], 1)
+        self.assertEqual(r["fotos_filipetas_verificadas"], 1)
         self.assertEqual(r["formularios_verificados"], 1)
         self.assertEqual(r["pedidos_verificados"], 1)
         self.assertGreater(r["sequencias_verificadas"], 0)

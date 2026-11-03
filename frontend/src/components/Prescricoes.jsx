@@ -8,7 +8,7 @@ import { CAMPO, FiltroUnidade, Paginacao, PRIMARIO, SECUNDARIO } from './Consult
 import FormDinamico from './FormDinamico.jsx'
 
 const ACOES = { SOLICITADO: 'Solicitação registrada', PEDIDO_CORRIGIDO: 'Pedido corrigido', VINCULO_CONFERIDO: 'Vínculo com prescrição conferido',
-  ETAPA_ALTERADA: 'Etapa alterada', RETIRADA_REGISTRADA: 'Retirada registrada', COPEIRA_IDENTIFICADA_QR: 'Copeira identificada pelo QR Code', ENTREGA_REGISTRADA: 'Entrega registrada', ENTREGA_CONFIRMADA_QR: 'Recebimento confirmado por QR Code' }
+  ETAPA_ALTERADA: 'Etapa alterada', RETIRADA_REGISTRADA: 'Retirada registrada', COPEIRA_IDENTIFICADA_QR: 'Copeira identificada pelo QR Code', ENTREGA_REGISTRADA: 'Entrega registrada', ENTREGA_CONFIRMADA_QR: 'Recebimento confirmado por QR Code', ENTREGA_COMPROVADA_NUTRICAO: 'Entrega comprovada pela Nutrição' }
 const ROTULOS = { solicitante_nome: 'Solicitante informado', solicitante_identificacao: 'Registro do solicitante',
   nome_paciente: 'Paciente', prontuario: 'Prontuário', leito: 'Leito', dieta_id: 'ID da dieta', dieta_nome: 'Dieta',
   observacoes_alergias: 'Restrições / alergias / observações', dados_dinamicos: 'Respostas do formulário', prescricao: 'Referência da prescrição',
@@ -108,11 +108,12 @@ function DetalhePedido({ pedidoId, onFechar, onAtualizar }) {
               : e.nova === 'ENTREGUE' && detalhe.entrega?.recebedor_registro_profissional ? `Recebedor informado: ${[detalhe.entrega.recebedor_nome, detalhe.entrega.recebedor_registro_profissional].filter(Boolean).join(' · ')} · QR Code` : 'Autor não registrado na época'}</li>)}</ol>
         </div>
         {detalhe.entrega && <dl className="grid gap-3 rounded-xl bg-white p-4 sm:grid-cols-2"><Dado titulo="Copeira responsável" valor={detalhe.entrega.copeira_nome} />
-          <Dado titulo="Entrega registrada pela conta" valor={detalhe.entrega.registrado_por_usuario_id ? `#${detalhe.entrega.registrado_por_usuario_id}` : ''} />
+          <Dado titulo="Entrega registrada pela conta" valor={detalhe.entrega.registrado_por_nome || (detalhe.entrega.registrado_por_usuario_id ? `#${detalhe.entrega.registrado_por_usuario_id}` : '')} />
           <Dado titulo="Recebedor" valor={detalhe.entrega.recebedor_nome} /><Dado titulo="Entregue em" valor={horarioBrasilia(detalhe.entrega.entregue_em)} />
           <Dado titulo="Registro profissional do recebedor" valor={detalhe.entrega.recebedor_registro_profissional} />
           <Dado titulo="Confirmação da entrega" valor={detalhe.entrega.origem_entrega} />
-          <Dado titulo="Assinatura de recebimento" valor={detalhe.entrega.assinatura_registrada ? 'Registrada' : 'Não registrada'} /></dl>}
+          {detalhe.entrega.registrado_em && <Dado titulo="Lançamento no sistema" valor={horarioBrasilia(detalhe.entrega.registrado_em)} />}
+          <Dado titulo="Assinatura de recebimento" valor={detalhe.entrega.comprovante_disponivel ? 'Manual · foto da filipeta no relatório de entregas' : detalhe.entrega.assinatura_registrada ? 'Registrada' : 'Não registrada'} /></dl>}
       </div>}
       {aba === 'corrigir' && ativa && detalhe.formulario && <Correcao key={`${pedido.id}:${pedido.versao}`} detalhe={detalhe} dietas={dietas} salvando={salvando}
         setSalvando={setSalvando} onErro={setErro} onSalvo={atualizar} onCancelar={() => setAba('dados')} />}

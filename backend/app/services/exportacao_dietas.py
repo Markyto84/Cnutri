@@ -30,7 +30,7 @@ COLUNAS = [
     ("solicitante_nome", "Solicitante", 32), ("concluido_em", "Preparo concluído (Brasília)", 26),
     ("entregue_em", "Entrega (Brasília)", 24), ("copeira_nome", "Copeira", 30), ("recebedor_nome", "Recebedor", 30),
     ("recebedor_registro_profissional", "Registro profissional do recebedor", 32), ("origem_entrega", "Confirmação da entrega", 24),
-    ("assinatura_registrada", "Assinatura registrada", 23), ("outros_campos", "Outros campos informados", 52),
+    ("assinatura_registrada", "Assinatura digital anterior", 26), ("outros_campos", "Outros campos informados", 52),
     ("registrado_por_nome", "Entrega registrada por", 32),
     ("unidade_codigo", "Código da unidade", 26), ("unidade_id", "ID da unidade", 16), ("dieta_id", "ID da dieta", 14),
     ("solicitante_identificacao", "Registro do solicitante informado", 32), ("versao_pedido", "Versão do pedido", 18),
@@ -41,6 +41,7 @@ COLUNAS = [
     ("cancelado_por_nome", "Cancelado por", 32), ("cancelado_por_usuario_id", "ID de quem cancelou", 22),
     ("motivo_cancelamento", "Motivo do cancelamento", 52), ("cancelado_em", "Cancelamento (Brasília)", 26),
     ("retirada_em", "Identificação da copeira (Brasília)", 28), ("etapa_entrega", "Etapa da entrega", 26),
+    ("registrado_em", "Lançamento da entrega (Brasília)", 28), ("comprovante_disponivel", "Foto da filipeta disponível", 28),
 ]
 RESUMO = [("unidade", "Unidade", 38), ("dieta", "Dieta / categoria", 32), ("total", "Solicitações", 15),
     ("pendentes", "Pendentes", 14), ("em_preparo", "Em preparo", 14), ("prontos", "Prontos", 13),
@@ -57,7 +58,7 @@ def limpar(valor):
 
 def valor_celula(item, chave):
     valor = item.get(chave)
-    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em", "cancelado_em", "retirada_em"):
+    if chave in ("criado_em", "concluido_em", "entregue_em", "prescricao_data_hora", "conferencia_em", "cancelado_em", "retirada_em", "registrado_em"):
         return horario_brasilia(valor)
     if chave == "etapa_entrega":
         return {"EM_ENTREGA": "Em entrega", "AGUARDANDO_RETIRADA": "Aguardando entrega", **STATUS}.get(valor, valor)

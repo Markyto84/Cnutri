@@ -16,7 +16,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import selectinload
 
-from ..models.models import FormularioConfig, Pedido, RecebimentoEntrega
+from ..models.models import ComprovanteEntrega, FormularioConfig, Pedido, RecebimentoEntrega
+from .foto_comprovante import MAX_FOTO_BYTES, MAX_LADO
 from ..schemas.schemas import PedidoOut
 from .validacao_pedidos import validar_esquema
 
@@ -101,7 +102,7 @@ async def conferir_sequencias(conn):
 
 
 async def conferir_aplicacao(conn):
-    formularios = assinaturas = pedidos = 0
+    formularios = assinaturas = pedidos = fotos = 0
     async with AsyncSession(bind=conn, expire_on_commit=False) as db:
         for config in (await db.scalars(select(FormularioConfig))).all():
             validar_esquema(config.esquema_json)
@@ -118,7 +119,20 @@ async def conferir_aplicacao(conn):
                     raise ValueError("Assinatura restaurada inválida")
                 imagem.verify()
             assinaturas += 1
-    return {"formularios_verificados": formularios, "assinaturas_verificadas": assinaturas, "pedidos_verificados": pedidos}
+        # Backups anteriores ao lançamento manual não possuem esta tabela.
+        if await conn.run_sync(lambda sync: inspect(sync).has_table("comprovantes_entrega")):
+            linhas = await db.stream(select(ComprovanteEntrega.foto_jpeg, ComprovanteEntrega.foto_sha256,
+                ComprovanteEntrega.foto_bytes).execution_options(yield_per=20))
+            async for dados, resumo, tamanho in linhas:
+                if len(dados) != tamanho or tamanho > MAX_FOTO_BYTES or hashlib.sha256(dados).hexdigest() != resumo:
+                    raise ValueError("Comprovante de entrega restaurado com conteúdo divergente")
+                with Image.open(BytesIO(dados)) as imagem:
+                    if imagem.format != "JPEG" or max(imagem.size) > MAX_LADO or imagem.getexif():
+                        raise ValueError("Foto da filipeta restaurada inválida")
+                    imagem.verify()
+                fotos += 1
+    return {"formularios_verificados": formularios, "assinaturas_verificadas": assinaturas, "pedidos_verificados": pedidos,
+        "fotos_filipetas_verificadas": fotos}
 
 
 class ComandosPostgres:

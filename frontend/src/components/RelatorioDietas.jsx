@@ -121,6 +121,8 @@ export default function RelatorioDietas({ filialId, filiais }) {
           {item.retirada_em && <div className="space-y-1 rounded-lg bg-brand-soft p-3 text-brand-ink"><p><strong>Copeira responsável:</strong> {item.copeira_nome}</p><p><strong>Identificação da copeira:</strong> {horario(item.retirada_em)}</p>
             {item.etapa_entrega === 'EM_ENTREGA' && <p className="font-semibold">Em entrega · aguardando confirmação do recebedor</p>}</div>}
           {item.registrado_por_nome && <p className="text-slate-700">Entrega registrada por: {item.registrado_por_nome}</p>}
+          {item.registrado_em && <p className="text-slate-700">Lançamento no sistema: {horario(item.registrado_em)}</p>}
+          {item.comprovante_disponivel && <p className="text-slate-700">Foto da filipeta disponível no relatório de entregas.</p>}
           {(item.recebedor_nome || item.recebedor_registro_profissional) && <p className="text-slate-700">Recebedor: {item.recebedor_nome || 'Nome não registrado'}{item.recebedor_registro_profissional && ` · ${item.recebedor_registro_profissional}`}
             {item.origem_entrega === 'QR Code' ? ' · Confirmado por QR Code' : item.assinatura_registrada ? ' · Assinatura registrada' : ''}</p>}
           {item.prescricao_referencia && <div className="rounded-lg bg-white p-3"><p><strong>Prescrição:</strong> {item.prescricao_referencia} · {horario(item.prescricao_data_hora)}</p>

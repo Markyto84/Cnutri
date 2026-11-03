@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { AuthContext, inicioDoUsuario, useAuth } from './auth.js'
-import { filialDoPlantao } from '../services/rotasUnidades.js'
 import { limparRetirada } from '../services/retiradaEntrega.js'
 import { limparCodigoRecebimento } from '../services/recebimentoQr.js'
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
   const [plantaoOnline, setPlantaoOnline] = useState(false)
-  const { pathname } = useLocation()
-  const filialPresenca = filialDoPlantao(pathname, usuario?.filiais || [])
   const [carregando, setCarregando] = useState(() => Boolean(localStorage.getItem('token')))
 
   useEffect(() => {
@@ -23,28 +20,6 @@ export function AuthProvider({ children }) {
       .finally(() => { if (!controller.signal.aborted && (!localStorage.getItem('token') || localStorage.getItem('token') === tokenInicial)) setCarregando(false) })
     return () => controller.abort()
   }, [])
-
-  useEffect(() => {
-    if (usuario?.perfil !== 'COPEIRA' || usuario.troca_senha_obrigatoria || !filialPresenca) return
-    const controller = new AbortController()
-    const token = localStorage.getItem('token')
-    async function confirmar() {
-      if (localStorage.getItem('token') !== token) return
-      try {
-        await api.post('/auth/presenca', { filial_id: filialPresenca }, { signal: controller.signal, ignorarRedirecionamento401: true })
-        if (!controller.signal.aborted) setPlantaoOnline(true)
-      } catch (erro) {
-        if (controller.signal.aborted) return
-        setPlantaoOnline(false)
-        if (erro.response?.status === 401) setUsuario(null)
-      }
-    }
-    confirmar()
-    const intervalo = setInterval(confirmar, 30000)
-    const aoVoltar = () => { if (!document.hidden) confirmar() }
-    document.addEventListener('visibilitychange', aoVoltar)
-    return () => { controller.abort(); clearInterval(intervalo); document.removeEventListener('visibilitychange', aoVoltar) }
-  }, [usuario?.id, usuario?.perfil, usuario?.troca_senha_obrigatoria, filialPresenca])
 
   useEffect(() => {
     function sincronizar(evento) {

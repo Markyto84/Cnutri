@@ -24,6 +24,7 @@ class LinhaImpressao:
     centralizada: bool = False
     destaque: bool = False
     url_qr: str | None = None
+    cabecalho_qr: bool = False
 
 
 @lru_cache(maxsize=2)
@@ -41,12 +42,14 @@ def _altura_linha(destaque: bool) -> int:
     return ascendente + descendente + 8
 
 
-def imagem_qr(url: str) -> Image.Image:
+def imagem_qr(url: str, compacto: bool = False) -> Image.Image:
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4, box_size=1)
     qr.add_data(url)
     qr.make(fit=True)
     lado = len(qr.get_matrix())
-    escala = min(6, (LARGURA_PONTOS - 2 * MARGEM_HORIZONTAL) // lado)
+    escala = 3 if compacto else min(6, (LARGURA_PONTOS - 2 * MARGEM_HORIZONTAL) // lado)
+    if compacto and lado * escala > 240:
+        raise ValueError('Use um endereço público mais curto para o QR Code do cabeçalho')
     if escala < 3:
         raise ValueError('O endereço do QR Code excede a área da filipeta')
     imagem = qr.make_image(fill_color='black', back_color='white').convert('L')
@@ -57,17 +60,39 @@ def renderizar_filipeta(linhas: Sequence[LinhaImpressao]) -> Image.Image:
     diagramadas = []
     for linha in linhas:
         if linha.url_qr:
-            diagramadas.append((linha, imagem_qr(linha.url_qr)))
+            qr = imagem_qr(linha.url_qr, compacto=linha.cabecalho_qr)
+            diagramadas.append((linha, qr))
         else:
             for paragrafo in linha.texto.split('\n'):
                 for texto in textwrap.wrap(paragrafo, colunas_por_linha(linha.destaque), break_on_hyphens=False) or ['']:
                     diagramadas.append((LinhaImpressao(texto, linha.centralizada, linha.destaque), None))
-    altura = 16 + sum(qr.height + 8 if qr else _altura_linha(linha.destaque) for linha, qr in diagramadas)
+    def textos_cabecalho(linha, qr):
+        largura = LARGURA_PONTOS - 2 * MARGEM_HORIZONTAL - qr.width - 12
+        colunas = max(1, int(largura // _fonte(True).getlength('M')))
+        return [parte for paragrafo in linha.texto.split('\n')
+                for parte in textwrap.wrap(paragrafo, colunas, break_on_hyphens=False) or ['']]
+
+    def altura_bloco(linha, qr):
+        if qr is None:
+            return _altura_linha(linha.destaque)
+        if linha.cabecalho_qr:
+            return max(qr.height, len(textos_cabecalho(linha, qr)) * _altura_linha(True)) + 12
+        return qr.height + 8
+
+    altura = 16 + sum(altura_bloco(linha, qr) for linha, qr in diagramadas)
     imagem = Image.new("L", (LARGURA_PONTOS, altura), 255)
     desenho = ImageDraw.Draw(imagem)
     y = 8
     for linha, qr in diagramadas:
         if qr is not None:
+            if linha.cabecalho_qr:
+                imagem.paste(qr, (LARGURA_PONTOS - MARGEM_HORIZONTAL - qr.width, y))
+                topo = y
+                for indice, texto in enumerate(textos_cabecalho(linha, qr)):
+                    desenho.text((MARGEM_HORIZONTAL, topo), texto, font=_fonte(indice == 0), fill=0, anchor='la')
+                    topo += _altura_linha(True)
+                y += altura_bloco(linha, qr)
+                continue
             imagem.paste(qr, ((LARGURA_PONTOS - qr.width) // 2, y))
             y += qr.height + 8
             continue

@@ -89,6 +89,7 @@ export default function Monitoramento({ onAbrirCentral }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
           ['Tabelas verificadas', validacao.tabelas_verificadas], ['Registros conferidos', validacao.registros_verificados],
           ['Formulários', validacao.formularios_verificados], ['Assinaturas', validacao.assinaturas_verificadas],
+          ['Fotos de filipetas', validacao.fotos_filipetas_verificadas || 0],
         ].map(([nome, total]) => <p key={nome} className="rounded-lg bg-white p-3 text-sm"><span className="block text-slate-700">{nome}</span><strong className="text-xl">{total}</strong></p>)}</div>
         <p className="text-sm">Duração: {validacao.duracao_segundos} segundos · Ambiente temporário {validacao.temporario_removido ? 'removido após a conferência' : 'aguardando remoção'}.</p>
       </> : <p className="text-sm text-slate-700">Nenhuma recuperação validada foi registrada. A TI executa a ferramenta de validação no ambiente de manutenção.</p>}

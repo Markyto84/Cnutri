@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from ..core.database import get_db
 from ..core.security import exigir_perfis, verificar_acesso_filial
 from ..core.ws import gerenciador_ws
-from ..models.models import EntregaPedido, EventoAssistencial, FormularioConfig, HistoricoPedido, Pedido, RecebimentoEntrega, RecebimentoQR, TrabalhoImpressao, Usuario
+from ..models.models import ComprovanteEntrega, EntregaPedido, EventoAssistencial, FormularioConfig, HistoricoPedido, Pedido, RecebimentoEntrega, RecebimentoQR, TrabalhoImpressao, Usuario
 from ..schemas.schemas import ConferenciaPrescricao, PedidoAssistencialUpdate, PedidoOut
 from ..services.assistencia import CAMPOS_PEDIDO, referencia_informada, registrar_evento, retrato, validar_referencia
 from ..services.fila_impressao import enfileirar
@@ -63,6 +63,7 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
     entrega = await db.get(EntregaPedido, pedido.id)
     recebimento = await db.get(RecebimentoEntrega, pedido.id) if entrega else None
     qr = await db.get(RecebimentoQR, pedido.id)
+    comprovante = await db.get(ComprovanteEntrega, pedido.id)
     retirada = pedido.retirada
     config = await db.scalar(select(FormularioConfig).where(FormularioConfig.filial_id == pedido.filial_id,
         FormularioConfig.tipo_publico == "ENFERMAGEM"))
@@ -77,7 +78,13 @@ async def detalhes(pedido_id: int, response: Response, db: AsyncSession = Depend
             "antes": e.antes, "depois": e.depois, "criado_em": data_utc(e.criado_em)} for e in eventos],
         "etapas": [{"anterior": h.status_anterior, "nova": h.status_novo, "usuario_id": h.alterado_por_usuario_id,
             "nome_atual_usuario": nome, "data_hora": data_utc(h.data_hora)} for h, nome in historico],
-        "entrega": {"copeira_id": entrega.copeira_id, "copeira_nome": entrega.copeira_nome,
+        "entrega": {"copeira_id": None, "copeira_nome": None,
+            "registrado_por_usuario_id": comprovante.registrado_por_usuario_id,
+            "registrado_por_nome": comprovante.registrado_por_nome,
+            "registrado_em": data_utc(comprovante.registrado_em), "entregue_em": data_utc(comprovante.entregue_em),
+            "recebedor_nome": qr.recebedor_nome, "assinatura_registrada": False,
+            "comprovante_disponivel": True, "origem_entrega": 'Nutrição · filipeta assinada'} if comprovante else {
+            "copeira_id": entrega.copeira_id, "copeira_nome": entrega.copeira_nome,
             "registrado_por_usuario_id": entrega.registrado_por_usuario_id, "entregue_em": data_utc(entrega.entregue_em),
             "recebedor_nome": recebimento.recebedor_nome if recebimento else None,
             "assinatura_registrada": recebimento is not None, "origem_entrega": 'Copeira'} if entrega else {

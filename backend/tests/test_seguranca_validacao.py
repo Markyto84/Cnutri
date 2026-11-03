@@ -115,25 +115,24 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
             r = await (self.client.patch(self.base + sufixo, headers=outra, json={"status": "CANCELADO", "motivo": "Cancelamento de teste"}) if sufixo == "/status" else self.client.post(self.base + sufixo, headers=outra))
             self.assertEqual(r.status_code, 403)
         self.assertEqual((await self.client.post(self.base + "/entregar", headers=cozinha, json=self.comprovante())).status_code, 403)
-        self.assertEqual((await self.client.post(self.base + "/entregar", headers=ana, json={**self.comprovante(), "copeira_id": self.ids["bia"]})).status_code, 403)
+        self.assertEqual((await self.client.post(self.base + "/entregar", headers=ana, json={**self.comprovante(), "copeira_id": self.ids["bia"]})).status_code, 410)
         r = await self.client.post(self.base + "/entregar", headers=ana, json=self.comprovante())
-        self.assertEqual(r.status_code, 201, r.text)
+        self.assertEqual(r.status_code, 410, r.text)
         async with self.sessoes() as db:
-            self.assertEqual((await db.get(EntregaPedido, self.pedido)).registrado_por_usuario_id, self.ids["ana"])
+            self.assertIsNone(await db.get(EntregaPedido, self.pedido))
+            self.assertEqual((await db.get(Pedido, self.pedido)).status, "PRONTO")
 
-    async def test_gestao_registra_por_copeira_online_e_relatorio_identifica_ambas(self):
+    async def test_gestao_nao_finaliza_pelo_painel_desativado_nem_cria_entrega_parcial(self):
         await self.entrar("ana")
         gestor = await self.entrar("gestor")
         r = await self.client.post(self.base + "/entregar", headers=gestor, json=self.comprovante())
-        self.assertEqual(r.status_code, 201, r.text)
+        self.assertEqual(r.status_code, 410, r.text)
         async with self.sessoes() as db:
-            entrega = await db.get(EntregaPedido, self.pedido)
-            self.assertEqual(entrega.copeira_id, self.ids["ana"])
-            self.assertEqual(entrega.registrado_por_usuario_id, self.ids["gestor"])
-            self.assertEqual((await db.scalar(select(HistoricoPedido))).alterado_por_usuario_id, self.ids["gestor"])
+            self.assertIsNone(await db.get(EntregaPedido, self.pedido))
+            self.assertIsNone(await db.scalar(select(HistoricoPedido)))
         r = await self.client.get(f"/api/relatorios/entregas?filial_id={self.a}", headers=gestor)
-        self.assertEqual(r.json()["itens"][0]["registrado_por_nome"], "Gestor")
-        self.assertEqual(r.json()["itens"][0]["copeira_nome"], "Ana")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["total"], 0)
 
     async def test_primeiro_acesso_da_copeira_exige_nova_senha_antes_de_entrar_no_plantao(self):
         token = await self.entrar("bia")

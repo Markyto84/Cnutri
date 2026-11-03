@@ -137,8 +137,11 @@ def compor_linhas_filipeta(
         largura = colunas_por_linha(destaque)
         linhas.extend(LinhaImpressao(linha, centralizada, destaque) for linha in _linhas(texto, largura))
 
-    adicionar(f"PEDIDO #{pedido.id}", centralizada=True, destaque=True)
-    adicionar(filial_nome, centralizada=True)
+    if url_recebimento:
+        linhas.append(LinhaImpressao(f"PEDIDO #{pedido.id}\n{filial_nome}", url_qr=url_recebimento, cabecalho_qr=True))
+    else:
+        adicionar(f"PEDIDO #{pedido.id}", centralizada=True, destaque=True)
+        adicionar(filial_nome, centralizada=True)
     adicionar("=" * LARGURA_LINHA, centralizada=True)
 
     if severa:
@@ -149,19 +152,16 @@ def compor_linhas_filipeta(
         adicionar(f"{rotulo}: {valor}")
     adicionar("=" * LARGURA_LINHA, centralizada=True)
     adicionar("ENTREGA À RECEPÇÃO", centralizada=True, destaque=True)
-    if url_recebimento:
-        adicionar('Escaneie para confirmar o recebimento', centralizada=True)
-        linhas.append(LinhaImpressao('', url_qr=url_recebimento))
-        adicionar('Informe nome e registro profissional', centralizada=True)
-        adicionar('e toque em Confirmar recebimento.', centralizada=True)
-    else:
-        adicionar("Assinatura:")
-        adicionar("\n\n")
-        adicionar("_" * LARGURA_LINHA)
-        adicionar("")
-        adicionar("Data e hora:")
-        adicionar("")
-        adicionar("____/____/________  ____:____")
+    adicionar("Recebedor:")
+    adicionar("_" * LARGURA_LINHA)
+    adicionar("")
+    adicionar("Assinatura:")
+    adicionar("\n\n")
+    adicionar("_" * LARGURA_LINHA)
+    adicionar("")
+    adicionar("Data e hora:")
+    adicionar("")
+    adicionar("____/____/________  ____:____")
     adicionar("")
     adicionar("=" * LARGURA_LINHA, centralizada=True)
     return linhas

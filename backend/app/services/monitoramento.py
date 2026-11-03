@@ -54,6 +54,7 @@ class TesteBackup(BaseModel):
     tabelas_verificadas: int = Field(default=0, ge=0)
     registros_verificados: int = Field(default=0, ge=0)
     assinaturas_verificadas: int = Field(default=0, ge=0)
+    fotos_filipetas_verificadas: int = Field(default=0, ge=0)
     formularios_verificados: int = Field(default=0, ge=0)
     sequencias_verificadas: int = Field(default=0, ge=0)
     temporario_removido: bool = False

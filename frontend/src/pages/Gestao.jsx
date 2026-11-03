@@ -40,7 +40,6 @@ export default function Gestao() {
           </select>
           {usuario.perfil === 'ADMIN_TI' && <Link to="/admin" className="ui-button ui-button-secondary">Administração</Link>}
           <Link to={caminhoCozinha(filial)} className="ui-button ui-button-secondary">Cozinha</Link>
-          <Link to={`/entregas/${filialId}`} className="ui-button ui-button-secondary">Entregas</Link>
           <Link to="/senha" className="ui-button ui-button-secondary">Alterar minha senha</Link>
           <button onClick={sair} className="ui-button ui-button-secondary">
             Sair

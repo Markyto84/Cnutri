@@ -193,13 +193,13 @@ class SincronizacaoOperacaoPostgresTest(SincronizacaoOperacaoTest):
             await c.exec_driver_sql(f'CREATE SCHEMA "{self.schema}"')
         return create_async_engine(url, connect_args={"server_settings": {"search_path": self.schema}})
 
-    async def test_entrega_direta_concorrente_nao_duplica_atendimento(self):
+    async def test_chamadas_concorrentes_ao_painel_desativado_nao_finalizam_atendimento(self):
         rota = f"/api/operacao/unidades/{self.a}/pedidos/1/entregar"
         respostas = await asyncio.wait_for(asyncio.gather(*[
             self.cliente.post(rota, headers=self.cabecalhos("ana"), json={}) for _ in range(2)
         ]), timeout=10)
-        self.assertEqual(sorted(r.status_code for r in respostas), [201, 409])
+        self.assertEqual(sorted(r.status_code for r in respostas), [410, 410])
         async with self.sessoes() as db:
-            self.assertEqual(len((await db.scalars(select(EntregaPedido))).all()), 1)
+            self.assertEqual(len((await db.scalars(select(EntregaPedido))).all()), 0)
             self.assertIsNone(await db.scalar(select(RecebimentoEntrega)))
-            self.assertEqual((await db.get(Pedido, 1)).status, "ENTREGUE")
+            self.assertEqual((await db.get(Pedido, 1)).status, "PRONTO")
