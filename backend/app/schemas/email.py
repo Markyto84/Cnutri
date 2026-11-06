@@ -22,7 +22,7 @@ class ConfiguracaoEmailUpdate(BaseModel):
             return None
         senha = valor.get_secret_value().replace(" ", "")
         if not re.fullmatch(r"[a-zA-Z0-9]{16}", senha):
-            raise ValueError("Use a senha de app de 16 caracteres gerada pelo Google")
+            raise ValueError("Use a senha de app de 16 caracteres gerada pelo Google. A senha comum usada para abrir o e-mail não funciona nesta conexão. Gere a credencial no link exibido no painel")
         return SecretStr(senha)
 
 

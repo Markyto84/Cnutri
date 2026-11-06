@@ -21,6 +21,10 @@ Em **Administração de TI → Avisos por e-mail**, selecione a unidade e escolh
    `smtp.gmail.com:587`, STARTTLS, validando o certificado do Google. O endereço
    remetente é também o usuário de autenticação. A senha comum da conta não é
    o método de configuração desse envio automático.
+   O painel apresenta o passo a passo e o link direto para
+   [Senhas de app do Google](https://myaccount.google.com/apppasswords).
+   Gere a credencial na conta de dietas da unidade, cole os 16 caracteres,
+   salve a configuração e então teste a conexão.
 2. **Google Workspace · Relay autorizado pela TI**: informe o remetente da
    unidade. A TI autoriza previamente o IP público de saída do servidor e os
    remetentes no console do Google. O Cnutri usa `smtp-relay.gmail.com:587` com

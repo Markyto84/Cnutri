@@ -83,10 +83,19 @@ export default function AvisosEmail({ filiais }) {
           onChange={(e) => setForm({ ...form, remetente: e.target.value, senha_app: '' })} /></label>
       </div>
       {form.modo === 'GOOGLE_APP' ? <>
-        <p className="text-sm text-slate-700">O e-mail da unidade será usado como usuário. Gere uma senha de app na conta do Google, conforme a política da empresa. A conta precisa ter verificação em duas etapas e permissão para esse recurso.</p>
+        <div id="orientacao-senha-google" className="space-y-3 rounded-xl bg-brand-soft p-4 text-sm text-brand-ink">
+          <p className="font-bold">Aqui você precisa de uma senha de app do Google.</p>
+          <p>A senha que você usa para abrir a caixa de e-mail não funciona nesta conexão. O Google gera uma credencial específica de 16 caracteres para o Cnutri.</p>
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>Entre na conta de e-mail de dietas desta unidade, com a verificação em duas etapas ativa.</li>
+            <li><a className="font-semibold underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">Abra Senhas de app no Google</a> e gere uma senha com o nome Cnutri.</li>
+            <li>Cole os 16 caracteres no campo abaixo e clique em <strong>Salvar configuração</strong>. Depois, use <strong>Testar conexão</strong>.</li>
+          </ol>
+          <p>Se a opção Senhas de app não aparecer, peça à TI para verificar a política da conta ou configurar o relay do Google Workspace.</p>
+        </div>
         {!config.protecao_preparada && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">A TI precisa preparar a proteção das credenciais no servidor antes de cadastrar a senha de app.</p>}
         {!config.acesso_seguro && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Para cadastrar a senha de app, abra o Cnutri por HTTPS ou nesta máquina em <a href="http://127.0.0.1:5173/admin" className="underline">http://127.0.0.1:5173/admin</a>.</p>}
-        <label className="block text-sm font-semibold">Senha de app do Google<input className={`${CAMPO} mt-2`} type="password" maxLength={32} autoComplete="new-password"
+        <label className="block text-sm font-semibold">Senha de app do Google (16 caracteres)<input className={`${CAMPO} mt-2`} type="password" maxLength={32} autoComplete="new-password" aria-describedby="orientacao-senha-google"
           value={form.senha_app} disabled={ocupado || !config.protecao_preparada || !config.acesso_seguro} onChange={(e) => setForm({ ...form, senha_app: e.target.value })}
           placeholder={config.senha_configurada ? 'Já cadastrada · deixe vazio para manter' : '16 caracteres gerados pelo Google'} /></label>
         <p className="text-xs text-slate-700">A credencial é armazenada de forma criptografada e não é exibida após o cadastro.</p>
