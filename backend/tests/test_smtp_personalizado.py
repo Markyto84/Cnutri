@@ -1,5 +1,6 @@
 """SMTP configurável com credenciais fictícias e coletor restrito ao loopback."""
 from base64 import b64decode
+import smtplib
 import socketserver
 import ssl
 import threading
@@ -78,6 +79,18 @@ class SmtpPersonalizadoApiTest(base.EmailMedicoTest):
 
 
 class TransporteSmtpPersonalizadoTest(base.TransporteEmailTest):
+    def test_interrupcao_de_autenticacao_informa_etapa_e_nao_repete_senha(self):
+        smtp = self.servidor()
+        smtp.login.side_effect = smtplib.SMTPServerDisconnected("Conexao encerrada")
+        conexao = ConexaoEmail(1, "dietas@example.com", "SMTP", "Exemplo!2026", servidor="smtp.exemplo.local", porta=587,
+            seguranca="STARTTLS", autenticar=True, usuario="servico")
+        with patch("app.services.email_medico.smtplib.SMTP", return_value=smtp), self.assertRaises(ErroEnvioEmail) as erro:
+            transportar_email(conexao, self.mensagem)
+        self.assertIn("interrompeu a autenticação", str(erro.exception))
+        self.assertFalse(erro.exception.repetir)
+        self.assertNotIn("Exemplo!2026", str(erro.exception))
+        smtp.data.assert_not_called()
+
     def test_certificado_invalido_interrompe_sem_repetir_ou_enviar_credencial(self):
         conexao = ConexaoEmail(1, "dietas@example.com", "SMTP", "Exemplo!2026", servidor="smtp.exemplo.local", porta=465,
             seguranca="TLS", autenticar=True, usuario="servico")

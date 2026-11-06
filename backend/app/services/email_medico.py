@@ -163,6 +163,7 @@ def transportar_email(conexao, mensagem=None):
 def transportar_destino(conexao, mensagem, servidor, porta):
     smtp = None
     dados_iniciados = False
+    etapa = "CONEXAO"
     try:
         if conexao.autenticar and conexao.seguranca not in ("TLS", "STARTTLS"):
             raise ErroEnvioEmail("Para autenticar, configure uma conexão com STARTTLS ou SSL/TLS")
@@ -172,10 +173,13 @@ def transportar_destino(conexao, mensagem, servidor, porta):
             smtp = smtplib.SMTP(servidor, porta, timeout=conexao.tempo_limite)
         smtp.ehlo()
         if conexao.seguranca == "STARTTLS":
+            etapa = "STARTTLS"
             smtp.starttls(context=ssl.create_default_context())
             smtp.ehlo()
         if conexao.autenticar:
+            etapa = "AUTENTICACAO"
             autenticar_smtp(smtp, conexao.usuario, conexao.senha)
+        etapa = "ENVIO"
         if mensagem is None:
             codigo, _ = smtp.noop()
             if codigo != 250:
@@ -199,7 +203,12 @@ def transportar_destino(conexao, mensagem, servidor, porta):
             repetir=400 <= exc.smtp_code < 500) from None
     except ssl.SSLCertVerificationError:
         raise ErroEnvioEmail("O certificado do servidor SMTP não foi validado. Confira o nome do servidor e a autoridade certificadora com a TI") from None
-    except (OSError, smtplib.SMTPServerDisconnected):
+    except (OSError, smtplib.SMTPServerDisconnected) as exc:
+        if etapa == "AUTENTICACAO":
+            raise ErroEnvioEmail("A conexão SMTP foi estabelecida, mas o servidor interrompeu a autenticação. Confira se o serviço exige usuário e credencial ou utiliza relay autorizado sem autenticação",
+                repetir=not isinstance(exc, smtplib.SMTPServerDisconnected)) from None
+        if etapa == "STARTTLS":
+            raise ErroEnvioEmail("A conexão SMTP foi estabelecida, mas a negociação STARTTLS foi interrompida. Confira a segurança e a porta do servidor", repetir=True) from None
         raise ErroEnvioEmail("A conexão foi interrompida após iniciar o envio; confira antes de reenviar" if dados_iniciados else "Sem conexão com o serviço de e-mail",
             repetir=not dados_iniciados, incerto=dados_iniciados) from None
     except smtplib.SMTPException:
