@@ -1,5 +1,6 @@
 """Assistente local de instalação. Prepara arquivos; não inicia serviços nem acessa o banco."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -43,6 +44,17 @@ def ler_configuracao(caminho):
         return {}
     return dict(linha.split("=", 1) for linha in caminho.read_text(encoding="utf-8").splitlines()
         if linha and not linha.startswith("#") and "=" in linha)
+
+
+def preparar_email(raiz):
+    ambiente = Path(raiz).resolve() / ".env"
+    if ambiente.is_symlink() or not ambiente.is_file():
+        raise ValueError("Prepare a instalação e seu arquivo privado .env antes de habilitar a proteção do e-mail.")
+    if not ler_configuracao(ambiente).get("EMAIL_CREDENCIAIS_CHAVE"):
+        chave_email = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
+        linhas = ambiente.read_text(encoding="utf-8").rstrip("\n")
+        gravar_privado(ambiente, linhas + "\nEMAIL_CREDENCIAIS_CHAVE=" + chave_email + "\n")
+    return ambiente
 
 
 def senha_inicial():
@@ -89,6 +101,7 @@ def configurar(raiz, endereco, certificados=None, *, alterar=False):
     if not ambiente.exists():
         senha = senha_inicial()
         gravar_privado(ambiente, f"POSTGRES_PASSWORD={secrets.token_hex(24)}\nJWT_SECRET={secrets.token_urlsafe(64)}\nADMIN_INICIAL_SENHA={json.dumps(senha)}\n")
+        preparar_email(raiz)
         gravar_privado(credencial, f"Ceres Care — primeiro acesso de uma instalação nova\nUsuário: admin\nSenha temporária: {senha}\nA senha deve ser alterada no primeiro acesso. Este arquivo não redefine contas existentes.\n")
     if anterior != valores:
         if arquivo.exists():
@@ -103,8 +116,13 @@ def principal():
     parser.add_argument("--endereco", help="Endereço completo acessível aos computadores e celulares, por exemplo http://192.0.2.10:8080")
     parser.add_argument("--certificados", help="Pasta Linux com servidor.pem e chave.pem, para HTTPS")
     parser.add_argument("--alterar", action="store_true", help="Prepara outro endereço sem modificar senhas ou banco")
+    parser.add_argument("--preparar-email", action="store_true", help="Adiciona somente a chave privada de e-mail, preservando o restante da instalação")
     args = parser.parse_args()
     try:
+        if args.preparar_email:
+            caminho_email = preparar_email(args.diretorio)
+            print(f"Proteção de e-mail preparada em {caminho_email}. Nenhum segredo foi exibido. Reinicie a API.")
+            return
         endereco = args.endereco or input("Endereço da instalação (http://IP:porta ou https://domínio): ").strip()
         resultado = configurar(args.diretorio, endereco, args.certificados, alterar=args.alterar)
     except (ValueError, OSError, EOFError) as erro:

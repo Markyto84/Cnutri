@@ -5,6 +5,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.responses import JSONResponse
 
 from .api import admin, assistencia, auth, cozinha, gestao, melhorias, monitoramento, operacao, pedidos, public_kiosk, relatorio_dietas, relatorios
 from .core.config import settings
@@ -26,6 +29,8 @@ from .services.fila_impressao import executar_fila
 from .services.monitoramento import EstadoMonitoramento
 from .services.contexto_operacao import executar_contexto
 from .api import recebimento_qr
+from .api import email as email_api
+from .services.fila_email import executar_fila_email
 
 logging.basicConfig(level=logging.INFO)
 INTERVALO_VALIDACAO_WS = 30
@@ -52,16 +57,18 @@ async def lifespan(app: FastAPI):
     app.state.monitoramento = EstadoMonitoramento()
     tarefa = asyncio.create_task(executar_fila(SessionLocal, parar, app.state.monitoramento.fila))
     contexto = asyncio.create_task(executar_contexto(SessionLocal, parar, gerenciador_ws))
+    emails = asyncio.create_task(executar_fila_email(SessionLocal, parar))
     try:
         yield
     finally:
         parar.set()
         try:
-            await asyncio.wait_for(asyncio.gather(tarefa, contexto), timeout=10)
+            await asyncio.wait_for(asyncio.gather(tarefa, contexto, emails), timeout=10)
         except TimeoutError:
             tarefa.cancel()
             contexto.cancel()
-            await asyncio.gather(tarefa, contexto, return_exceptions=True)
+            emails.cancel()
+            await asyncio.gather(tarefa, contexto, emails, return_exceptions=True)
 
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
@@ -87,6 +94,16 @@ app.include_router(melhorias.router)
 app.include_router(monitoramento.router)
 app.include_router(assistencia.router)
 app.include_router(recebimento_qr.router)
+app.include_router(email_api.router)
+
+
+@app.exception_handler(RequestValidationError)
+async def proteger_credenciais_email(request, exc):
+    if request.url.path.startswith("/api/admin/avisos-email/"):
+        # A validação nunca devolve os valores recebidos no cadastro de credenciais.
+        return JSONResponse(status_code=422, content={"detail": [
+            {"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]})
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.middleware("http")

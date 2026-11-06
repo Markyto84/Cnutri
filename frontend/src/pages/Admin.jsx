@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { caminhoCozinha } from '../services/rotasUnidades.js'
@@ -17,6 +17,7 @@ const CAMPO = 'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 t
 const PRIMARIO = 'ui-button ui-button-primary'
 const SECUNDARIO = 'ui-button ui-button-secondary'
 const PERFIS = { ADMIN_TI: 'Administrador', NUTRICIONISTA: 'Gestor de nutrição', COZINHA: 'Cozinha', COPEIRA: 'Copeira' }
+const AvisosEmail = lazy(() => import('../components/AvisosEmail.jsx'))
 
 function mensagemErro(e) {
   const detalhe = e.response?.data?.detail
@@ -75,7 +76,7 @@ export default function Admin() {
       ].map(([rotulo, total, icone]) => <Indicador key={rotulo} titulo={rotulo} valor={total} icone={icone} />)}
     </div>}
     <nav className="workspace-nav" aria-label="Administração">
-      {[['monitoramento', 'Monitoramento', 'gestao'], ['servidor', 'Servidor da aplicação', 'ajustes'], ['prescricoes', 'Pedidos e rastreabilidade', 'prancheta'], ['unidades', 'Unidades', 'unidade'], ['credenciais', 'Credenciais', 'chave'], ['impressoras', 'Impressoras', 'impressora'], ['central-impressoes', 'Central de impressões', 'impressora'], ['alertas', 'Alertas de demora', 'relogio'], ['historico', 'Histórico de alterações', 'historico'], ['relatorios', 'Relatórios', 'gestao']].map(([id, rotulo, icone]) =>
+      {[['monitoramento', 'Monitoramento', 'gestao'], ['servidor', 'Servidor da aplicação', 'ajustes'], ['prescricoes', 'Pedidos e rastreabilidade', 'prancheta'], ['unidades', 'Unidades', 'unidade'], ['credenciais', 'Credenciais', 'chave'], ['impressoras', 'Impressoras', 'impressora'], ['avisos-email', 'Avisos por e-mail', 'email'], ['central-impressoes', 'Central de impressões', 'impressora'], ['alertas', 'Alertas de demora', 'relogio'], ['historico', 'Histórico de alterações', 'historico'], ['relatorios', 'Relatórios', 'gestao']].map(([id, rotulo, icone]) =>
         <button key={id} aria-pressed={aba === id} onClick={() => { setAba(id); setErro(null); setSucesso(null) }} className={aba === id ? PRIMARIO : SECUNDARIO}><Icone nome={icone} tamanho={18} />{rotulo}</button>)}
     </nav>
     <Aviso erro={erro} sucesso={sucesso} />
@@ -86,6 +87,7 @@ export default function Admin() {
       {aba === 'unidades' && <Unidades filiais={dados.filiais} urlPublica={dados.urlPublica} onConcluido={concluido} />}
       {aba === 'credenciais' && <Credenciais filiais={dados.filiais} usuarios={dados.usuarios} usuarioAtual={usuario} onConcluido={concluido} />}
       {aba === 'impressoras' && <Impressoras filiais={dados.filiais} onConcluido={concluido} />}
+      {aba === 'avisos-email' && <Suspense fallback={<p role="status">Carregando avisos por e-mail…</p>}><AvisosEmail filiais={dados.filiais} /></Suspense>}
       {aba === 'relatorios' && <RelatorioDietas filiais={dados.filiais} />}
       {aba === 'central-impressoes' && <CentralImpressoes filiais={dados.filiais} />}
       {aba === 'alertas' && <ConfiguracaoAlertas filiais={dados.filiais} />}

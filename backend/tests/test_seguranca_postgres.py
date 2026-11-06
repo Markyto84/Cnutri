@@ -101,7 +101,7 @@ class ConcorrenciaSenhaTest(unittest.IsolatedAsyncioTestCase):
             await db.flush()
             db.add(FormularioConfig(filial_id=filial.id, tipo_publico="MEDICO", esquema_json={"campos": []}))
             await db.commit()
-        return {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM TESTE", "solicitante_nome": "Profissional Fictício"}
+        return {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM TESTE", "solicitante_nome": "Profissional Fictício", "solicitante_email": "medico@example.com"}
 
     async def test_envios_simultaneos_com_mesma_chave_criam_um_pedido_e_um_trabalho(self):
         payload = await self.preparar_pedidos()

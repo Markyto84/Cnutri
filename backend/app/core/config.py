@@ -31,11 +31,18 @@ class Settings(BaseSettings):
     AD_CA_CERTIFICADO: str | None = None
     AD_TIMEOUT_SEGUNDOS: int = Field(default=5, ge=1, le=15)
     AD_SESSAO_MINUTOS: int = Field(default=30, ge=5, le=120)
+    EMAIL_CREDENCIAIS_CHAVE: str | None = Field(default=None, repr=False)
 
     model_config = SettingsConfigDict(env_file=(BACKEND.parent / ".env", BACKEND / ".env"), env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def impedir_segredos_padrao(self):
+        if self.EMAIL_CREDENCIAIS_CHAVE:
+            from cryptography.fernet import Fernet
+            try:
+                Fernet(self.EMAIL_CREDENCIAIS_CHAVE.encode("ascii"))
+            except (ValueError, UnicodeError):
+                raise ValueError("A chave privada de e-mail precisa ser preparada pelo assistente do servidor") from None
         if self.URL_PUBLICA:
             self.URL_PUBLICA = normalizar_endereco_publico(self.URL_PUBLICA)
             self.URL_RECEBIMENTO_PUBLICA = self.URL_PUBLICA

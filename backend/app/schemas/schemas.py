@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from ..core.login_usuarios import PADRAO_USUARIO, normalizar_usuario
 from ..core.politica_senha import MIN_SENHA, MAX_SENHA, validar_senha
 from ..core.codigos_unidades import validar_codigo_unidade
+from ..services.endereco_email import normalizar_email
 from ..modules.assinatura import AssinaturaCreate, PontoAssinatura  # compatibilidade com integrações existentes
 
 TipoPublico = Literal["MEDICO", "ENFERMAGEM"]
@@ -272,6 +273,7 @@ class PedidoCreate(BaseModel):
     tipo_solicitacao: TipoSolicitacao
     solicitante_identificacao: str = Field(min_length=1, max_length=50, description="CRM, COREN ou Matrícula")
     solicitante_nome: str = Field(min_length=1, max_length=100)
+    solicitante_email: str | None = Field(default=None, max_length=254)
     leito: str | None = Field(default=None, max_length=30)
     prontuario: str | None = Field(default=None, max_length=50)
     nome_paciente: str | None = Field(default=None, max_length=100)
@@ -284,6 +286,11 @@ class PedidoCreate(BaseModel):
     @classmethod
     def limpar_textos(cls, valor):
         return valor.strip() if isinstance(valor, str) else valor
+
+    @field_validator("solicitante_email", mode="before")
+    @classmethod
+    def conferir_email(cls, valor):
+        return normalizar_email(valor) if valor is not None else None
 
 
 class ImpressaoOut(BaseModel):

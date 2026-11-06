@@ -105,7 +105,7 @@ class AssistenciaTest(unittest.IsolatedAsyncioTestCase):
         dados["dados_dinamicos"]["para"] = "Acompanhante"
         dados["prescricao"] = None
         self.assertEqual((await self.client.post("/api/public/teste-a/pedidos", json=dados)).status_code, 201)
-        medico = {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "MATRÍCULA FICTÍCIA", "solicitante_nome": "Profissional Teste"}
+        medico = {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "MATRÍCULA FICTÍCIA", "solicitante_nome": "Profissional Teste", "solicitante_email": "medico@example.com"}
         self.assertEqual((await self.client.post("/api/public/teste-a/pedidos", json=medico)).status_code, 201)
         self.assertEqual((await self.client.post("/api/public/teste-a/pedidos", json={**medico, "prescricao": REFERENCIA})).status_code, 422)
 

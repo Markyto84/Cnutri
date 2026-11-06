@@ -84,6 +84,7 @@ class SegurancaValidacaoTest(unittest.IsolatedAsyncioTestCase):
 
     def medico(self):
         return {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM TESTE", "solicitante_nome": "Médica Fictícia",
+            "solicitante_email": "medico@example.com",
             "observacoes_alergias": "Sem restrições", "dados_dinamicos": {"equipe": "Médica", "horario_entrega": "12:30",
                 "refeicao": ESQUEMAS["MEDICO"]["campos"][2]["opcoes"][0], "suco": "COM SUCO", "sobremesa": "SOBREMESA DO DIA", "local_entrega": "TÉRREO - CONFORTO MÉDICO"}}
 

@@ -19,6 +19,7 @@ export default function Kiosk() {
   const [resultado, setResultado] = useState(null)
   const [registro, setRegistro] = useState('') // CRM, COREN ou Matrícula — rastreabilidade obrigatória
   const [solicitanteNome, setSolicitanteNome] = useState('') // nome do profissional que solicita
+  const [solicitanteEmail, setSolicitanteEmail] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -55,7 +56,7 @@ export default function Kiosk() {
         if (d.type === 'value_error') return d.msg.replace(/^Value error, /, '')
         const chave = d.loc?.at(-1)
         const rotulo = config.formularios?.[fluxo]?.campos?.find((c) => c.id === chave)?.rotulo
-          || ({ solicitante_nome: 'Solicitante', solicitante_identificacao: 'Registro profissional' })[chave] || 'Formulário'
+          || ({ solicitante_nome: 'Solicitante', solicitante_identificacao: 'Registro profissional', solicitante_email: 'E-mail' })[chave] || 'Formulário'
         const mensagem = ({ string_too_short: 'preenchimento obrigatório', missing: 'preenchimento obrigatório',
           string_too_long: 'texto maior que o limite permitido' })[d.type] || 'informe um valor válido'
         return `${rotulo}: ${mensagem}`
@@ -73,6 +74,10 @@ export default function Kiosk() {
       setErroEnvio('Informe o seu nome no campo Solicitante')
       return
     }
+    if (fluxo === 'MEDICO' && !solicitanteEmail.trim()) {
+      setErroEnvio('Informe o seu e-mail para receber o aviso da refeição')
+      return
+    }
     // Campos "conhecidos" pelo backend; todo o restante vai em dados_dinamicos (JSONB)
     const fixos = ['leito', 'prontuario', 'nome_paciente', 'dieta_id', 'observacoes_alergias', 'solicitante_nome']
     const dinamicos = Object.fromEntries(Object.entries(dados).filter(([k]) => !fixos.includes(k)))
@@ -84,6 +89,7 @@ export default function Kiosk() {
         ...Object.fromEntries(Object.entries(dados).filter(([k]) => fixos.includes(k))),
         dados_dinamicos: dinamicos,
         solicitante_nome: solicitanteNome.trim(),
+        ...(fluxo === 'MEDICO' ? { solicitante_email: solicitanteEmail.trim() } : {}),
         solicitante_identificacao: registro.trim(),
         tipo_solicitacao: fluxo === 'MEDICO' ? 'MEDICO' : 'PACIENTE',
         dieta_id: dados.dieta_id ? Number(dados.dieta_id) : null,
@@ -102,7 +108,7 @@ export default function Kiosk() {
   }
 
   if (tela === 'sucesso')
-    return <Sucesso resultado={resultado} slug={slugFinal} onVoltar={() => { concluirTentativa(slugFinal); setResultado(null); setTela('perfil'); setFluxo(null); setRegistro(''); setSolicitanteNome('') }} />
+    return <Sucesso resultado={resultado} slug={slugFinal} onVoltar={() => { concluirTentativa(slugFinal); setResultado(null); setTela('perfil'); setFluxo(null); setRegistro(''); setSolicitanteNome(''); setSolicitanteEmail('') }} />
 
   return (
     <div className="app-shell kiosk-shell">
@@ -179,8 +185,20 @@ export default function Kiosk() {
               onChange={(e) => setSolicitanteNome(e.target.value)}
               placeholder="Ex.: Enf. João Souza"
             />
+            {fluxo === 'MEDICO' && <div className="mt-5">
+              <label htmlFor="email-solicitante" className="mb-2 block text-sm font-semibold text-slate-700">Seu e-mail<span className="text-red-700"> *</span></label>
+              <input id="email-solicitante" name="solicitante_email" form="solicitacao-refeicao" type="email" required maxLength={254}
+                autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false}
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-brand"
+                value={solicitanteEmail} onChange={(e) => setSolicitanteEmail(e.target.value)} placeholder="nome@empresa.com"
+                aria-describedby="orientacao-email-solicitante" />
+              <p id="orientacao-email-solicitante" className="mt-2 text-xs text-slate-700">{config.aviso_email_medico_ativo
+                ? 'Avisaremos neste endereço quando sua refeição sair para entrega, com um resumo do pedido.'
+                : 'Este endereço será usado para o aviso da refeição. O envio por e-mail aguarda ativação nesta unidade.'}</p>
+            </div>}
           </section>
         <FormDinamico
+          id="solicitacao-refeicao"
           etapa="2"
           titulo={config.formularios?.[fluxo]?.titulo || (fluxo === 'MEDICO' ? 'Solicitação — Profissional' : 'Solicitação — Paciente')}
           cabecalho={config.formularios?.[fluxo]?.cabecalho || ''}

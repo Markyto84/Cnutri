@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
 from ..core.ws import gerenciador_ws
-from ..models.models import Dieta, Filial, FormularioConfig, Pedido
+from ..models.models import ConfiguracaoEmailUnidade, ContatoEmailPedido, Dieta, Filial, FormularioConfig, Pedido
 from ..schemas.schemas import PedidoCreate, PedidoOut
 from ..services.fila_impressao import enfileirar
 from ..services.validacao_pedidos import validar_pedido
@@ -56,6 +56,7 @@ async def obter_config_kiosk(slug: str, db: AsyncSession = Depends(get_db)):
         "filial": {"id": filial.id, "nome": filial.nome, "codigo_slug": filial.codigo_slug},
         "dietas": [{"id": d.id, "nome": d.nome, "severa": d.severa} for d in dietas],
         "formularios": esquemas,
+        "aviso_email_medico_ativo": bool(await db.scalar(select(ConfiguracaoEmailUnidade.habilitado).where(ConfiguracaoEmailUnidade.filial_id == filial.id))),
     }
 
 
@@ -69,10 +70,17 @@ async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, respons
         await verificar_acesso_filial(filial_id, usuario, db)
 
     chave = str(chave or uuid4())
-    resumo = sha256(json.dumps(dados.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    corpo = dados.model_dump(mode="json")
+    if corpo["solicitante_email"] is None:
+        corpo.pop("solicitante_email")  # Preserva o comprovante de reenvios anteriores ao campo.
+    resumo = sha256(json.dumps(corpo, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
     existente = await buscar_envio(db, filial.id, chave)
     if existente:
         return conferir_repeticao(existente, resumo, response)
+    if dados.tipo_solicitacao == "MEDICO" and not dados.solicitante_email:
+        raise HTTPException(422, "Informe o e-mail do solicitante para receber o aviso da refeição")
+    if dados.tipo_solicitacao != "MEDICO" and dados.solicitante_email is not None:
+        raise HTTPException(422, "O e-mail de aviso é exclusivo do formulário médico / administração")
     dieta = await validar_pedido(db, filial.id, dados)
     validar_referencia(dados)
 
@@ -95,6 +103,8 @@ async def criar_pedido(slug: str, dados: PedidoCreate, request: Request, respons
     db.add(pedido)
     try:
         await db.flush()
+        if dados.tipo_solicitacao == "MEDICO":
+            db.add(ContatoEmailPedido(pedido_id=pedido.id, email=dados.solicitante_email))
         registrar_evento(db, pedido, "SOLICITADO", usuario, depois=retrato(pedido),
             motivo="Solicitante e prescritor informados no formulário; referência ainda não conferida pela gestão")
         await enfileirar(db, pedido, filial)

@@ -50,7 +50,7 @@ class FilaPedidoTest(unittest.IsolatedAsyncioTestCase):
         await self.engine.dispose()
 
     def payload(self):
-        return {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM FICTÍCIO", "solicitante_nome": "Profissional Fictício", "observacoes_alergias": "Sem restrições"}
+        return {"tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM FICTÍCIO", "solicitante_nome": "Profissional Fictício", "solicitante_email": "medico@example.com", "observacoes_alergias": "Sem restrições"}
 
     async def enviar(self, chave=None, payload=None, slug="teste"):
         return await self.client.post(f"/api/public/{slug}/pedidos", headers={"Idempotency-Key": chave or str(uuid4())}, json=self.payload() if payload is None else payload)

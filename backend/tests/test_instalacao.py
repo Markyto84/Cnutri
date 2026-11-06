@@ -15,7 +15,7 @@ from app.core.config import Settings, settings
 from app.core.endereco_publico import normalizar_endereco_publico
 from app.core.politica_senha import validar_senha
 from app.main import app
-from configurar_servidor import configurar, principal
+from configurar_servidor import configurar, preparar_email, principal
 
 
 class EnderecoInstalacaoTest(unittest.TestCase):
@@ -102,6 +102,18 @@ class AssistenteInstalacaoTest(unittest.TestCase):
             configurar(root, "http://192.0.2.20")
             self.assertEqual((root / ".env").read_text(encoding="utf-8"), anterior)
             self.assertFalse((root / "work/credencial-inicial.txt").exists())
+
+    def test_chave_email_e_preparada_explicitamente_sem_trocar_demais_segredos(self):
+        with TemporaryDirectory() as pasta:
+            root = Path(pasta)
+            anterior = "# configuração fictícia\nPOSTGRES_PASSWORD=privada-ficticia\nJWT_SECRET=" + "segredo-ficticio" * 4 + "\n"
+            (root / ".env").write_text(anterior, encoding="utf-8")
+            preparar_email(root)
+            depois = (root / ".env").read_bytes()
+            self.assertTrue(depois.decode("utf-8").startswith(anterior))
+            self.assertTrue(dotenv_values(root / ".env")["EMAIL_CREDENCIAIS_CHAVE"])
+            preparar_email(root)
+            self.assertEqual((root / ".env").read_bytes(), depois)
 
 
 class ConfiguracaoPublicaTest(unittest.IsolatedAsyncioTestCase):

@@ -267,6 +267,8 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
             "tipo_solicitacao", "solicitante_identificacao", "solicitante_nome", "nome_paciente",
             "leito", "prontuario", "dieta_id", "observacoes_alergias", "dados_dinamicos",
         )}
+        if pedido.tipo_solicitacao == "MEDICO":
+            payload["solicitante_email"] = "medico@example.com"
         with (
             patch("app.services.fila_impressao.enviar_filipeta", return_value=None) as imprimir,
             patch("app.services.impressora.rasterizar_filipeta", wraps=rasterizar_filipeta) as desenhar,
@@ -336,6 +338,7 @@ class ImpressaoRotasTest(unittest.IsolatedAsyncioTestCase):
         with patch("app.services.fila_impressao.enviar_filipeta") as imprimir:
             resposta = await self.client.post("/api/public/unidade-teste/pedidos", json={
                 "tipo_solicitacao": "MEDICO", "solicitante_identificacao": "CRM 123", "solicitante_nome": "Exemplo",
+                "solicitante_email": "medico@example.com",
                 "dados_dinamicos": pedido_medico().dados_dinamicos, "observacoes_alergias": "Sem restrições",
             })
             self.assertEqual(resposta.status_code, 201, resposta.text)

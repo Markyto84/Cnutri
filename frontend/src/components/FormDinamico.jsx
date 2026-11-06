@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ajustarValores, campoVisivel, dietasDisponiveis, erroAcompanhante, erroLiquidos, opcoesCardapio } from '../services/formularioPaciente.js'
 
 export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = false, etapa, campos, dietas, enviando, erro, onCancelar, onEnviar,
-  valoresIniciais = {}, complemento, textoBotao = 'Enviar Solicitação' }) {
+  valoresIniciais = {}, complemento, textoBotao = 'Enviar Solicitação', id }) {
   const [valores, setValores] = useState(() => ajustarValores(campos, dietas, valoresIniciais))
 
   const setValor = (id, v) => setValores((a) => ajustarValores(campos, dietas, { ...a, [id]: v }))
@@ -20,7 +20,7 @@ export default function FormDinamico({ titulo, cabecalho, destacarCabecalho = fa
   }
 
   return (
-    <form onSubmit={submeter} className="form-card mx-auto space-y-5 rounded-2xl bg-panel p-5 sm:p-7">
+    <form id={id} onSubmit={submeter} className="form-card mx-auto space-y-5 rounded-2xl bg-panel p-5 sm:p-7">
       <div className="form-card-heading">{etapa && <span className="form-step">{etapa}</span>}<div><h2>{titulo}</h2><p>Confira os dados para ajudar a equipe no preparo e na entrega.</p></div></div>
 
       {cabecalho && (

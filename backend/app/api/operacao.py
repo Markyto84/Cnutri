@@ -18,6 +18,7 @@ from ..services.operacao import STATUS_ATIVOS, data_utc, pedido_operacional, val
 from ..services.etiquetas import campos_etiqueta, destinatarios_etiqueta, nome_etiqueta, previa_png
 from ..services.assistencia import registrar_etapa
 from ..services.contexto_operacao import carregar_contexto
+from ..services.fila_email import enfileirar_aviso_pronto
 
 router = APIRouter(prefix="/api/operacao", tags=["Dashboard e entregas"])
 OPERADORES = exigir_perfis("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
@@ -120,6 +121,8 @@ async def alterar_status(filial_id: int, pedido_id: int, dados: StatusUpdate, db
         raise HTTPException(409, "Outro painel já atualizou este pedido")
     db.add(HistoricoPedido(pedido_id=pedido.id, status_anterior=anterior, status_novo=dados.status, alterado_por_usuario_id=usuario.id if usuario else None))
     registrar_etapa(db, pedido, usuario, anterior, dados.status, dados.motivo if dados.status == "CANCELADO" else None)
+    if dados.status == "PRONTO":
+        await enfileirar_aviso_pronto(db, pedido)
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])

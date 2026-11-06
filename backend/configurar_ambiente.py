@@ -1,5 +1,6 @@
 """Provisiona segredos locais sem imprimir seus valores nem versioná-los."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -37,6 +38,8 @@ def configurar():
         linhas += "\nJWT_SECRET=" + json.dumps(secrets.token_urlsafe(64)) + "\n"
     if args.inicializar_admin and not valores.get("ADMIN_INICIAL_SENHA"):
         linhas += "ADMIN_INICIAL_SENHA=" + json.dumps(gerar_senha_temporaria()) + "\n"
+    if not valores.get("EMAIL_CREDENCIAIS_CHAVE"):
+        linhas += "\nEMAIL_CREDENCIAIS_CHAVE=" + json.dumps(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")) + "\n"
     gravar_privado(caminho, linhas)
     print(f"Configuração privada preparada em {caminho}. Nenhum segredo foi exibido.")
 

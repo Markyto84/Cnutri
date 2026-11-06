@@ -12,6 +12,7 @@ from ..schemas.schemas import PedidoOut, ReimpressaoCreate, StatusUpdate
 from ..services.fila_impressao import enfileirar, resposta_fila
 from ..services.operacao import pedido_operacional, validar_transicao_cozinha
 from ..services.assistencia import registrar_etapa
+from ..services.fila_email import enfileirar_aviso_pronto
 
 router = APIRouter(prefix="/api/pedidos", tags=["Cozinha / Kanban"])
 PERFIS_OPERACAO = ("COZINHA", "NUTRICIONISTA", "ADMIN_TI")
@@ -81,6 +82,8 @@ async def alterar_status(
         )
     )
     registrar_etapa(db, pedido, usuario, anterior, dados.status, dados.motivo if dados.status == "CANCELADO" else None)
+    if dados.status == "PRONTO":
+        await enfileirar_aviso_pronto(db, pedido)
     await db.commit()
     await db.refresh(pedido)
     await db.refresh(pedido, attribute_names=["dieta", "trabalhos_impressao"])

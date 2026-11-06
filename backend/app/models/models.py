@@ -229,6 +229,50 @@ class Pedido(Base):
             "erro": trabalho.erro, "proxima_tentativa_em": trabalho.proxima_tentativa_em}
 
 
+class ConfiguracaoEmailUnidade(Base):
+    __tablename__ = "configuracoes_email_unidades"
+
+    filial_id: Mapped[int] = mapped_column(ForeignKey("filiais.id", ondelete="RESTRICT"), primary_key=True)
+    modo: Mapped[str] = mapped_column(String(20), nullable=False, default="GOOGLE_APP")
+    remetente: Mapped[str] = mapped_column(String(254), nullable=False)
+    senha_cifrada: Mapped[str | None] = mapped_column(Text, deferred=True)
+    habilitado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class ContatoEmailPedido(Base):
+    """Contato do profissional, fora das respostas públicas e da impressão."""
+    __tablename__ = "contatos_email_pedidos"
+
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False)
+
+
+class AvisoEmailPedido(Base):
+    __tablename__ = "avisos_email_pedidos"
+    __table_args__ = (
+        UniqueConstraint("pedido_id", "versao", name="uq_aviso_email_pedido_versao"),
+        Index("ix_aviso_email_fila", "estado", "proxima_tentativa_em"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id", ondelete="RESTRICT"), nullable=False)
+    filial_id: Mapped[int] = mapped_column(ForeignKey("filiais.id", ondelete="RESTRICT"), nullable=False)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False)
+    destinatario: Mapped[str] = mapped_column(String(254), nullable=False)
+    resumo: Mapped[dict] = mapped_column(JSONType, nullable=False)
+    mensagem_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    estado: Mapped[str] = mapped_column(String(24), nullable=False, default="PENDENTE")
+    tentativas: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    erro: Mapped[str | None] = mapped_column(String(250))
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    proxima_tentativa_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    iniciado_em: Mapped[datetime | None] = mapped_column(DateTime)
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime)
+    reserva: Mapped[str | None] = mapped_column(String(36))
+
+
 class TrabalhoImpressao(Base):
     __tablename__ = "trabalhos_impressao"
 
