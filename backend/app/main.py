@@ -20,6 +20,7 @@ from .core.migracao_ad import migrar_ad
 from .core.migracao_melhorias import migrar_melhorias
 from .core.migracao_assistencia import migrar_assistencia
 from .core.migracao_recebimento_qr import migrar_recebimento_qr
+from .core.migracao_email import migrar_email
 from .core.credenciais_iniciais import conferir_credenciais_producao
 from .core.security import get_current_user, verificar_acesso_filial
 from .core.ws import gerenciador_ws
@@ -49,6 +50,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(migrar_melhorias)
         await conn.run_sync(migrar_assistencia)
         await conn.run_sync(migrar_recebimento_qr)
+        await conn.run_sync(migrar_email)
     async with SessionLocal() as db:
         await executar_seed(db)
         if settings.APP_ENV == "production":

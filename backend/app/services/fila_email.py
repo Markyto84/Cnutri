@@ -41,7 +41,7 @@ async def enfileirar_aviso_pronto(db, pedido):
 async def recuperar_interrompidos(sessoes):
     async with sessoes() as db:
         await db.execute(update(AvisoEmailPedido).where(AvisoEmailPedido.estado == "PROCESSANDO",
-            AvisoEmailPedido.iniciado_em < agora_utc() - timedelta(minutes=3)).values(estado="INCERTO", reserva=None,
+            AvisoEmailPedido.iniciado_em < agora_utc() - timedelta(minutes=15)).values(estado="INCERTO", reserva=None,
             erro="Processamento interrompido; confira o recebimento antes de reenviar"))
         await db.commit()
 

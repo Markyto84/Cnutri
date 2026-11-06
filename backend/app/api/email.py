@@ -14,11 +14,12 @@ from ..core.security import exigir_perfis
 from ..models.models import AvisoEmailPedido, ConfiguracaoEmailUnidade, Filial, Pedido, Usuario
 from ..schemas.email import ConfiguracaoEmailUpdate, ReenvioEmail
 from ..services.auditoria import registrar
-from ..services.email_medico import ErroEnvioEmail, SERVIDORES, cifrar_senha, obter_conexao, transportar_email
+from ..services.email_medico import ErroEnvioEmail, cifrar_senha, obter_conexao, parametros_smtp, transportar_email
 from ..services.operacao import data_utc
 
 router = APIRouter(prefix="/api/admin/avisos-email", tags=["Avisos por e-mail"])
 ADMIN = exigir_perfis("ADMIN_TI")
+CAMPOS_SMTP = ("servidor", "porta", "seguranca", "autenticar", "usuario", "servidor_secundario", "porta_secundaria", "tempo_limite", "endereco_resposta")
 
 
 def acesso_seguro(request):
@@ -35,14 +36,15 @@ async def unidade(db, filial_id, bloquear=False):
 
 
 def retrato(config):
-    return {c: getattr(config, c) for c in ("modo", "remetente", "habilitado")} if config else None
+    return {**{c: getattr(config, c) for c in ("modo", "remetente", "habilitado")}, **parametros_smtp(config)} if config else None
 
 
 def resposta(config, request):
-    return {"modo": config.modo if config else "GOOGLE_APP", "remetente": config.remetente if config else "",
+    return {"modo": config.modo if config else "SMTP", "remetente": config.remetente if config else "",
         "habilitado": config.habilitado if config else False, "senha_configurada": bool(config and config.senha_cifrada),
         "protecao_preparada": bool(settings.EMAIL_CREDENCIAIS_CHAVE), "acesso_seguro": acesso_seguro(request),
-        "servidor": SERVIDORES[config.modo if config else "GOOGLE_APP"], "porta": 587, "seguranca": "STARTTLS"}
+        **(parametros_smtp(config) if config else {"servidor": "", "porta": 587, "seguranca": "STARTTLS", "autenticar": True, "usuario": "",
+            "servidor_secundario": None, "porta_secundaria": None, "tempo_limite": 30, "endereco_resposta": None})}
 
 
 @router.get("/{filial_id}/configuracao")
@@ -60,21 +62,24 @@ async def salvar(filial_id: int, dados: ConfiguracaoEmailUpdate, request: Reques
         .where(ConfiguracaoEmailUnidade.filial_id == filial_id))
     antes = retrato(config)
     if dados.senha_app and not acesso_seguro(request):
-        raise HTTPException(400, "Para cadastrar a senha de app, use HTTPS ou abra o Cnutri nesta máquina por http://127.0.0.1:5173/admin")
+        raise HTTPException(400, "Para cadastrar a credencial de e-mail, use HTTPS ou acesse pelo endereço local no próprio servidor")
     if config is None:
         config = ConfiguracaoEmailUnidade(filial_id=filial_id, modo=dados.modo, remetente=dados.remetente,
             habilitado=False, senha_cifrada=None)
         db.add(config)
-    trocou_conta = config.remetente != dados.remetente or config.modo != dados.modo
+    parametros_antes = parametros_smtp(config)
+    trocou_conta = config.modo != dados.modo or any(parametros_antes[c] != getattr(dados, c) for c in ("servidor", "usuario", "autenticar"))
     if dados.senha_app and dados.modo == "GOOGLE_RELAY":
         raise HTTPException(422, "O relay por IP é autorizado no Google Workspace pela TI e dispensa senha de app")
-    if dados.modo == "GOOGLE_RELAY" or trocou_conta:
+    if not dados.autenticar or trocou_conta:
         config.senha_cifrada = None
     if dados.senha_app:
         config.senha_cifrada = cifrar_senha(filial_id, dados.senha_app.get_secret_value())
-    if dados.habilitado and dados.modo == "GOOGLE_APP" and not config.senha_cifrada:
-        raise HTTPException(422, "Cadastre a senha de app da conta desta unidade antes de ativar os avisos")
+    if dados.habilitado and dados.autenticar and not config.senha_cifrada:
+        raise HTTPException(422, "Cadastre a credencial da conta desta unidade antes de ativar os avisos")
     config.modo, config.remetente, config.habilitado = dados.modo, dados.remetente, dados.habilitado
+    for campo in CAMPOS_SMTP:
+        setattr(config, campo, getattr(dados, campo))
     depois = retrato(config)
     if dados.senha_app:
         depois = {**depois, "credencial_atualizada": True}
@@ -88,11 +93,12 @@ async def testar(filial_id: int, db: AsyncSession = Depends(get_db), _: Usuario 
     await unidade(db, filial_id)
     conexao = await obter_conexao(db, filial_id, exigir_habilitado=False)
     try:
-        await run_in_threadpool(transportar_email, conexao)
+        resultado = await run_in_threadpool(transportar_email, conexao)
     except ErroEnvioEmail as exc:
         raise HTTPException(502, exc.mensagem) from None
-    return {"mensagem": "Conexão segura verificada. Nenhuma mensagem de teste foi enviada",
-        "observacao": "A autorização do remetente e do destinatário no relay será conferida durante um envio real" if conexao.modo == "GOOGLE_RELAY" else None}
+    return {"mensagem": "Conexão SMTP verificada. Nenhuma mensagem de teste foi enviada",
+        "servidor_verificado": resultado if isinstance(resultado, dict) else None,
+        "observacao": "A autorização do remetente e do destinatário no relay será conferida durante um envio real" if not conexao.autenticar else None}
 
 
 @router.get("/{filial_id}/avisos")

@@ -231,7 +231,7 @@ class EmailMedicoTest(unittest.IsolatedAsyncioTestCase):
         pedido_id = await self.pedido(); await self.pronto(pedido_id)
         async with self.sessoes() as db:
             aviso = await db.scalar(select(AvisoEmailPedido))
-            aviso.estado, aviso.iniciado_em, aviso.reserva = "PROCESSANDO", agora_utc() - timedelta(minutes=4), str(uuid4())
+            aviso.estado, aviso.iniciado_em, aviso.reserva = "PROCESSANDO", agora_utc() - timedelta(minutes=16), str(uuid4())
             await db.commit()
         await recuperar_interrompidos(self.sessoes)
         self.assertEqual((await self.aviso(pedido_id)).estado, "INCERTO")
@@ -317,6 +317,22 @@ class TransporteEmailTest(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("CNUTRI_TEST_POSTGRES_URL"), "Requer PostgreSQL de teste")
 class EmailMedicoPostgresTest(EmailMedicoTest):
+    async def test_migracao_smtp_preserva_credencial_google_anterior_no_postgres(self):
+        from app.core.migracao_email import migrar_email
+        await self.configurar()
+        async with self.engine.begin() as conn:
+            for coluna in ("servidor", "porta", "seguranca", "autenticar", "usuario", "servidor_secundario", "porta_secundaria", "tempo_limite", "endereco_resposta"):
+                await conn.exec_driver_sql(f"ALTER TABLE configuracoes_email_unidades DROP COLUMN {coluna}")
+            await conn.run_sync(migrar_email)
+            await conn.run_sync(migrar_email)
+        r = await self.client.get(f"/api/admin/avisos-email/{self.a}/configuracao", headers=self.headers["ADMIN_TI"])
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["servidor"], "smtp.gmail.com")
+        self.assertTrue(r.json()["senha_configurada"])
+        async with self.sessoes() as db:
+            config = await db.scalar(select(ConfiguracaoEmailUnidade).options(undefer(ConfiguracaoEmailUnidade.senha_cifrada)))
+            self.assertEqual(decifrar_senha(self.a, config.senha_cifrada), SENHA_FICTICIA)
+
     async def criar_engine(self):
         url = os.environ["CNUTRI_TEST_POSTGRES_URL"]
         esquema = "email_" + uuid4().hex

@@ -41,7 +41,7 @@ def decifrar_senha(filial_id, valor):
             raise ValueError()
         return dados["senha"]
     except (InvalidToken, ValueError, KeyError, TypeError, AttributeError):
-        raise HTTPException(503, "Não foi possível abrir a credencial desta unidade. Confira a chave privada ou recadastre a senha de app") from None
+        raise HTTPException(503, "Não foi possível abrir a credencial desta unidade. Confira a chave privada ou recadastre a credencial SMTP") from None
 
 
 @dataclass(repr=False)
@@ -50,6 +50,32 @@ class ConexaoEmail:
     remetente: str
     modo: str
     senha: str | None = field(default=None, repr=False)
+    servidor: str | None = None
+    porta: int = 587
+    seguranca: str = "STARTTLS"
+    autenticar: bool | None = None
+    usuario: str | None = None
+    servidor_secundario: str | None = None
+    porta_secundaria: int | None = None
+    tempo_limite: int = 30
+    endereco_resposta: str | None = None
+
+    def __post_init__(self):
+        if self.modo in SERVIDORES:
+            self.servidor = SERVIDORES[self.modo]
+            self.porta, self.seguranca = 587, "STARTTLS"
+            self.autenticar = self.modo == "GOOGLE_APP"
+            self.usuario = self.remetente if self.autenticar else None
+
+
+def parametros_smtp(config):
+    comuns = {"servidor_secundario": config.servidor_secundario, "porta_secundaria": config.porta_secundaria,
+        "tempo_limite": config.tempo_limite or 30, "endereco_resposta": config.endereco_resposta}
+    if config.modo in SERVIDORES:
+        return {"servidor": SERVIDORES[config.modo], "porta": 587, "seguranca": "STARTTLS",
+            "autenticar": config.modo == "GOOGLE_APP", "usuario": config.remetente if config.modo == "GOOGLE_APP" else None, **comuns}
+    return {"servidor": config.servidor, "porta": config.porta, "seguranca": config.seguranca,
+        "autenticar": config.autenticar, "usuario": config.usuario, **comuns}
 
 
 async def obter_conexao(db, filial_id, *, exigir_habilitado=True):
@@ -58,11 +84,12 @@ async def obter_conexao(db, filial_id, *, exigir_habilitado=True):
     if not config or exigir_habilitado and not config.habilitado:
         raise HTTPException(409, "Os avisos por e-mail estão desativados nesta unidade")
     senha = None
-    if config.modo == "GOOGLE_APP":
+    parametros = parametros_smtp(config)
+    if parametros["autenticar"]:
         if not config.senha_cifrada:
-            raise HTTPException(409, "Cadastre a senha de app do Google desta unidade")
+            raise HTTPException(409, "Cadastre a credencial de autenticação de e-mail desta unidade")
         senha = decifrar_senha(filial_id, config.senha_cifrada)
-    return ConexaoEmail(filial_id, normalizar_email(config.remetente), config.modo, senha)
+    return ConexaoEmail(filial_id, normalizar_email(config.remetente), config.modo, senha, **parametros)
 
 
 async def resumir_pedido(db, pedido, filial):
@@ -105,6 +132,8 @@ def compor_corpos(resumo):
 def compor_mensagem(conexao, destinatario, resumo, mensagem_id):
     mensagem = EmailMessage(policy=SMTP)
     mensagem["From"] = f'Cnutri <{normalizar_email(conexao.remetente)}>'
+    if conexao.endereco_resposta:
+        mensagem["Reply-To"] = normalizar_email(conexao.endereco_resposta)
     mensagem["To"] = normalizar_email(destinatario)
     mensagem["Subject"] = f'Cnutri · Sua refeição está a caminho · Pedido #{int(resumo["pedido_id"])}'
     mensagem["Message-ID"] = mensagem_id
@@ -123,23 +152,38 @@ class ErroEnvioEmail(Exception):
 
 def transportar_email(conexao, mensagem=None):
     """Sem mensagem, verifica TLS/autenticação sem enviar e-mail a ninguém."""
+    try:
+        return transportar_destino(conexao, mensagem, conexao.servidor, conexao.porta)
+    except ErroEnvioEmail as exc:
+        if not exc.repetir or exc.incerto or not conexao.servidor_secundario:
+            raise
+    return transportar_destino(conexao, mensagem, conexao.servidor_secundario, conexao.porta_secundaria)
+
+
+def transportar_destino(conexao, mensagem, servidor, porta):
     smtp = None
     dados_iniciados = False
     try:
-        smtp = smtplib.SMTP(SERVIDORES[conexao.modo], 587, timeout=5)
+        if conexao.autenticar and conexao.seguranca not in ("TLS", "STARTTLS"):
+            raise ErroEnvioEmail("Para autenticar, configure uma conexão com STARTTLS ou SSL/TLS")
+        if conexao.seguranca == "TLS":
+            smtp = smtplib.SMTP_SSL(servidor, porta, timeout=conexao.tempo_limite, context=ssl.create_default_context())
+        else:
+            smtp = smtplib.SMTP(servidor, porta, timeout=conexao.tempo_limite)
         smtp.ehlo()
-        smtp.starttls(context=ssl.create_default_context())
-        smtp.ehlo()
-        if conexao.modo == "GOOGLE_APP":
-            smtp.login(conexao.remetente, conexao.senha)
+        if conexao.seguranca == "STARTTLS":
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.ehlo()
+        if conexao.autenticar:
+            autenticar_smtp(smtp, conexao.usuario, conexao.senha)
         if mensagem is None:
             codigo, _ = smtp.noop()
             if codigo != 250:
-                raise ErroEnvioEmail("O Google não confirmou a conexão. Confira a configuração da unidade", repetir=True)
-            return
+                raise ErroEnvioEmail("O servidor SMTP não confirmou a conexão. Confira a configuração da unidade", repetir=True)
+            return {"servidor": servidor, "porta": porta, "autenticado": bool(conexao.autenticar)}
         codigo, _ = smtp.mail(conexao.remetente)
         if codigo != 250:
-            raise ErroEnvioEmail("O Google recusou o remetente desta unidade", repetir=400 <= codigo < 500)
+            raise ErroEnvioEmail("O servidor SMTP recusou o remetente desta unidade", repetir=400 <= codigo < 500)
         codigo, _ = smtp.rcpt(str(mensagem["To"]))
         if codigo not in (250, 251):
             raise ErroEnvioEmail("O servidor recusou o e-mail do destinatário", repetir=400 <= codigo < 500)
@@ -147,11 +191,14 @@ def transportar_email(conexao, mensagem=None):
         codigo, _ = smtp.data(mensagem.as_bytes())
         if codigo != 250:
             raise ErroEnvioEmail("O servidor não aceitou a mensagem", repetir=400 <= codigo < 500)
+        return {"servidor": servidor, "porta": porta, "autenticado": bool(conexao.autenticar)}
     except smtplib.SMTPAuthenticationError:
-        raise ErroEnvioEmail("Autenticação recusada. Confira a senha de app e as permissões do Google Workspace") from None
+        raise ErroEnvioEmail("Autenticação recusada. Confira o usuário, a credencial e as permissões de envio do provedor") from None
     except smtplib.SMTPResponseException as exc:
-        raise ErroEnvioEmail("O Google recusou temporariamente o envio" if 400 <= exc.smtp_code < 500 else "O Google recusou a conexão ou o envio",
+        raise ErroEnvioEmail("O servidor SMTP recusou temporariamente o envio" if 400 <= exc.smtp_code < 500 else "O servidor SMTP recusou a conexão ou o envio",
             repetir=400 <= exc.smtp_code < 500) from None
+    except ssl.SSLCertVerificationError:
+        raise ErroEnvioEmail("O certificado do servidor SMTP não foi validado. Confira o nome do servidor e a autoridade certificadora com a TI") from None
     except (OSError, smtplib.SMTPServerDisconnected):
         raise ErroEnvioEmail("A conexão foi interrompida após iniciar o envio; confira antes de reenviar" if dados_iniciados else "Sem conexão com o serviço de e-mail",
             repetir=not dados_iniciados, incerto=dados_iniciados) from None
@@ -162,3 +209,18 @@ def transportar_email(conexao, mensagem=None):
             # Fechar a conexão não pode transformar uma mensagem já aceita em falha.
             with suppress(Exception):
                 smtp.close()
+
+
+def autenticar_smtp(smtp, usuario, senha):
+    # O login padrão negocia os métodos disponíveis. SASL PLAIN usa UTF-8
+    # quando a credencial inclui acentos; a conexão já foi protegida por TLS.
+    if usuario.isascii() and senha.isascii():
+        smtp.login(usuario, senha)
+        return
+    from base64 import b64encode
+    if "PLAIN" not in smtp.esmtp_features.get("auth", "").upper().split():
+        raise ErroEnvioEmail("O servidor não oferece autenticação compatível com os caracteres da credencial")
+    dados = b64encode(f"\0{usuario}\0{senha}".encode("utf-8")).decode("ascii")
+    codigo, _ = smtp.docmd("AUTH", "PLAIN " + dados)
+    if codigo != 235:
+        raise smtplib.SMTPAuthenticationError(codigo, b"Autenticacao recusada")

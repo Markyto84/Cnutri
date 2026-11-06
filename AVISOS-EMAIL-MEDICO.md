@@ -13,7 +13,27 @@ da filipeta nem código de acesso ao recebimento no e-mail.
 
 ## Configurar por unidade
 
-Em **Administração de TI → Avisos por e-mail**, selecione a unidade e escolha:
+Em **Administração de TI → Avisos por e-mail**, selecione a unidade. A configuração
+padrão para novos cadastros é **SMTP personalizado**, com campos editáveis:
+
+- E-mail remetente e endereço de resposta opcional.
+- Nome ou IP do servidor principal e porta de 1 a 65535.
+- STARTTLS, SSL/TLS ou relay sem TLS e sem autenticação.
+- Autenticação por usuário/senha ou nenhuma, conforme o relay autorizado.
+- Usuário SMTP independente do endereço remetente e senha do serviço, com até
+  512 caracteres. A restrição de 16 caracteres é exclusiva do modelo Google.
+- Tempo limite de 5 a 30 segundos.
+- Servidor secundário e porta opcionais, usando a mesma segurança e autenticação.
+
+Cada unidade pode usar um serviço diferente, sem alterar fontes ou instalar uma
+versão específica. O teste pode salvar os campos e verificar a conexão na mesma
+ação. O cadastro não envia e-mail de teste nem ativa unidades automaticamente.
+Conexões com usuário/senha exigem TLS e validam o certificado do servidor.
+Senhas são preservadas ao editar outros parâmetros; trocar servidor ou usuário
+exige recadastrar a credencial. O SMTP personalizado respeita a credencial
+fornecida pelo provedor, inclusive espaços e caracteres especiais.
+
+Também estão disponíveis modelos opcionais do Google:
 
 1. **Google Workspace · Senha de app**: informe o e-mail de dietas da unidade
    e uma senha de app de 16 caracteres. A conta precisa ter verificação em duas
@@ -42,7 +62,7 @@ Referências oficiais consultadas em 06/11/2026:
 
 ## Credenciais e instalação
 
-A senha de app é cifrada com Fernet, vinculada à unidade e nunca devolvida
+A credencial SMTP é cifrada com Fernet, vinculada à unidade e nunca devolvida
 pela API, gravada em auditoria ou incluída em mensagens de erro do provedor.
 Somente ADMIN_TI pode configurar, testar e acompanhar os avisos.
 
@@ -71,10 +91,15 @@ Não troque a chave isoladamente enquanto houver senhas cadastradas.
 - Há unicidade por pedido/versão. Repetir o clique em Pronto não cria outro aviso.
 - Falhas de conexão anteriores ao envio e recusas temporárias têm até três
   tentativas, com espera crescente. O erro exibido é uma descrição controlada.
+- O secundário só é usado após falha recuperável e sem envio incerto. O mesmo
+  aviso mantém seu identificador durante o fallback. O teste informa qual
+  servidor respondeu. Recusa de autenticação não tenta o secundário.
 - Queda depois de iniciar a transmissão e processamento interrompido ficam como
   **Precisa de conferência**, sem reenvio automático. SMTP não garante que um
   aceite perdido possa ser distinguido de uma mensagem não recebida; por isso
   um reenvio incerto exige conferência humana.
+  O consumidor considera um processamento interrompido após 15 minutos, com
+  margem para as conexões primária/secundária e o tempo limite configurável.
 - Antes de transmitir, a fila confere unidade ativa, pedido Pronto, versão e
   validade. Uma alteração depois dessa conferência, com a transmissão já em
   andamento, não pode retirar um e-mail já entregue ao servidor SMTP.
@@ -85,6 +110,10 @@ Não troque a chave isoladamente enquanto houver senhas cadastradas.
 - Se o envio estava desativado ao marcar Pronto, isso fica registrado. A ativação
   posterior não dispara esse histórico automaticamente. A TI pode tentar um
   aviso explicitamente enquanto o pedido e a janela de envio ainda forem válidos.
+
+Uma migração aditiva acrescenta os parâmetros SMTP opcionais e preserva as
+contas, credenciais cifradas e configurações Google existentes. A rotina é
+idempotente e é executada na inicialização antes dos consumidores.
 
 O e-mail fica em tabela própria de contato e não aparece nos canais públicos
 da cozinha, na confirmação pública de envio, na filipeta ou nas etiquetas.

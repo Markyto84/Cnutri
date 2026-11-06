@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/api.js'
-import { CAMPO, FiltroUnidade, Paginacao, PRIMARIO, SECUNDARIO } from './ConsultaGestao.jsx'
+import { FiltroUnidade, Paginacao, PRIMARIO, SECUNDARIO } from './ConsultaGestao.jsx'
 import { horarioBrasilia, mensagemErro } from '../services/painelOperacional.js'
+import { configuracaoEmailAlterada, corpoConfiguracaoEmail, formularioEmail } from '../services/configuracaoEmail.js'
+import FormConfiguracaoEmail from './FormConfiguracaoEmail.jsx'
 
 const ESTADOS = { PENDENTE: 'Aguardando envio', PROCESSANDO: 'Enviando', ENVIADO: 'Aceito pelo servidor de e-mail',
   FALHA: 'Falha no envio', INCERTO: 'Precisa de conferência', CANCELADO: 'Cancelado', EXPIRADO: 'Prazo encerrado', DESATIVADO: 'Envio estava desativado' }
@@ -9,7 +11,7 @@ const ESTADOS = { PENDENTE: 'Aguardando envio', PROCESSANDO: 'Enviando', ENVIADO
 export default function AvisosEmail({ filiais }) {
   const [unidade, setUnidade] = useState(String(filiais[0]?.id || ''))
   const [config, setConfig] = useState(null)
-  const [form, setForm] = useState({ modo: 'GOOGLE_APP', remetente: '', habilitado: false, senha_app: '' })
+  const [form, setForm] = useState(() => formularioEmail())
   const [pagina, setPagina] = useState(1)
   const [avisos, setAvisos] = useState(null)
   const [revisao, setRevisao] = useState(0)
@@ -23,7 +25,7 @@ export default function AvisosEmail({ filiais }) {
     if (!unidade) return
     const controller = new AbortController()
     api.get(`/admin/avisos-email/${unidade}/configuracao`, { signal: controller.signal })
-      .then(({ data }) => { if (!controller.signal.aborted) { setConfig(data); setForm({ modo: data.modo, remetente: data.remetente, habilitado: data.habilitado, senha_app: '' }) } })
+      .then(({ data }) => { if (!controller.signal.aborted) { setConfig(data); setForm(formularioEmail(data)) } })
       .catch((e) => { if (!controller.signal.aborted) setErro(mensagemErro(e)) })
     return () => controller.abort()
   }, [unidade])
@@ -42,14 +44,29 @@ export default function AvisosEmail({ filiais }) {
     try { await acao() } catch (e) { setErro(mensagemErro(e)) } finally { setOcupado(false) }
   }
 
+  function alterarConfiguracao(atualizacao) {
+    setForm(atualizacao); setErro(''); setSucesso('')
+  }
+
   function salvar(e) {
     e.preventDefault()
     executar(async () => {
-      const { data } = await api.put(`/admin/avisos-email/${unidade}/configuracao`, {
-        modo: form.modo, remetente: form.remetente.trim(), habilitado: form.habilitado,
-        ...(form.modo === 'GOOGLE_APP' && form.senha_app.trim() ? { senha_app: form.senha_app } : {}),
-      })
-      setConfig(data); setForm((f) => ({ ...f, senha_app: '' })); setSucesso('Configuração de e-mail salva para esta unidade.')
+      await gravarConfiguracao()
+      setSucesso('Configuração de e-mail salva para esta unidade.')
+    })
+  }
+
+  async function gravarConfiguracao() {
+    const { data } = await api.put(`/admin/avisos-email/${unidade}/configuracao`, corpoConfiguracaoEmail(form))
+    setConfig(data); setForm(formularioEmail(data))
+  }
+
+  function testar() {
+    executar(async () => {
+      if (mudou) await gravarConfiguracao()
+      const { data } = await api.post(`/admin/avisos-email/${unidade}/testar`)
+      const servidor = data.servidor_verificado
+      setSucesso([data.mensagem, servidor && `Servidor verificado: ${servidor.servidor}:${servidor.porta}`, data.observacao].filter(Boolean).join(' '))
     })
   }
 
@@ -60,55 +77,20 @@ export default function AvisosEmail({ filiais }) {
     })
   }
 
-  const mudou = config && (form.modo !== config.modo || form.remetente.trim() !== config.remetente || form.habilitado !== config.habilitado || Boolean(form.senha_app))
+  const mudou = config && configuracaoEmailAlterada(form, config)
 
   return <section className="space-y-5" aria-labelledby="titulo-avisos-email">
     <div><p className="eyebrow">Um aviso para facilitar o recebimento</p><h2 id="titulo-avisos-email" className="mt-2 text-xl font-bold">E-mail das refeições médicas</h2>
       <p className="mt-2 text-sm text-slate-700">Quando a cozinha marcar uma refeição médica como Pronta, o solicitante receberá o aviso de saída com o resumo do pedido. Cada unidade utiliza seu próprio remetente.</p></div>
     {filiais.length ? <fieldset disabled={ocupado}><FiltroUnidade filiais={filiais} valor={unidade} todas={false} onChange={(v) => {
       setUnidade(v); setPagina(1); setErro(''); setSucesso(''); setConferencia(null); setConferido(false); setConfig(null); setAvisos(null)
-      setForm({ modo: 'GOOGLE_APP', remetente: '', habilitado: false, senha_app: '' })
+      setForm(formularioEmail())
     }} /></fieldset>
       : <p className="rounded-xl bg-panel p-5">Cadastre uma unidade para configurar os avisos.</p>}
     {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{erro}</p>}
     {sucesso && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{sucesso}</p>}
     {unidade && !config && <p>Carregando configuração da unidade…</p>}
-    {config && <form onSubmit={salvar} className="space-y-4 rounded-2xl bg-panel p-5">
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="block text-sm font-semibold">Forma de conexão<select className={`${CAMPO} mt-2`} value={form.modo} disabled={ocupado}
-          onChange={(e) => setForm({ ...form, modo: e.target.value, senha_app: '' })}>
-          <option value="GOOGLE_APP">Google Workspace · Senha de app</option><option value="GOOGLE_RELAY">Google Workspace · Relay autorizado pela TI</option></select></label>
-        <label className="block text-sm font-semibold">E-mail da unidade / remetente<input className={`${CAMPO} mt-2`} type="email" required maxLength={254}
-          autoComplete="off" placeholder="E-mail de dietas desta unidade" value={form.remetente} disabled={ocupado}
-          onChange={(e) => setForm({ ...form, remetente: e.target.value, senha_app: '' })} /></label>
-      </div>
-      {form.modo === 'GOOGLE_APP' ? <>
-        <div id="orientacao-senha-google" className="space-y-3 rounded-xl bg-brand-soft p-4 text-sm text-brand-ink">
-          <p className="font-bold">Aqui você precisa de uma senha de app do Google.</p>
-          <p>A senha que você usa para abrir a caixa de e-mail não funciona nesta conexão. O Google gera uma credencial específica de 16 caracteres para o Cnutri.</p>
-          <ol className="list-decimal space-y-2 pl-5">
-            <li>Entre na conta de e-mail de dietas desta unidade, com a verificação em duas etapas ativa.</li>
-            <li><a className="font-semibold underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">Abra Senhas de app no Google</a> e gere uma senha com o nome Cnutri.</li>
-            <li>Cole os 16 caracteres no campo abaixo e clique em <strong>Salvar configuração</strong>. Depois, use <strong>Testar conexão</strong>.</li>
-          </ol>
-          <p>Se a opção Senhas de app não aparecer, peça à TI para verificar a política da conta ou configurar o relay do Google Workspace.</p>
-        </div>
-        {!config.protecao_preparada && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">A TI precisa preparar a proteção das credenciais no servidor antes de cadastrar a senha de app.</p>}
-        {!config.acesso_seguro && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Para cadastrar a senha de app, abra o Cnutri por HTTPS ou nesta máquina em <a href="http://127.0.0.1:5173/admin" className="underline">http://127.0.0.1:5173/admin</a>.</p>}
-        <label className="block text-sm font-semibold">Senha de app do Google (16 caracteres)<input className={`${CAMPO} mt-2`} type="password" maxLength={32} autoComplete="new-password" aria-describedby="orientacao-senha-google"
-          value={form.senha_app} disabled={ocupado || !config.protecao_preparada || !config.acesso_seguro} onChange={(e) => setForm({ ...form, senha_app: e.target.value })}
-          placeholder={config.senha_configurada ? 'Já cadastrada · deixe vazio para manter' : '16 caracteres gerados pelo Google'} /></label>
-        <p className="text-xs text-slate-700">A credencial é armazenada de forma criptografada e não é exibida após o cadastro.</p>
-      </> : <p className="rounded-xl bg-brand-soft p-4 text-sm text-brand-ink">A TI deverá autorizar o IP de saída do servidor e os remetentes no relay do Google Workspace. Esta opção utiliza a conexão segura e dispensa cadastrar uma senha no Cnutri.</p>}
-      <label className="flex items-start gap-3 text-sm font-semibold"><input type="checkbox" className="mt-1" checked={form.habilitado} disabled={ocupado}
-        onChange={(e) => setForm({ ...form, habilitado: e.target.checked })} />Ativar os avisos desta unidade</label>
-      <div className="flex flex-wrap gap-3"><button disabled={ocupado} className={PRIMARIO}>Salvar configuração</button>
-        <button type="button" disabled={ocupado || mudou || !config.remetente} className={SECUNDARIO} onClick={() => executar(async () => {
-          const { data } = await api.post(`/admin/avisos-email/${unidade}/testar`)
-          setSucesso([data.mensagem, data.observacao].filter(Boolean).join('. '))
-        })}>Testar conexão</button></div>
-      <p className="text-xs text-slate-700">O teste verifica a conexão segura e a autenticação. Mensagens reais dependem também da autorização de envio do Google.</p>
-    </form>}
+    {config && <FormConfiguracaoEmail config={config} form={form} setForm={alterarConfiguracao} ocupado={ocupado} mudou={mudou} salvar={salvar} testar={testar} />}
     {unidade && <section className="space-y-3 rounded-2xl bg-panel p-5" aria-labelledby="titulo-acompanhamento-email">
       <div className="flex flex-wrap items-center justify-between gap-3"><h3 id="titulo-acompanhamento-email" className="font-bold">Acompanhamento dos avisos</h3>
         <button type="button" className={SECUNDARIO} disabled={ocupado} onClick={() => { setAvisos(null); setRevisao((v) => v + 1) }}>Atualizar avisos</button></div>
